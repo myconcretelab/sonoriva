@@ -8,6 +8,13 @@ const cacheFilesLabel = document.querySelector('#cache-files-label');
 const cacheSize = document.querySelector('#cache-size');
 const bridgeVersion = document.querySelector('#bridge-version');
 
+requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+
+function setStatus(state) {
+  dot.className = state;
+  dot.parentElement.className = `status-beacon ${state}`;
+}
+
 async function request(path, init) {
   const response = await fetch(`${baseUrl}${path}`, init);
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Requête impossible.');
@@ -21,7 +28,7 @@ async function refresh() {
     cacheCount.textContent = String(status.cachedTracks);
     cacheFilesLabel.textContent = status.cachedTracks > 1 ? 'fichiers audio enregistrés' : 'fichier audio enregistré';
     cacheSize.textContent = formatBytes(status.cachedBytes ?? 0);
-    dot.className = status.paired ? 'ready' : '';
+    setStatus(status.paired ? 'ready' : '');
     title.textContent = status.paired ? 'Bridge associé' : 'Association requise';
     message.textContent = status.paired
       ? `Connecté à ${status.serverUrl}. SonoRiva peut piloter cette machine.`
@@ -38,7 +45,7 @@ async function refresh() {
     }
     output.disabled = false;
   } catch (error) {
-    dot.className = 'error';
+    setStatus('error');
     title.textContent = 'Bridge indisponible';
     message.textContent = error instanceof Error ? error.message : 'Le serveur local ne répond pas.';
   }

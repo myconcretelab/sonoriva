@@ -1,6 +1,6 @@
 {
   "name": "sonoriva-bridge-build",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "scripts": {
     "format:check": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",

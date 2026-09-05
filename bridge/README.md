@@ -1,6 +1,6 @@
 # SonoRiva Bridge
 
-SonoRiva Bridge 1.0.5 est le moteur audio natif facultatif de SonoRiva. L’application web reste autonome et utilise Web Audio lorsque le bridge n’est pas sélectionné.
+SonoRiva Bridge 1.0.6 est le moteur audio natif facultatif de SonoRiva. L’application web reste autonome et utilise Web Audio lorsque le bridge n’est pas sélectionné.
 
 ## Composants
 

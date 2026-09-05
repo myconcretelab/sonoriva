@@ -8,23 +8,30 @@
   </head>
   <body>
     <main>
-      <div class="brand"><img src="./sonoriva-logo.svg" alt=""><div><strong>SonoRiva</strong><small>Bridge audio</small></div></div>
-      <section class="hero">
-        <i id="status-dot"></i>
+      <header class="brand">
+        <span class="brand-mark" aria-hidden="true"><img src="./sonoriva-logo.svg" alt=""></span>
+        <span class="brand-copy"><strong>SonoRiva</strong><small>Bridge audio</small></span>
+        <span class="local-badge"><i></i>Audio local</span>
+      </header>
+      <section class="hero surface">
+        <span class="status-beacon" aria-hidden="true"><i id="status-dot"></i></span>
+        <p class="eyebrow">État du moteur</p>
         <h1 id="status-title">Démarrage…</h1>
         <p id="status-message">Le serveur audio local se prépare.</p>
       </section>
-      <section>
-        <h2>Sorties audio</h2>
-        <label>Régie principale<select id="main-output" disabled><option>Chargement…</option></select></label>
-        <button id="refresh" type="button">Actualiser les périphériques</button>
-      </section>
-      <section>
-        <h2>Cache local</h2>
-        <p><strong id="cache-count">0</strong> <span id="cache-files-label">fichier audio enregistré</span> pour une lecture immédiate.<br><span class="cache-usage"><strong id="cache-size">0 o</strong> utilisés sur le disque.</span></p>
-        <button id="clear-cache" type="button">Vider le cache audio</button>
-      </section>
-      <footer>SonoRiva Bridge <span id="bridge-version">1.0.5</span> · mises à jour automatiques · localhost:43821</footer>
+      <div class="panels">
+        <section class="panel surface">
+          <h2>Sorties audio</h2>
+          <label>Régie principale<select id="main-output" disabled><option>Chargement…</option></select></label>
+          <button id="refresh" type="button">Actualiser les périphériques</button>
+        </section>
+        <section class="panel surface">
+          <h2>Cache local</h2>
+          <p><strong id="cache-count">0</strong> <span id="cache-files-label">fichier audio enregistré</span> pour une lecture immédiate.<br><span class="cache-usage"><strong id="cache-size">0 o</strong> utilisés sur le disque.</span></p>
+          <button id="clear-cache" type="button">Vider le cache audio</button>
+        </section>
+      </div>
+      <footer>SonoRiva Bridge <span id="bridge-version">1.0.6</span> · mises à jour automatiques · localhost:43821</footer>
     </main>
     <script src="./app.js"></script>
   </body>
