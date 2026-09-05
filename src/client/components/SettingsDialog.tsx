@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AudioWaveform, BookOpen, Cable, CloudDownload, CreditCard, FileArchive, FolderPlus, Gift, GripVertical, HardDrive, Keyboard, ListMusic, LoaderCircle, LogOut, Palette, Plus, RefreshCcw, Settings2, ShieldCheck, Speaker, Smartphone, Trash2, Waves, X } from 'lucide-react';
+import { AudioWaveform, BookOpen, Cable, CloudDownload, CreditCard, FileArchive, FolderPlus, Gift, GripVertical, HardDrive, Keyboard, LifeBuoy, ListMusic, LoaderCircle, LogIn, LogOut, Palette, Plus, RefreshCcw, Settings2, ShieldCheck, Speaker, Smartphone, Trash2, Waves, X } from 'lucide-react';
 import { api } from '../lib/api';
 import { audioEngine, type AudioOutputDevice } from '../lib/audio-engine';
 import { bridgeClient, type BridgeOutput } from '../lib/bridge-client';
@@ -21,6 +21,7 @@ interface Props {
   automaticUpdates: boolean;
   openSubcategoriesOnDrag: boolean;
   appSkin: AppSkin;
+  supportUnreadCount: number;
   onAutomaticUpdatesChange: (enabled: boolean) => void;
   onOpenSubcategoriesOnDragChange: (enabled: boolean) => void;
   onAppSkinChange: (skin: AppSkin) => void;
@@ -35,6 +36,7 @@ interface Props {
   onImportSoundShow: () => void;
   onOpenOpenverse: () => void;
   onOpenWhatsNew: () => void;
+  onOpenSupport: () => void;
   onToggleRemote: () => void;
   onCacheOffline: () => void;
   onUpdateKeyAction: (key: 'escape' | 'backspace' | 'shift-backspace' | 'space', action: KeyAction) => void;
@@ -42,8 +44,19 @@ interface Props {
   onUpdatePlaylistGroupLimit: (limit: number) => void;
   onUpdatePlaybackSettings: (input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number }) => void;
   onLogout: () => void;
+  onLogin: () => void;
   onClose: () => void;
 }
+
+type SettingsTab = 'general' | 'show' | 'audio' | 'controls' | 'account';
+
+const settingsTabs: Array<{ id: SettingsTab; label: string }> = [
+  { id: 'general', label: 'Général' },
+  { id: 'show', label: 'Spectacle' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'controls', label: 'Commandes' },
+  { id: 'account', label: 'Compte' },
+];
 
 const keyActions: Array<{ value: KeyAction; label: string }> = [
   { value: 'stop-all', label: 'Arrêter avec les fondus' },
@@ -108,7 +121,7 @@ function formatPrice(cents: number): string {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 }
 
-export function SettingsDialog({ user, projects, projectColors, selectedProjectId, initialSection, offlineStatus, remote, appVersion, hasUnseenReleases, automaticUpdates, openSubcategoriesOnDrag, appSkin, onAutomaticUpdatesChange, onOpenSubcategoriesOnDragChange, onAppSkinChange, onAccountChange, onChooseProject, onCreateProject, onReorderProjects, onDeleteProject, onCreateProjectColor, onDeleteProjectColor, onReorderProjectColors, onImportSoundShow, onOpenOpenverse, onOpenWhatsNew, onToggleRemote, onCacheOffline, onUpdateKeyAction, onUpdateKeyboardShortcut, onUpdatePlaylistGroupLimit, onUpdatePlaybackSettings, onLogout, onClose }: Props) {
+export function SettingsDialog({ user, projects, projectColors, selectedProjectId, initialSection, offlineStatus, remote, appVersion, hasUnseenReleases, automaticUpdates, openSubcategoriesOnDrag, appSkin, supportUnreadCount, onAutomaticUpdatesChange, onOpenSubcategoriesOnDragChange, onAppSkinChange, onAccountChange, onChooseProject, onCreateProject, onReorderProjects, onDeleteProject, onCreateProjectColor, onDeleteProjectColor, onReorderProjectColors, onImportSoundShow, onOpenOpenverse, onOpenWhatsNew, onOpenSupport, onToggleRemote, onCacheOffline, onUpdateKeyAction, onUpdateKeyboardShortcut, onUpdatePlaylistGroupLimit, onUpdatePlaybackSettings, onLogout, onLogin, onClose }: Props) {
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
   const [newColor, setNewColor] = useState('#DBEDF7');
   const [draggedProjectId, setDraggedProjectId] = useState<string>();
@@ -136,6 +149,7 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
   const [bridgeMainOutputId, setBridgeMainOutputId] = useState('default');
   const [bridgePreviewOutputId, setBridgePreviewOutputId] = useState('default');
   const [bridgeDevices, setBridgeDevices] = useState<BridgeDevice[]>([]);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialSection === 'billing' ? 'account' : 'general');
   const billingSectionRef = useRef<HTMLElement>(null);
 
   const refreshAudioOutputs = useCallback(async () => {
@@ -401,10 +415,32 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
     }
   }
 
-  return <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+  return <div className="dialog-backdrop settings-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="dialog settings-dialog">
-      <header><div><p className="eyebrow">SonoRiva</p><h2>Paramètres</h2></div><button className="icon-button" onClick={onClose} aria-label="Fermer les paramètres"><X /></button></header>
-      <section className="settings-section">
+      <header className="settings-dialog-header"><div><p className="eyebrow">SonoRiva</p><h2>Paramètres</h2></div><button className="icon-button" onClick={onClose} aria-label="Fermer les paramètres"><X /></button></header>
+      <div className="settings-persistent-tools">
+        <div className="settings-utility-bar">
+          <div className="settings-identity">
+            <span>{user.displayName.slice(0, 1).toUpperCase()}</span>
+            <div><strong>{user.displayName}</strong><small>{user.isDemo ? 'Démonstration temporaire' : user.email}</small></div>
+            <button className={`button ${user.isDemo ? 'primary' : 'danger'}`} onClick={user.isDemo ? onLogin : onLogout}>{user.isDemo ? <><LogIn size={15} />Se connecter</> : <><LogOut size={15} />Se déconnecter</>}</button>
+          </div>
+          <label className="settings-engine-picker"><span><Speaker size={14} />Moteur audio</span><select value={audioMode} disabled={bridgeBusy || !bridgeAvailable} onChange={(event) => changeAudioMode(event.target.value as 'browser' | 'bridge')}>
+            <option value="browser">Web Audio</option>
+            {bridgeAvailable && <option value="bridge" disabled={!bridgeClient.isAssociated()}>Bridge</option>}
+          </select></label>
+          <div className="settings-utility-actions">
+            <a className="button ghost" href="/docs/" target="_blank" rel="noopener noreferrer" title="Documentation"><BookOpen size={16} /><span>Documentation</span></a>
+            <button className="button ghost settings-support-action" onClick={onOpenSupport} title="Support"><LifeBuoy size={16} /><span>Support</span>{supportUnreadCount > 0 && <i aria-label={`${supportUnreadCount} réponse${supportUnreadCount > 1 ? 's' : ''} non lue${supportUnreadCount > 1 ? 's' : ''}`}>{Math.min(supportUnreadCount, 9)}</i>}</button>
+            <button className={`button ghost ${remote ? 'active' : ''}`} disabled={!remoteControlEnabled} onClick={onToggleRemote} title="Télécommande"><Smartphone size={16} /><span>{remote ? 'Régie principale' : 'Télécommande'}</span></button>
+          </div>
+        </div>
+        <nav className="settings-tabs" role="tablist" aria-label="Thèmes des paramètres">
+          {settingsTabs.map((tab) => <button key={tab.id} id={`settings-tab-${tab.id}`} type="button" role="tab" aria-selected={activeTab === tab.id} aria-controls="settings-tab-panel" className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>{tab.label}</button>)}
+        </nav>
+      </div>
+      <div className="settings-dialog-content" id="settings-tab-panel" role="tabpanel" aria-labelledby={`settings-tab-${activeTab}`}>
+      <section className="settings-section settings-section-wide" hidden={activeTab !== 'general'}>
         <div className="settings-section-title"><Palette size={16} /><div><strong>Apparence</strong><span>Le skin est enregistré sur cet appareil et s’applique immédiatement.</span></div></div>
         <div className="skin-options" role="radiogroup" aria-label="Skin de l’application">
           <label className={appSkin === 'original' ? 'active' : ''}>
@@ -420,7 +456,7 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
         </div>
         <label className="automatic-update-setting"><span><strong>Ouvrir au survol pendant un déplacement</strong><small>Déplie une sous-catégorie après une courte pause quand un morceau est glissé sur sa carte.</small></span><input type="checkbox" checked={openSubcategoriesOnDrag} onChange={(event) => onOpenSubcategoriesOnDragChange(event.target.checked)} /><i aria-hidden="true" /></label>
       </section>
-      <section className="settings-section">
+      <section className="settings-section" hidden={activeTab !== 'show'}>
         <div className="settings-section-title"><Settings2 size={16} /><div><strong>Spectacles</strong><span>Sélectionnez, glissez ou supprimez une régie.</span></div></div>
         <div className="settings-project-list">
           {projects.map((project) => <div key={project.id} className={`settings-project-item ${project.id === selectedProjectId ? 'active' : ''} ${project.id === dropProjectId ? `drop-target ${dropProjectAfter ? 'drop-after' : 'drop-before'}` : ''}`} draggable
@@ -438,7 +474,7 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
         <button className="button ghost wide" onClick={onCreateProject} disabled={projectLimitReached}><FolderPlus size={17} />Nouveau spectacle</button>
         {maxProjects !== null && <p className="audio-output-note">{projects.length} spectacle{projects.length > 1 ? 's' : ''} sur {maxProjects} autorisé{maxProjects > 1 ? 's' : ''} par le forfait.</p>}
       </section>
-      <section className="settings-section">
+      <section className="settings-section" hidden={activeTab !== 'show'}>
         <div className="settings-section-title"><Palette size={16} /><div><strong>Couleurs du spectacle</strong><span>Ajoutez, supprimez ou glissez les couleurs pour les réordonner.</span></div></div>
         <div className="settings-color-palette">
           {projectColors.map((item) => <div key={item.id} className={`settings-color-chip ${dropColorId === item.id ? 'drop-target' : ''}`} style={{ '--palette-color': item.color } as React.CSSProperties} draggable
@@ -454,22 +490,22 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
         </div>
         <div className="settings-color-add"><input type="color" value={newColor} onChange={(event) => setNewColor(event.target.value)} aria-label="Nouvelle couleur" /><code>{newColor.toUpperCase()}</code><button type="button" className="button ghost" disabled={!selectedProject} onClick={() => onCreateProjectColor(newColor).catch(() => undefined)}><Plus size={16} />Ajouter</button></div>
       </section>
-      <section className="settings-section">
+      <section className="settings-section settings-section-wide" hidden={activeTab !== 'show'}>
         <div className="settings-section-title"><FileArchive size={16} /><div><strong>Bibliothèque</strong><span>Importez ou préparez les médias de ce spectacle.</span></div></div>
         <div className="settings-actions"><button className="button ghost" onClick={onImportSoundShow}><FileArchive size={17} />Importer SoundShow</button><button className="button ghost" onClick={onOpenOpenverse}><Waves size={17} />Rechercher sur Openverse</button><button className="button ghost" onClick={onCacheOffline}><CloudDownload size={17} />{offlineStatus || 'Rendre disponible hors ligne'}</button></div>
       </section>
-      <section className="settings-section">
+      <section className="settings-section" hidden={activeTab !== 'show'}>
         <div className="settings-section-title"><ListMusic size={16} /><div><strong>Playlists</strong><span>{playlistsEnabled ? 'Réglez le nombre maximal de morceaux pouvant partager une rangée.' : 'Cette fonctionnalité n’est pas incluse dans votre forfait.'}</span></div></div>
         <div className="settings-key-actions"><label><span>Morceaux simultanés</span><select value={selectedProject?.maxPlaylistGroupSize ?? 4} disabled={!selectedProject || !playlistsEnabled} onChange={(event) => onUpdatePlaylistGroupLimit(Number(event.target.value))}>{[2, 3, 4, 5, 6, 7, 8].map((limit) => <option value={limit} key={limit}>{limit} morceaux</option>)}</select></label></div>
       </section>
-      <section className="settings-section">
+      <section className="settings-section" hidden={activeTab !== 'show'}>
         <div className="settings-section-title"><AudioWaveform size={16} /><div><strong>Colonne de lecture</strong><span>Réglez la limite de lecteurs et le seuil de présentation compacte pour ce spectacle.</span></div></div>
         <div className="settings-key-actions">
           <label><span>Lectures simultanées</span><select value={selectedProject?.maxActivePlaybacks ?? 8} disabled={!selectedProject} onChange={(event) => onUpdatePlaybackSettings({ maxActivePlaybacks: Number(event.target.value) })}>{Array.from({ length: 16 }, (_, index) => index + 1).map((limit) => <option value={limit} key={limit}>{limit} lecture{limit > 1 ? 's' : ''}</option>)}</select></label>
           <label><span>Mode compact à partir de</span><select value={selectedProject?.compactPlaybackThreshold ?? 5} disabled={!selectedProject} onChange={(event) => onUpdatePlaybackSettings({ compactPlaybackThreshold: Number(event.target.value) })}>{Array.from({ length: 16 }, (_, index) => index + 1).map((threshold) => <option value={threshold} key={threshold}>{threshold} lecture{threshold > 1 ? 's' : ''}</option>)}</select></label>
         </div>
       </section>
-      <section className="settings-section">
+      <section className="settings-section settings-section-wide" hidden={activeTab !== 'audio'}>
         <div className="settings-section-title"><Speaker size={16} /><div><strong>Moteur et sorties audio</strong><span>{bridgeAvailable ? 'Le navigateur reste utilisable seul. Le bridge ajoute un cache natif et plusieurs sorties indépendantes.' : 'Le son utilise la sortie système par défaut.'}</span></div></div>
         {bridgeAvailable ? <>
           <div className="audio-output-controls">
@@ -505,11 +541,7 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
           {bridgeDevices.length > 0 && <div className="bridge-device-list">{bridgeDevices.map((device) => <div key={device.id}><span><strong>{device.name}</strong><small>{bridgePlatformLabel(device.platform)} · {device.lastSeenAt ? `vu ${new Date(device.lastSeenAt).toLocaleString('fr-FR')}` : 'jamais connecté'}</small></span><button type="button" className="icon-button" disabled={bridgeBusy} onClick={() => revokeBridge(device)} aria-label={`Dissocier ${device.name}`} title="Dissocier"><Trash2 size={15} /></button></div>)}</div>}
         </> : <p className="audio-output-unavailable">{account?.accessStatus === 'trialing' ? 'La gestion des sorties audio sera disponible après la période d’essai.' : 'La gestion des sorties audio est réservée aux forfaits payants actifs.'}</p>}
       </section>
-      <section className="settings-section">
-        <div className="settings-section-title"><Smartphone size={16} /><div><strong>Télécommande</strong><span>{remoteControlEnabled ? 'Utilisez cette vue depuis un téléphone connecté au même spectacle.' : 'Cette fonctionnalité n’est pas incluse dans votre forfait.'}</span></div></div>
-        <button className="button ghost wide" disabled={!remoteControlEnabled} onClick={onToggleRemote}><Smartphone size={17} />{remote ? 'Revenir à la régie principale' : 'Ouvrir la télécommande'}</button>
-      </section>
-      <section className="settings-section">
+      <section className="settings-section settings-section-wide" hidden={activeTab !== 'controls'}>
         <div className="settings-section-title"><Keyboard size={16} /><div><strong>Raccourcis clavier</strong><span>Les raccourcis sont enregistrés pour le spectacle sélectionné.</span></div></div>
         <div className="settings-key-actions">
           <label><span><kbd>Échap</kbd> Touche Échap</span><select value={selectedProject?.escapeKeyAction ?? 'stop-all'} onChange={(event) => onUpdateKeyAction('escape', event.target.value as KeyAction)}>{keyActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>
@@ -529,7 +561,7 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
           </div>)}
         </div>
       </section>
-      <section className="settings-section" ref={billingSectionRef}>
+      <section className="settings-section settings-section-wide" ref={billingSectionRef} hidden={activeTab !== 'account'}>
         <div className="settings-section-title"><HardDrive size={16} /><div><strong>Offre et stockage</strong><span>{account?.name ?? 'Chargement de votre espace…'}</span></div></div>
         {account && <div className="account-plan">
           <div><strong>{user.isDemo ? 'Démonstration temporaire' : account.planName}</strong><span>{user.isDemo ? `${account.demoLimits?.maxUploads ?? 15} fichiers importés · ${formatBytes(account.demoLimits?.maxFileBytes ?? 5 * 1024 ** 2)} maximum par fichier` : account.accessStatus === 'trialing' && trialDaysLeft !== null ? `${trialDaysLeft} jour${trialDaysLeft > 1 ? 's' : ''} restant${trialDaysLeft > 1 ? 's' : ''}` : account.accessStatus === 'active' ? 'Accès actif' : account.accessStatus === 'grace_period' ? 'Délai de grâce' : account.accessStatus === 'suspended' ? 'Accès suspendu' : 'Lecture seule'}</span></div>
@@ -551,22 +583,16 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
           </div>}
         </div>}
       </section>
-      <section className="settings-section">
-        <div className="settings-section-title"><BookOpen size={16} /><div><strong>Aide et documentation</strong><span>Guides de prise en main, référence et dépannage.</span></div></div>
-        <a className="button ghost wide" href="/docs/" target="_blank" rel="noopener noreferrer"><BookOpen size={17} />Ouvrir la documentation</a>
-      </section>
-      {(user.platformRole === 'admin' || user.platformRole === 'super_admin') && <section className="settings-section">
+      {(user.platformRole === 'admin' || user.platformRole === 'super_admin') && <section className="settings-section settings-section-wide" hidden={activeTab !== 'account'}>
         <div className="settings-section-title"><ShieldCheck size={16} /><div><strong>Administration commerciale</strong><span>Comptes, forfaits, quotas et utilisateurs.</span></div></div>
         <a className="button ghost wide" href="/admin"><ShieldCheck size={17} />Ouvrir l’administration</a>
       </section>}
-      {!user.isDemo && <section className="settings-section">
+      {!user.isDemo && <section className="settings-section" hidden={activeTab !== 'general'}>
         <div className="settings-section-title"><RefreshCcw size={16} /><div><strong>Mises à jour</strong><span>SonoRiva {appVersion ?? '—'} sur cet appareil.</span></div></div>
         <label className="automatic-update-setting"><span><strong>Installer automatiquement</strong><small>Masque les notifications de version et recharge l’application lorsqu’aucun son n’est en lecture.</small></span><input type="checkbox" checked={automaticUpdates} onChange={(event) => onAutomaticUpdatesChange(event.target.checked)} /><i aria-hidden="true" /></label>
         <button className={`button ghost wide release-button ${hasUnseenReleases ? 'has-update' : ''}`} onClick={onOpenWhatsNew}><Gift size={17} />Voir les notes de version{hasUnseenReleases && <em>Nouveau</em>}</button>
       </section>}
-      <section className="settings-account">
-        <span>{user.displayName.slice(0, 1).toUpperCase()}</span><div><strong>{user.displayName}</strong><small>{user.isDemo ? `Espace supprimé après ${account?.demoLimits?.lifetimeHours ?? 24} h d’inactivité` : user.email}</small></div><button className="button danger" onClick={onLogout}><LogOut size={16} />Se déconnecter</button>
-      </section>
+      </div>
     </section>
   </div>;
 }

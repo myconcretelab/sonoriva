@@ -605,7 +605,38 @@ kbd { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; col
 .dialog footer { padding-top: 4px; display: flex; justify-content: flex-end; gap: 9px; }
 .dialog footer.spread { justify-content: space-between; }
 .dialog footer span { display: flex; gap: 9px; }
-.settings-dialog { width: min(520px, 100%); }
+.settings-dialog { width: min(1040px, 100%); height: min(780px, calc(100vh - 44px)); padding: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); gap: 0; overflow: hidden; }
+.settings-dialog > * { min-width: 0; }
+.settings-dialog-header { padding: 20px 22px 15px; }
+.settings-dialog-header h2 { margin-top: 3px; }
+.settings-persistent-tools { border-block: 1px solid var(--border); background: #111113; }
+.settings-utility-bar { min-height: 72px; padding: 10px 14px; display: grid; grid-template-columns: minmax(250px, 1fr) 170px auto; align-items: center; gap: 10px; }
+.settings-identity { min-width: 0; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 9px; }
+.settings-identity > span { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; color: #18181b; background: var(--accent); font-size: .78rem; font-weight: 850; }
+.settings-identity > div { min-width: 0; display: grid; gap: 2px; }
+.settings-identity strong, .settings-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-identity strong { color: #e4e4e7; font-size: .74rem; }
+.settings-identity small { color: #71717a; font-size: .61rem; }
+.settings-identity .button { min-height: 34px; padding: 0 10px; font-size: .64rem; white-space: nowrap; }
+.settings-engine-picker { min-width: 0; display: grid; gap: 4px; }
+.settings-engine-picker > span { display: flex; align-items: center; gap: 5px; color: #71717a; font-size: .57rem; font-weight: 750; letter-spacing: .02em; }
+.settings-engine-picker select { width: 100%; height: 34px; padding-block: 0; font-size: .66rem; }
+.settings-utility-actions { display: flex; align-items: center; gap: 6px; }
+.settings-utility-actions .button { position: relative; min-height: 36px; padding: 0 9px; font-size: .62rem; white-space: nowrap; }
+.settings-utility-actions a.button { color: inherit; text-decoration: none; }
+.settings-utility-actions .button.active { border-color: rgba(219,237,247,.42); color: var(--accent); background: var(--accent-soft); }
+.settings-support-action i { position: absolute; top: -5px; right: -4px; min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center; border: 2px solid #111113; border-radius: 999px; color: #0b1820; background: var(--accent); font-size: .5rem; font-style: normal; font-weight: 900; }
+.settings-tabs { padding: 0 14px; display: flex; align-items: end; gap: 3px; overflow-x: auto; scrollbar-width: none; }
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tabs button { position: relative; min-width: 104px; height: 43px; padding: 0 14px; border: 0; color: #71717a; background: transparent; cursor: pointer; font: inherit; font-size: .68rem; font-weight: 750; }
+.settings-tabs button::after { content: ''; position: absolute; right: 12px; bottom: 0; left: 12px; height: 2px; border-radius: 999px 999px 0 0; background: transparent; }
+.settings-tabs button:hover { color: #d4d4d8; }
+.settings-tabs button.active { color: var(--accent); }
+.settings-tabs button.active::after { background: var(--accent); box-shadow: 0 0 10px rgba(219,237,247,.4); }
+.settings-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+.settings-dialog-content { min-height: 0; padding: 18px 22px 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 14px; overflow-y: auto; }
+.settings-dialog-content > .settings-section-wide { grid-column: 1 / -1; }
+.settings-section[hidden] { display: none; }
 .settings-button { position: relative; }
 .settings-button > i { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border: 2px solid #18181b; border-radius: 50%; background: var(--accent); box-shadow: 0 0 9px rgba(219,237,247,.8); }
 .support-button { position: relative; }
@@ -1061,6 +1092,9 @@ kbd { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; col
   .dashboard-actions { max-width: 100%; justify-content: flex-start; overflow-x: auto; scrollbar-width: thin; }
   .selection-toolbar { margin-right: 16px; margin-left: 16px; }
   .soundboard { padding: 2px 16px 35px; }
+  .settings-utility-bar { grid-template-columns: 170px minmax(0, 1fr); }
+  .settings-identity { grid-column: 1 / -1; }
+  .settings-utility-actions { justify-content: flex-end; }
 }
 
 @media (max-width: 560px) {
@@ -1109,6 +1143,25 @@ kbd { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; col
   .track-output-plays { top: 22px; }
   .track-meta { padding: 0 11px; }
   .dialog { padding: 19px; }
+  .settings-backdrop { padding: 0; }
+  .settings-dialog { width: 100%; height: 100dvh; max-height: none; padding: 0; border: 0; border-radius: 0; }
+  .settings-dialog-header { padding: 13px 14px 10px; }
+  .settings-dialog-header h2 { font-size: 1.2rem; }
+  .settings-utility-bar { width: 100%; min-width: 0; min-height: 0; padding: 8px 10px; grid-template-columns: minmax(0, 1fr) 114px; gap: 8px; }
+  .settings-identity { grid-template-columns: 32px minmax(0, 1fr) auto; }
+  .settings-identity > span { width: 32px; height: 32px; border-radius: 8px; }
+  .settings-identity .button { width: 34px; padding: 0; font-size: 0; }
+  .settings-identity .button svg { margin: 0; }
+  .settings-engine-picker { grid-column: 1; }
+  .settings-engine-picker select { min-width: 0; }
+  .settings-utility-actions { min-width: 0; grid-column: 2; }
+  .settings-utility-actions .button { width: 34px; padding: 0; justify-content: center; }
+  .settings-utility-actions .button > span { display: none; }
+  .settings-utility-actions .button svg { margin: 0; }
+  .settings-tabs { padding: 0 7px; }
+  .settings-tabs button { min-width: 91px; height: 40px; padding-inline: 10px; }
+  .settings-dialog-content { padding: 12px 12px 22px; grid-template-columns: 1fr; gap: 10px; }
+  .settings-dialog-content > .settings-section-wide { grid-column: auto; }
   .track-dialog-header-actions .button { width: 40px; min-height: 40px; padding: 0; }
   .track-dialog-header-actions .button span { display: none; }
   .dialog footer.spread { align-items: stretch; flex-direction: column-reverse; }
