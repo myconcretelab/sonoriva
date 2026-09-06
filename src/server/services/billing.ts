@@ -16,6 +16,7 @@ import {
 } from '../db/schema.js';
 import { CURRENT_VERSION } from '../releases.js';
 import { planIsFree } from './commercial-plans.js';
+import { notifyPlanSubscription } from './subscription-notifications.js';
 
 export const stripeApiVersion = '2026-07-29.dahlia' as const;
 export type BillingInterval = 'month' | 'year';
@@ -211,6 +212,9 @@ export async function activateFreePlan(input: { userId: string; planCode: string
       },
     });
   });
+  if (context.account.planCode !== selectedPlan.code || context.account.accessStatus !== 'active') {
+    await notifyPlanSubscription({ dedupeKey: `free:${context.account.id}:${selectedPlan.code}:${Date.now()}`, accountId: context.account.id, planCode: selectedPlan.code, source: 'free' });
+  }
 }
 
 async function ensureStripeCustomer(context: Awaited<ReturnType<typeof requireOwnerBillingContext>>): Promise<string> {
@@ -419,6 +423,7 @@ async function synchronizeSubscription(subscription: Stripe.Subscription, event:
   const currentPeriodStartsAt = dateFromUnix(item.current_period_start);
   const currentPeriodEndsAt = dateFromUnix(item.current_period_end);
 
+  let shouldNotify = false;
   await db.transaction(async (transaction) => {
     const [current] = await transaction.select({
       account: accounts,
@@ -427,6 +432,7 @@ async function synchronizeSubscription(subscription: Stripe.Subscription, event:
       .where(eq(accounts.id, accountId)).limit(1);
     if (!current) throw new BillingError('Compte SonoRiva introuvable pour cet abonnement.', 404, 'account_not_found');
     if (current.subscription?.lastProviderEventCreatedAt && current.subscription.lastProviderEventCreatedAt > providerCreatedAt) return;
+    shouldNotify = current.account.planCode !== mapping.planCode || current.subscription?.providerSubscriptionId !== subscription.id;
 
     await transaction.insert(subscriptions).values({
       accountId,
@@ -488,6 +494,9 @@ async function synchronizeSubscription(subscription: Stripe.Subscription, event:
       },
     });
   });
+  if (shouldNotify) {
+    await notifyPlanSubscription({ dedupeKey: `stripe:${subscription.id}:${mapping.planCode}`, accountId, planCode: mapping.planCode, billingInterval: intervalOf(item), source: 'stripe' });
+  }
 }
 
 function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {

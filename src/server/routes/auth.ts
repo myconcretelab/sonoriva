@@ -11,6 +11,7 @@ import { planIsFree } from '../services/commercial-plans.js';
 import { createDemoWorkspace, removeDemoUsers } from '../services/demo.js';
 import { sendPasswordResetEmail } from '../services/mail.js';
 import { issuePasswordResetToken, resetPassword, revokePasswordResetToken } from '../services/password-reset.js';
+import { notifyPlanSubscription } from '../services/subscription-notifications.js';
 
 const credentialsSchema = z.object({
   email: z.string().trim().email().transform((value) => value.toLowerCase()),
@@ -61,6 +62,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const freePlan = planIsFree(selectedPlan);
     if (!freePlan) await requireCheckoutPlan(input.planCode, input.billingInterval);
     const passwordHash = await hashPassword(input.password);
+    let accountId = '';
     const user = await db.transaction(async (tx) => {
       const [created] = await tx.insert(users).values({
         email: input.email,
@@ -74,12 +76,14 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         planCode: selectedPlan.code,
         accessStatus: freePlan ? 'active' : 'read_only',
       }).returning();
+      accountId = account.id;
       await tx.insert(accountMemberships).values({ accountId: account.id, userId: created.id, role: 'owner' });
       await tx.insert(subscriptions).values({ accountId: account.id });
       await tx.insert(projects).values({ accountId: account.id, name: 'Mon premier spectacle' });
       return created;
     });
     if (freePlan) {
+      await notifyPlanSubscription({ dedupeKey: `registration:${accountId}:${selectedPlan.code}`, accountId, planCode: selectedPlan.code, source: 'free' });
       await startSession(user.id, reply);
       return reply.code(201).send({ user: publicUser(user), checkoutUrl: null, checkoutRequired: false });
     }

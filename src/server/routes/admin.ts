@@ -8,11 +8,21 @@ import { planDeletionError, planPublicationError } from '../services/commercial-
 import { demoExpiration } from '../services/demo.js';
 import { ADMIN_RELEASES, CURRENT_VERSION } from '../releases.js';
 import { config } from '../config.js';
+import { getSubscriptionNotificationSettings, saveSubscriptionNotificationSettings } from '../services/subscription-notifications.js';
 
 const accountStatuses = ['trialing', 'active', 'grace_period', 'read_only', 'suspended'] as const;
 const platformRoles = ['user', 'support', 'admin', 'super_admin'] as const;
 const planCodeSchema = z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9_-]{1,39}$/);
 const optionalDateSchema = z.union([z.iso.datetime(), z.null()]).transform((value) => value === null ? null : new Date(value));
+const notificationSettingsSchema = z.object({
+  emailEnabled: z.boolean(),
+  emailRecipient: z.union([z.string().trim().email(), z.literal('')]),
+  telegramEnabled: z.boolean(),
+  telegramBotToken: z.string().trim().max(200).optional(),
+  clearTelegramBotToken: z.boolean().default(false),
+  telegramChatId: z.string().trim().max(100),
+}).refine((value) => !value.emailEnabled || Boolean(value.emailRecipient), { message: 'Une adresse e-mail est requise.', path: ['emailRecipient'] })
+  .refine((value) => !value.telegramEnabled || Boolean(value.telegramChatId), { message: 'Un chatID Telegram est requis.', path: ['telegramChatId'] });
 
 const planFieldsSchema = z.object({
   code: planCodeSchema,
@@ -55,6 +65,24 @@ function numberValue(value: unknown): number {
 }
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/admin/notification-settings', async (request, reply) => {
+    const admin = await requireSuperAdmin(request, reply);
+    if (!admin) return;
+    return { settings: await getSubscriptionNotificationSettings() };
+  });
+
+  app.put('/api/admin/notification-settings', async (request, reply) => {
+    const admin = await requireSuperAdmin(request, reply);
+    if (!admin) return;
+    const input = notificationSettingsSchema.parse(request.body);
+    const current = await getSubscriptionNotificationSettings();
+    if (input.telegramEnabled && (input.clearTelegramBotToken || (!input.telegramBotToken && !current.telegramBotTokenConfigured))) {
+      return reply.code(400).send({ error: 'Un jeton de bot Telegram est requis.' });
+    }
+    const settings = await saveSubscriptionNotificationSettings(input);
+    await writeAuditLog({ actorUserId: admin.id, action: 'notifications.settings_updated', entityType: 'notification_settings', entityId: 'subscription', details: { ...settings }, ipAddress: request.ip });
+    return { settings };
+  });
   app.get('/api/admin/releases', async (request, reply) => {
     const admin = await requirePlatformAdmin(request, reply);
     if (!admin) return;

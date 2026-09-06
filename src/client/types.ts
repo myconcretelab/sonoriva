@@ -174,6 +174,14 @@ export interface AdminOverview {
   storageUsedBytes: number;
 }
 
+export interface SubscriptionNotificationSettings {
+  emailEnabled: boolean;
+  emailRecipient: string;
+  telegramEnabled: boolean;
+  telegramBotTokenConfigured: boolean;
+  telegramChatId: string;
+}
+
 export interface AuditEntry {
   id: string;
   action: string;

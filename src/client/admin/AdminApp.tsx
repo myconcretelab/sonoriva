@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Activity, BadgeEuro, BookOpen, Boxes, CircleAlert, Copy, CreditCard, Database, Gauge, HardDrive, LayoutDashboard, LifeBuoy, LoaderCircle, LogOut, MessageSquare, RefreshCcw, Search, Send, ShieldCheck, Trash2, Users, X } from 'lucide-react';
+import { Activity, BadgeEuro, Bell, BookOpen, Boxes, CircleAlert, Copy, CreditCard, Database, Gauge, HardDrive, LayoutDashboard, LifeBuoy, LoaderCircle, LogOut, MessageSquare, RefreshCcw, Search, Send, ShieldCheck, Trash2, Users, X } from 'lucide-react';
 import { AuthScreen } from '../components/AuthScreen';
 import { api, ApiError } from '../lib/api';
-import type { AdminAccount, AdminOverview, AdminSupportTicket, AdminUser, AppRelease, AuditEntry, CommercialPlan, SupportMessage, SupportTicketPriority, SupportTicketStatus, User } from '../types';
+import type { AdminAccount, AdminOverview, AdminSupportTicket, AdminUser, AppRelease, AuditEntry, CommercialPlan, SubscriptionNotificationSettings, SupportMessage, SupportTicketPriority, SupportTicketStatus, User } from '../types';
 
-type Section = 'overview' | 'accounts' | 'plans' | 'users' | 'support' | 'documentation';
+type Section = 'overview' | 'accounts' | 'plans' | 'users' | 'notifications' | 'support' | 'documentation';
 type AccountStatus = AdminAccount['accessStatus'];
 type PlanEditorTarget = { mode: 'create' | 'edit'; source?: CommercialPlan };
 
@@ -72,6 +72,7 @@ export function AdminApp() {
   const [editingAccount, setEditingAccount] = useState<AdminAccount>();
   const [editingPlan, setEditingPlan] = useState<PlanEditorTarget>();
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<AdminSupportTicket>();
+  const [notificationSettings, setNotificationSettings] = useState<SubscriptionNotificationSettings>();
 
   useEffect(() => {
     api.me().then(({ user: current }) => setUser(current)).catch((cause) => {
@@ -98,6 +99,8 @@ export function AdminApp() {
         setUsers((await api.adminUsers(search)).users);
       } else if (section === 'support') {
         setSupportTickets((await api.adminSupportTickets({ search, status: supportStatus === 'all' ? undefined : supportStatus })).tickets);
+      } else if (section === 'notifications') {
+        setNotificationSettings((await api.adminNotificationSettings()).settings);
       } else {
         setAdminReleases((await api.adminReleases()).releases);
       }
@@ -125,6 +128,7 @@ export function AdminApp() {
     { id: 'plans', label: 'Forfaits', icon: BadgeEuro },
     { id: 'users', label: 'Utilisateurs', icon: Users },
     ...(user.platformRole === 'super_admin' ? [{ id: 'support' as const, label: 'Support', icon: LifeBuoy }] : []),
+    ...(user.platformRole === 'super_admin' ? [{ id: 'notifications' as const, label: 'Notifications', icon: Bell }] : []),
     { id: 'documentation', label: 'Documentation', icon: BookOpen },
   ];
 
@@ -142,12 +146,30 @@ export function AdminApp() {
       {section === 'plans' && <PlansSection plans={plans} canEdit={user.platformRole === 'super_admin'} onEdit={(plan) => setEditingPlan({ mode: 'edit', source: plan })} onCreate={() => setEditingPlan({ mode: 'create' })} onDuplicate={(plan) => setEditingPlan({ mode: 'create', source: plan })} />}
       {section === 'users' && <UsersSection users={users} currentUser={user} search={search} onSearch={setSearch} onSubmitSearch={loadSection} onChanged={loadSection} onError={setError} />}
       {section === 'support' && <SupportSection tickets={supportTickets} search={search} status={supportStatus} onSearch={setSearch} onStatusChange={setSupportStatus} onSubmitSearch={loadSection} onOpen={setSelectedSupportTicket} />}
+      {section === 'notifications' && notificationSettings && <NotificationSettingsSection settings={notificationSettings} onSaved={setNotificationSettings} onError={setError} />}
       {section === 'documentation' && <AdminDocumentation releases={adminReleases} />}
     </main>
     {editingAccount && <AccountEditor account={editingAccount} plans={plans} onClose={() => setEditingAccount(undefined)} onSaved={() => { setEditingAccount(undefined); loadSection().catch(() => undefined); }} onError={setError} />}
     {editingPlan && <PlanEditor target={editingPlan} onClose={() => setEditingPlan(undefined)} onSaved={() => { setEditingPlan(undefined); loadSection().catch(() => undefined); }} onError={setError} />}
     {selectedSupportTicket && <AdminSupportTicketDialog source={selectedSupportTicket} onClose={() => setSelectedSupportTicket(undefined)} onChanged={loadSection} />}
   </div>;
+}
+
+function NotificationSettingsSection({ settings, onSaved, onError }: { settings: SubscriptionNotificationSettings; onSaved: (settings: SubscriptionNotificationSettings) => void; onError: (message: string) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true); setSaved(false); onError('');
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    try {
+      const result = await api.updateAdminNotificationSettings({ emailEnabled: form.get('emailEnabled') === 'on', emailRecipient: String(form.get('emailRecipient') ?? '').trim(), telegramEnabled: form.get('telegramEnabled') === 'on', telegramChatId: String(form.get('telegramChatId') ?? '').trim(), telegramBotToken: String(form.get('telegramBotToken') ?? '').trim() || undefined, clearTelegramBotToken: form.get('clearTelegramBotToken') === 'on' });
+      onSaved(result.settings); setSaved(true); formElement.reset();
+    } catch (cause) { onError(cause instanceof Error ? cause.message : 'Enregistrement impossible.'); }
+    finally { setSaving(false); }
+  };
+  return <div className="admin-content"><form className="admin-panel notification-settings" onSubmit={submit}><header><div><h2>Alertes de souscription</h2><p>Envoi lors de l’activation d’un nouveau forfait, gratuit ou payant.</p></div></header><div className="notification-settings-body"><section><div><strong>E-mail</strong><small>Utilise le transport e-mail configuré sur le serveur.</small></div><label className="notification-toggle"><input name="emailEnabled" type="checkbox" defaultChecked={settings.emailEnabled} />Activer les alertes e-mail</label><label><span>Destinataire</span><input name="emailRecipient" type="email" defaultValue={settings.emailRecipient} placeholder="admin@exemple.fr" /></label></section><section><div><strong>Telegram</strong><small>Le bot doit avoir accès au chat indiqué.</small></div><label className="notification-toggle"><input name="telegramEnabled" type="checkbox" defaultChecked={settings.telegramEnabled} />Activer les alertes Telegram</label><label><span>ChatID</span><input name="telegramChatId" defaultValue={settings.telegramChatId} placeholder="-1001234567890" /></label><label><span>Jeton du bot</span><input name="telegramBotToken" type="password" autoComplete="new-password" placeholder={settings.telegramBotTokenConfigured ? 'Jeton enregistré — laisser vide pour le conserver' : '123456:ABC…'} /></label>{settings.telegramBotTokenConfigured && <label className="notification-toggle"><input name="clearTelegramBotToken" type="checkbox" />Supprimer le jeton enregistré</label>}</section></div><footer><span>{saved ? 'Paramètres enregistrés.' : ''}</span><button className="button primary" disabled={saving}>{saving && <LoaderCircle className="spin" size={16} />}Enregistrer</button></footer></form></div>;
 }
 
 function AdminDocumentation({ releases }: { releases: AppRelease[] }) {
@@ -157,6 +179,7 @@ function AdminDocumentation({ releases }: { releases: AppRelease[] }) {
     <section className="admin-panel admin-doc-section"><header><div><h2>Forfaits et publication</h2><p>Prix, quotas, droits fonctionnels, essais et affichage sur sonoriva.fr.</p></div></header><div className="admin-doc-body"><p>Un forfait définit son code, son nom, sa description, son quota, sa durée d’essai, ses prix, ses fonctionnalités disponibles, son nombre maximal de spectacles, son état actif et son utilisation comme forfait par défaut.</p><ul><li><strong>Fonctionnalités disponibles</strong> contrôle les dispositions personnalisées, les playlists et la télécommande.</li><li>Une limite de spectacles vide correspond à un nombre illimité.</li><li><strong>Visible sur le site</strong> publie le forfait dans l’API publique.</li><li><strong>Mis en avant</strong> sélectionne la carte principale du site ; un seul forfait peut être mis en avant.</li><li><strong>Ordre d’affichage</strong> détermine le classement des cartes, puis le nom départage les valeurs identiques.</li><li>Un forfait dont tous les prix renseignés valent 0 € est gratuit et s’active sans Stripe. Un prix vide désactive la périodicité correspondante.</li><li>Un forfait ne peut être supprimé que s’il n’est ni attribué, ni défini par défaut.</li></ul></div></section>
     <section className="admin-panel admin-doc-section"><header><div><h2>Abonnements et journal</h2><p>Données conservées par le pilotage commercial.</p></div></header><div className="admin-doc-body"><p>Stripe conserve les clients, tarifs, abonnements, factures et paiements. SonoRiva conserve une projection de l’abonnement qui détermine le forfait, le quota et l’état d’accès.</p><p>Le bouton de synchronisation d’un forfait crée ou actualise son produit et ses tarifs Stripe dans l’environnement configuré. Un changement de montant crée un nouveau tarif ; les abonnements existants conservent leur ancien tarif.</p><p>Les webhooks signés pilotent les droits. Les retours de Checkout ne modifient jamais directement l’accès. Chaque événement Stripe est traité de manière idempotente et journalisé.</p></div></section>
     <section className="admin-panel admin-doc-section"><header><div><h2>Demandes de support</h2><p>Conversations rattachées aux utilisateurs et à leur compte.</p></div></header><div className="admin-doc-body"><p>La rubrique Support est réservée au super-administrateur. Elle affiche le demandeur, le compte, le forfait, l’état d’accès, le stockage utilisé et le quota effectif.</p><p>Une demande peut être en attente du support, en attente de l’utilisateur, résolue ou close. Sa priorité peut être normale, haute ou urgente. Les réponses et changements administratifs sont journalisés.</p></div></section>
+    <section className="admin-panel admin-doc-section"><header><div><h2>Notifications</h2><p>Alertes envoyées lors d’une nouvelle souscription.</p></div></header><div className="admin-doc-body"><p>La rubrique Notifications est réservée au super-administrateur. Elle configure séparément l’envoi par e-mail et par Telegram.</p><p>L’e-mail utilise le transport configuré sur le serveur. Telegram utilise le jeton du bot et le chatID enregistrés ; le jeton n’est pas affiché après son enregistrement.</p></div></section>
     <section className="admin-panel admin-doc-section"><header><div><h2>Versions de l’administration</h2><p>Évolutions du dashboard, des forfaits et de la publication commerciale.</p></div></header><div className="admin-release-list">{releases.map((release) => <article key={`${release.audience}-${release.version}`}><header><div><strong>{release.title}</strong><span>Version {release.version}</span></div><time dateTime={release.date}>{new Date(`${release.date}T00:00:00Z`).toLocaleDateString('fr-FR', { timeZone: 'UTC', dateStyle: 'long' })}</time></header><p>{release.summary}</p><ul>{release.changes.map((change) => <li key={change}>{change}</li>)}</ul></article>)}{releases.length === 0 && <p className="admin-empty">Aucune version administrative.</p>}</div></section>
   </div>;
 }

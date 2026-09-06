@@ -2,6 +2,14 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.17.0 — 6 septembre 2026
+
+- alertes e-mail et Telegram pour les nouveaux forfaits gratuits ou payants ;
+- destinataire, jeton de bot et `chatID` configurables par le super-admin ;
+- envois dédupliqués par souscription.
+
+[Détails de la version 1.17.0](./1.17.0.md)
+
 ## Version 1.16.0 — 1er septembre 2026
 
 - forfait interne dédié à la démonstration publique ;

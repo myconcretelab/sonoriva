@@ -11,6 +11,33 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.17.0',
+    date: '2026-09-06',
+    title: 'Notifications de souscription',
+    summary: 'Les nouvelles activations de forfait alimentent désormais les alertes configurées par l’administration.',
+    important: false,
+    changes: [
+      'L’activation d’un forfait gratuit déclenche une notification configurée.',
+      'La confirmation Stripe d’un abonnement payant déclenche la même notification.',
+      'Les notifications n’affectent pas l’accès au forfait souscrit.',
+    ],
+  },
+  {
+    audience: 'admin',
+    version: '1.17.0',
+    date: '2026-09-06',
+    title: 'Alertes sur les nouvelles souscriptions',
+    summary: 'Le super-admin configure les notifications e-mail et Telegram envoyées pour chaque nouveau forfait.',
+    important: false,
+    changes: [
+      'Les forfaits gratuits et les abonnements Stripe déclenchent la même alerte de souscription.',
+      'Le destinataire e-mail, le jeton du bot Telegram et le chatID se règlent dans la rubrique Notifications.',
+      'Le jeton Telegram enregistré reste masqué dans les réponses de l’administration.',
+      'Les événements déjà traités ne génèrent pas une seconde alerte.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.16.0',
     date: '2026-09-01',
     title: 'Une démonstration pilotée par son forfait',

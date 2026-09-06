@@ -232,6 +232,13 @@
       "when": 1788613950560,
       "tag": "0032_watery_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788684889736,
+      "tag": "0033_wooden_wild_pack",
+      "breakpoints": true
     }
   ]
 }

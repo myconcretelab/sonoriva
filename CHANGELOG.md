@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.17.0] - 2026-09-06
+
+### Ajouté
+
+- notifications e-mail et Telegram lors de la souscription d’un forfait gratuit ou payant ;
+- configuration super-admin du destinataire e-mail, du jeton de bot Telegram et du `chatID` ;
+- déduplication persistante des notifications de souscription.
+
+### Modifié
+
+- passage de l’application à la version `1.17.0`.
+
 ## [1.16.0] - 2026-09-01
 
 ### Ajouté

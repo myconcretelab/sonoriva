@@ -121,6 +121,27 @@ export const billingEvents = pgTable('billing_events', {
   index('billing_events_received_at_idx').on(table.receivedAt),
 ]);
 
+export const notificationSettings = pgTable('notification_settings', {
+  id: integer('id').primaryKey().default(1),
+  emailEnabled: boolean('email_enabled').notNull().default(false),
+  emailRecipient: text('email_recipient'),
+  telegramEnabled: boolean('telegram_enabled').notNull().default(false),
+  telegramBotToken: text('telegram_bot_token'),
+  telegramChatId: text('telegram_chat_id'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const planSubscriptionNotifications = pgTable('plan_subscription_notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dedupeKey: text('dedupe_key').notNull().unique(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  planCode: text('plan_code').notNull().references(() => plans.code),
+  emailSent: boolean('email_sent').notNull().default(false),
+  telegramSent: boolean('telegram_sent').notNull().default(false),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const accountMemberships = pgTable('account_memberships', {
   accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

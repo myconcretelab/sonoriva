@@ -73,6 +73,16 @@ describe('client API', () => {
     }));
   });
 
+  it('enregistre les canaux de notification de souscription', async () => {
+    const settings = { emailEnabled: true, emailRecipient: 'admin@example.com', telegramEnabled: true, telegramChatId: '-100123', telegramBotToken: 'bot-token' };
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ settings: { ...settings, telegramBotTokenConfigured: true } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetcher);
+
+    await api.updateAdminNotificationSettings(settings);
+
+    expect(fetcher).toHaveBeenCalledWith('/api/admin/notification-settings', expect.objectContaining({ method: 'PUT', body: JSON.stringify(settings) }));
+  });
+
   it('crée et interroge une association SonoRiva Bridge', async () => {
     const fetcher = vi.fn(async (_url: string, init?: RequestInit) => init?.body
       ? new Response(JSON.stringify({ status: 'pending' }), { status: 200, headers: { 'Content-Type': 'application/json' } })

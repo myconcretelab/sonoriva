@@ -1,4 +1,4 @@
-import type { AccountSummary, AdminAccount, AdminOverview, AdminReleaseInfo, AdminSupportTicket, AdminUser, AuditEntry, BatchTrackUpdateInput, BridgeDevice, Category, CommercialPlan, FreesoundLicenseFilter, FreesoundSearchResult, KeyAction, MouseAction, OpenverseLicenseFilter, OpenverseSearchResult, OpenverseSource, Playlist, PlaylistEntry, Project, ProjectColor, ProjectDetail, ProjectKeyboardShortcuts, PublicDemo, PublicPlan, ReleaseInfo, SoundShowAnalysis, SupportMessage, SupportTicket, SupportTicketPriority, SupportTicketStatus, Track, TrackSubcategory, User } from '../types';
+import type { AccountSummary, AdminAccount, AdminOverview, AdminReleaseInfo, AdminSupportTicket, AdminUser, AuditEntry, BatchTrackUpdateInput, BridgeDevice, Category, CommercialPlan, FreesoundLicenseFilter, FreesoundSearchResult, KeyAction, MouseAction, OpenverseLicenseFilter, OpenverseSearchResult, OpenverseSource, Playlist, PlaylistEntry, Project, ProjectColor, ProjectDetail, ProjectKeyboardShortcuts, PublicDemo, PublicPlan, ReleaseInfo, SoundShowAnalysis, SubscriptionNotificationSettings, SupportMessage, SupportTicket, SupportTicketPriority, SupportTicketStatus, Track, TrackSubcategory, User } from '../types';
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -60,6 +60,8 @@ export const api = {
   updateSupportTicket: (id: string, status: Extract<SupportTicketStatus, 'open' | 'resolved' | 'closed'>) => request<{ ticket: SupportTicket }>(`/api/support/tickets/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   adminOverview: () => request<{ overview: AdminOverview; recentAudit: AuditEntry[] }>('/api/admin/overview'),
   adminReleases: () => request<AdminReleaseInfo>('/api/admin/releases'),
+  adminNotificationSettings: () => request<{ settings: SubscriptionNotificationSettings }>('/api/admin/notification-settings'),
+  updateAdminNotificationSettings: (input: Omit<SubscriptionNotificationSettings, 'telegramBotTokenConfigured'> & { telegramBotToken?: string; clearTelegramBotToken?: boolean }) => request<{ settings: SubscriptionNotificationSettings }>('/api/admin/notification-settings', { method: 'PUT', body: JSON.stringify(input) }),
   adminAccounts: (search = '') => request<{ accounts: AdminAccount[] }>(`/api/admin/accounts?search=${encodeURIComponent(search)}`),
   adminAccount: (id: string) => request<Record<string, unknown>>(`/api/admin/accounts/${id}`),
   updateAdminAccount: (id: string, input: Record<string, unknown>) => request<{ account: AdminAccount }>(`/api/admin/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),

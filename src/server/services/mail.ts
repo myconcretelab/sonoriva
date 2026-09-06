@@ -64,3 +64,9 @@ export async function sendPasswordResetEmail(input: { email: string; displayName
     ...message,
   });
 }
+
+export async function sendEmail(input: { to: string; subject: string; text: string; html?: string }): Promise<void> {
+  const currentTransporter = mailTransporter();
+  if (!currentTransporter) throw new Error('Transport e-mail non configuré.');
+  await currentTransporter.sendMail({ from: config.MAIL_FROM, ...input });
+}

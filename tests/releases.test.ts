@@ -12,7 +12,7 @@ describe('app releases', () => {
   it('retourne uniquement les versions encore non consultées', () => {
     expect(releasesAfter(null)).toEqual(APP_RELEASES);
     expect(releasesAfter('0.1.0')).toEqual(APP_RELEASES);
-    expect(releasesAfter('0.2.0').map((release) => release.version)).toEqual(['1.16.0', '1.15.0', '1.14.1', '1.14.0', '1.13.0', '1.12.0', '1.11.1', '1.11.0', '1.10.0', '1.9.0', '1.8.2', '1.8.1', '1.8.0', '1.7.1', '1.7.0', '1.6.1', '1.6.0', '1.5.0', '1.4.0', '1.3.0', '1.2.0', '1.1.0', '1.0.0', '0.24.0', '0.23.0', '0.22.0', '0.21.0', '0.20.0', '0.19.1', '0.19.0', '0.18.0', '0.17.0', '0.16.1', '0.16.0', '0.15.0', '0.14.0', '0.13.0', '0.12.0', '0.11.0', '0.10.1', '0.10.0', '0.7.0', '0.6.0', '0.4.0', '0.3.0']);
+    expect(releasesAfter('0.2.0')).toEqual(APP_RELEASES.filter((release) => compareVersions(release.version, '0.2.0') > 0));
     expect(releasesAfter(CURRENT_VERSION)).toEqual([]);
   });
 
