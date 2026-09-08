@@ -1,3 +1,4 @@
+import { RotaryVolume } from './components/RotaryVolume';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   ArrowUpDown, AudioLines, AudioWaveform, CircleCheck, Clock3, Columns3, Download, FolderInput, FolderPlus, GripVertical, History, LayoutDashboard, LifeBuoy, ListMusic, ListPlus, LoaderCircle, Menu, Move, Pause, Pencil, Play, Plus, Radio,
@@ -2206,7 +2207,7 @@ export default function App() {
           return <article className={`player-card ${playback.paused ? 'is-paused' : ''}`} key={playback.id} style={{ '--track-color': color } as React.CSSProperties}>
             <div className="player-card-main"><div className="player-card-copy"><strong>{track.title}</strong><PlaybackOutputSelector title={track.title} outputId={playback.outputId} outputs={routedBridgeOutputs} disabled={playback.fadingOut} onChange={(outputId) => audioEngine.setInstanceOutput(playback.id, outputId).catch((cause) => setError(cause instanceof Error ? cause.message : 'Impossible de changer la sortie audio.'))} /></div>
               <PlaybackPositionControl playback={playback} title={track.title} />
-              <PlaybackVolumeControl playback={playback} title={track.title} />
+              <PlaybackVolumeControl playback={playback} title={track.title} rotary={appSkin === 'tape'} />
             </div>
             <div className="player-card-controls">
               <button className={playback.loop ? 'active' : ''} disabled={playback.fadingOut} onClick={() => audioEngine.setInstanceLoop(playback.id, !playback.loop)} aria-label={playback.loop ? `Désactiver la boucle de ${track.title}` : `Jouer ${track.title} en boucle`} title="Boucle"><Repeat2 size={15} /></button>
@@ -2323,7 +2324,7 @@ export default function App() {
         <div className="topbar-console">
           <section className="console-module next-volume" title="Ce multiplicateur s'applique au prochain son, puis revient à 100 %.">
             <span><Volume2 size={14} />Son suivant</span>
-            <div className="next-volume-control"><input type="range" min="0" max="100" value={nextTrackVolume} aria-label="Volume du son suivant" onChange={(event) => { const value = Number(event.target.value); setNextTrackVolume(value); localStorage.setItem('sonoriva-next-volume', String(value)); }} /><strong>{nextTrackVolume} %</strong><button type="button" className={`console-volume-lock ${keepNextTrackVolume ? 'active' : ''}`} role="switch" aria-checked={keepNextTrackVolume} aria-label="Conserver le volume pour les sons suivants" title={keepNextTrackVolume ? 'Volume conservé après chaque lancement' : 'Réinitialiser à 100 % après le prochain lancement'} onClick={() => { const next = !keepNextTrackVolume; setKeepNextTrackVolume(next); localStorage.setItem('sonoriva-keep-next-volume', String(next)); localStorage.setItem('sonoriva-next-volume', String(nextTrackVolume)); }}><i /></button></div>
+            <div className="next-volume-control">{appSkin === 'tape' ? <RotaryVolume value={nextTrackVolume} label="Volume du son suivant" onChange={(value) => { setNextTrackVolume(value); localStorage.setItem('sonoriva-next-volume', String(value)); }} /> : <input type="range" min="0" max="100" value={nextTrackVolume} aria-label="Volume du son suivant" onChange={(event) => { const value = Number(event.target.value); setNextTrackVolume(value); localStorage.setItem('sonoriva-next-volume', String(value)); }} />}<strong>{nextTrackVolume} %</strong><button type="button" className={`console-volume-lock ${keepNextTrackVolume ? 'active' : ''}`} role="switch" aria-checked={keepNextTrackVolume} aria-label="Conserver le volume pour les sons suivants" title={keepNextTrackVolume ? 'Volume conservé après chaque lancement' : 'Réinitialiser à 100 % après le prochain lancement'} onClick={() => { const next = !keepNextTrackVolume; setKeepNextTrackVolume(next); localStorage.setItem('sonoriva-keep-next-volume', String(next)); localStorage.setItem('sonoriva-next-volume', String(nextTrackVolume)); }}><i /></button></div>
           </section>
           <section className="console-module stopwatch">
             <span><Timer size={14} />Chrono</span>
@@ -2646,7 +2647,7 @@ const PlaybackPositionControl = memo(function PlaybackPositionControl({ playback
   </div>;
 });
 
-function PlaybackVolumeControl({ playback, title }: { playback: ActivePlayback; title: string }) {
+function PlaybackVolumeControl({ playback, title, rotary }: { playback: ActivePlayback; title: string; rotary: boolean }) {
   const [displayVolume, setDisplayVolume] = useState(() => playbackVolumeAt(playback));
   const { id, volume, volumeFrom, volumeTransitionDurationMs, volumeTransitionStartedAtMs } = playback;
 
@@ -2664,11 +2665,15 @@ function PlaybackVolumeControl({ playback, title }: { playback: ActivePlayback; 
   }, [id, volume, volumeFrom, volumeTransitionDurationMs, volumeTransitionStartedAtMs]);
 
   const percentage = Math.round(displayVolume * 100);
-  return <label className="player-card-volume"><Volume2 size={14} /><input type="range" min="0" max="100" value={percentage} disabled={playback.fadingOut} style={{ '--slider-progress': `${percentage}%` } as React.CSSProperties} onPointerUp={(event) => event.currentTarget.blur()} onPointerCancel={(event) => event.currentTarget.blur()} onChange={(event) => {
-    const nextVolume = Number(event.target.value) / 100;
+  function changeVolume(value: number) {
+    const nextVolume = value / 100;
     setDisplayVolume(nextVolume);
     audioEngine.setInstanceVolume(playback.id, nextVolume);
-  }} aria-label={`Volume de ${title}`} /><em>{percentage}</em></label>;
+  }
+  return <label className={`player-card-volume${rotary ? ' has-rotary' : ''}`}><Volume2 size={14} />{rotary
+    ? <RotaryVolume value={percentage} disabled={playback.fadingOut} label={`Volume de ${title}`} onChange={changeVolume} />
+    : <input type="range" min="0" max="100" value={percentage} disabled={playback.fadingOut} style={{ '--slider-progress': `${percentage}%` } as React.CSSProperties} onPointerUp={(event) => event.currentTarget.blur()} onPointerCancel={(event) => event.currentTarget.blur()} onChange={(event) => changeVolume(Number(event.target.value))} aria-label={`Volume de ${title}`} />
+  }<em>{percentage}{rotary ? ' %' : ''}</em></label>;
 }
 
 function moveById<T extends { id: string }>(items: T[], movingId: string, targetId?: string, after = false): T[] {
