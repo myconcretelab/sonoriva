@@ -1,3 +1,4 @@
+import { RetroActionSelector } from './components/RetroActionSelector';
 import { RotaryVolume } from './components/RotaryVolume';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
@@ -2192,9 +2193,9 @@ export default function App() {
     if (!detail) return null;
     return <section className="mouse-actions">
       <div className="side-label"><span>Actions de déclenchement</span></div>
-      <label><span><i>G</i>Clic gauche</span><select value={detail.project.leftClickAction ?? 'start'} onChange={(event) => updateMouseAction('left', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>
-      <label><span><i>D</i>Clic droit</span><select value={detail.project.rightClickAction ?? 'crossfade'} onChange={(event) => updateMouseAction('right', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>
-      <label><span><i>K</i>Clavier</span><select value={detail.project.keyboardAction ?? 'start'} onChange={(event) => updateMouseAction('keyboard', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>
+      {appSkin === 'tape' ? <div className="retro-action-row"><span><i>G</i>Clic gauche</span><RetroActionSelector label="Clic gauche" value={detail.project.leftClickAction ?? 'start'} options={mouseActions} onChange={(action) => updateMouseAction('left', action)} /></div> : <label><span><i>G</i>Clic gauche</span><select value={detail.project.leftClickAction ?? 'start'} onChange={(event) => updateMouseAction('left', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
+      {appSkin === 'tape' ? <div className="retro-action-row"><span><i>D</i>Clic droit</span><RetroActionSelector label="Clic droit" value={detail.project.rightClickAction ?? 'crossfade'} options={mouseActions} onChange={(action) => updateMouseAction('right', action)} /></div> : <label><span><i>D</i>Clic droit</span><select value={detail.project.rightClickAction ?? 'crossfade'} onChange={(event) => updateMouseAction('right', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
+      {appSkin === 'tape' ? <div className="retro-action-row"><span><i>K</i>Clavier</span><RetroActionSelector label="Clavier" value={detail.project.keyboardAction ?? 'start'} options={mouseActions} onChange={(action) => updateMouseAction('keyboard', action)} /></div> : <label><span><i>K</i>Clavier</span><select value={detail.project.keyboardAction ?? 'start'} onChange={(event) => updateMouseAction('keyboard', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
     </section>;
   }
 

@@ -195,7 +195,53 @@ html[data-skin='tape'] .now-playing-list.is-compact .player-card-main { grid-tem
 html[data-skin='tape'] .now-playing-list.is-compact .player-card-volume.has-rotary { grid-template-columns: 10px 48px minmax(30px, 1fr); }
 html[data-skin='tape'] .now-playing-list.is-compact .rotary-volume { width: 48px; height: 48px; }
 html[data-skin='tape'] .now-playing-list.is-compact .rotary-volume-scale { width: 64px; height: 64px; transform: scale(.75); transform-origin: top left; }
-html[data-skin='tape'] .console-module.next-volume { height: auto; min-height: 92px; }
+
 @media (max-width: 560px) {
   html[data-skin='tape'] .console-module.next-volume { min-width: 155px; }
 }
+
+/* Compact transport: two rows of mechanical keys beside the volume knob. */
+html[data-skin='tape'] .player-card,
+html[data-skin='tape'] .now-playing-list.is-compact .player-card { grid-template-columns: 72px minmax(0, 1fr); grid-template-rows: auto auto auto; gap: 5px 8px; }
+html[data-skin='tape'] .player-card-main,
+html[data-skin='tape'] .now-playing-list.is-compact .player-card-main { display: contents; }
+html[data-skin='tape'] :is(.player-card-copy, .player-card-time) { grid-column: 1 / -1; }
+html[data-skin='tape'] .player-card-volume.has-rotary,
+html[data-skin='tape'] .now-playing-list.is-compact .player-card-volume.has-rotary { grid-column: 1; grid-row: 3; grid-template-columns: 1fr; justify-items: center; gap: 0; }
+html[data-skin='tape'] .player-card-volume.has-rotary > svg { display: none; }
+html[data-skin='tape'] .player-card-volume.has-rotary em { text-align: center; }
+html[data-skin='tape'] .player-card-controls,
+html[data-skin='tape'] .now-playing-list.is-compact .player-card-controls { grid-column: 2; grid-row: 3; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, 30px); align-content: center; gap: 6px; }
+html[data-skin='tape'] .player-card-controls button,
+html[data-skin='tape'] .now-playing-list.is-compact .player-card-controls button { width: 100%; height: 30px; border: 1px solid #9c8b69; border-bottom: 3px solid #78684c; border-radius: 3px 3px 5px 5px; color: #3d3323; background: linear-gradient(#f6edcf 0%, #e3d6b2 48%, #c9b990 49%, #ded0ac 100%); box-shadow: inset 0 1px #fff9, 0 2px 0 #17150f, 0 3px 4px #0006; }
+html[data-skin='tape'] .player-card-controls button:hover:not(:disabled) { filter: brightness(1.08); }
+html[data-skin='tape'] .player-card-controls button:active:not(:disabled),
+html[data-skin='tape'] .player-card-controls button.active { transform: translateY(2px); background: linear-gradient(#b5a17a, #d7c69e); box-shadow: inset 0 2px 3px #392a1e66; }
+html[data-skin='tape'] .player-card-controls button.stop { color: #fff2d8; border-color: #b37b55; border-bottom-color: #693624; background: linear-gradient(#ce8155 0%, #b55d3d 48%, #8c412e 49%, #af6244 100%); }
+html[data-skin='tape'] .player-card-controls button.fade-out { color: #764717; }
+/* Shared 68px chassis; the label sits beside the dial, above its readout. */
+html[data-skin='tape'] .topbar-console .console-module { height: 68px; min-height: 68px; }
+html[data-skin='tape'] .console-module.next-volume { position: relative; width: 178px; padding: 4px 8px; display: grid; grid-template-columns: 56px 1fr; grid-template-rows: 18px 1fr; gap: 0 6px; }
+html[data-skin='tape'] .console-module.next-volume > span { grid-column: 2; grid-row: 1; align-self: end; font-size: .53rem; white-space: nowrap; }
+html[data-skin='tape'] .console-module.next-volume > span svg { display: none; }
+html[data-skin='tape'] .console-module.next-volume .next-volume-control { display: contents; }
+html[data-skin='tape'] .next-volume-control .rotary-volume { grid-column: 1; grid-row: 1 / -1; width: 56px; height: 56px; }
+html[data-skin='tape'] .next-volume-control .rotary-volume-scale { width: 64px; height: 64px; transform: scale(.875); transform-origin: top left; }
+html[data-skin='tape'] .next-volume-control > strong { grid-column: 2; grid-row: 2; justify-self: start; padding-right: 28px; font-size: .72rem; }
+html[data-skin='tape'] .next-volume-control > .console-volume-lock { grid-column: 2; grid-row: 2; justify-self: end; }
+/* Stepped mechanical selectors with an engraved window and physical keys. */
+.retro-action-row { display: grid; grid-template-columns: 68px minmax(0, 1fr); align-items: center; gap: 5px; padding: 0 7px 7px; }
+.retro-action-row > span { display: flex; align-items: center; gap: 4px; color: #d1c4a6; font-size: .6rem; }
+.retro-action-row > span > i { width: 17px; flex: 0 0 17px; font: 700 .62rem 'Courier New', monospace; font-style: normal; text-align: center; border: 1px solid #8a795b; border-radius: 2px; background: #24251f; }
+.retro-action-selector { min-width: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr) 22px; gap: 3px; padding: 3px; border: 1px solid #655c48; border-radius: 3px; background: #1e201a; box-shadow: inset 0 2px 3px #0009; }
+.retro-action-selector button { width: 22px; min-height: 35px; padding: 0; display: grid; place-items: center; color: #392f20; border: 1px solid #b3a17c; border-bottom: 3px solid #7a694b; border-radius: 2px; background: linear-gradient(90deg, #dbccaa, #fff1cf 45%, #c1af85); box-shadow: 0 2px 2px #0007; cursor: pointer; }
+.retro-action-selector button:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 2px 3px #47362670; }
+.retro-action-selector button:disabled { opacity: .35; cursor: default; }
+.retro-action-window { min-width: 0; display: grid; align-content: center; gap: 4px; padding: 2px 0; }
+.retro-action-window output { color: #f8dda2; font: 700 .58rem/1.2 'Courier New', monospace; text-align: center; overflow-wrap: anywhere; text-shadow: 0 1px #000; }
+.retro-action-detents { display: flex; justify-content: center; gap: 3px; }
+.retro-action-detents i { width: 4px; height: 3px; background: #5e5844; border-radius: 1px; }
+.retro-action-detents i.active { background: #ffce76; box-shadow: 0 0 3px #f7b95177; }
+
+html[data-skin='tape'] .next-volume-control > strong,
+html[data-skin='tape'] .next-volume-control > .console-volume-lock { align-self: center; }

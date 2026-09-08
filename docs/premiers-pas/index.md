@@ -43,6 +43,8 @@ Les paramètres regroupent la gestion des spectacles, des couleurs, de la biblio
 
 **Paramètres → Général → Apparence** propose quatre thèmes : Original, Studio, Clair — Porcelaine et Rétro — Magnétophone. Porcelaine utilise des surfaces claires, des angles courts et des ombres. Magnétophone associe des textures de bois et de métal à des boutons crème. Le choix s’applique immédiatement et reste enregistré dans ce navigateur sur cet appareil.
 
-Dans Magnétophone, le volume du son suivant et celui des sons en lecture se règlent avec des potentiomètres : glisser vers le haut augmente le volume, glisser vers le bas le diminue. Les flèches du clavier ajustent le volume lorsque le potentiomètre a le focus ; les touches Début et Fin correspondent à 0 et 100 %. La position de lecture conserve une barre linéaire.
+Dans Magnétophone, le volume du son suivant et celui des sons en lecture se règlent avec des potentiomètres : glisser vers le haut augmente le volume, glisser vers le bas le diminue. Les flèches du clavier ajustent le volume lorsque le potentiomètre a le focus ; les touches Début et Fin correspondent à 0 et 100 %. La position de lecture conserve une barre linéaire. Les commandes de lecture sont disposées à droite du potentiomètre.
+
+Dans le module **Actions de déclenchement** du thème Magnétophone, les touches précédente et suivante parcourent les actions disponibles. La fenêtre centrale affiche l’action sélectionnée, appliquée immédiatement.
 
 Les pages suivantes décrivent la [configuration d’un spectacle](./premier-spectacle.md) et l’[organisation des sons](../guides/organiser-un-spectacle.md).
