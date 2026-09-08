@@ -57,11 +57,11 @@ function sonoriva_marketing_home_block_content(): string
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":1} -->
-<h1 class="wp-block-heading">Vos sons prêts. Vos départs instantanés.</h1>
+<h1 class="wp-block-heading">Votre soundboard pour le théâtre et le spectacle vivant</h1>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph {"className":"sr-lead"} -->
-<p class="sr-lead">SonoRiva réunit la préparation, l’organisation et la lecture d’un spectacle dans une régie qui fonctionne dans le navigateur — et localement quand le réseau devient incertain.</p>
+<p class="sr-lead">SonoRiva est un soundboard en ligne pour préparer, organiser et déclencher vos sons dans le navigateur. Cette régie son accompagne le théâtre, l’improvisation, les écoles et les spectacles en tournée. Les sons préparés en cache restent disponibles lorsque le réseau devient incertain.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:buttons -->

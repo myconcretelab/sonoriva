@@ -71,7 +71,7 @@ add_action('wp_enqueue_scripts', 'sonoriva_marketing_assets');
 function sonoriva_marketing_document_title(string $title): string
 {
     if (is_front_page()) {
-        return 'SonoRiva | Régie son cloud pour théâtre et spectacle';
+        return 'Soundboard en ligne pour théâtre et spectacle | SonoRiva';
     }
     if (is_page('alternative-soundshow')) {
         return 'Alternative cloud à SoundShow | SonoRiva';
@@ -89,14 +89,17 @@ function sonoriva_marketing_seo_head(): void
     $is_soundshow_page = is_page('alternative-soundshow');
     $title = $is_soundshow_page
         ? 'Alternative cloud à SoundShow | SonoRiva'
-        : 'SonoRiva | Régie son cloud pour théâtre et spectacle';
+        : 'Soundboard en ligne pour théâtre et spectacle | SonoRiva';
     $description = $is_soundshow_page
         ? 'Importez un projet SoundShow dans SonoRiva et retrouvez une régie son cloud avec Freesound, multi-lecture, catégories, sorties audio et mode hors ligne.'
-        : 'SonoRiva est une régie son cloud pour le théâtre et le spectacle vivant : soundboard, Freesound, multi-lecture, sorties audio et import SoundShow.';
+        : 'Soundboard en ligne pour le théâtre et le spectacle vivant. Préparez, organisez et déclenchez vos sons dans le navigateur avec SonoRiva. Version gratuite.';
     $url = $is_soundshow_page ? home_url('/alternative-soundshow/') : home_url('/');
     $image = get_template_directory_uri() . '/assets/images/app-regie-full.png';
 
-    echo '<meta name="description" content="' . esc_attr($description) . '">' . "\n";
+    // SEOPress owns the description when active; retain the theme fallback otherwise.
+    if (!defined('SEOPRESS_VERSION')) {
+        echo '<meta name="description" content="' . esc_attr($description) . '">' . "\n";
+    }
     echo '<meta name="theme-color" content="#384661">' . "\n";
     echo '<meta property="og:locale" content="fr_FR">' . "\n";
     echo '<meta property="og:site_name" content="SonoRiva">' . "\n";

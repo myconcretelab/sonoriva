@@ -57,6 +57,8 @@ ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "
   php -r \"require 'wp-load.php'; require_once '$WORDPRESS_THEME_ROOT/inc/page-content.php'; require_once '$WORDPRESS_THEME_ROOT/inc/soundshow-content.php'; \\\$alternative = get_page_by_path('alternative-soundshow', OBJECT, 'page'); if (\\\$alternative && trim((string) \\\$alternative->post_content) === '') { wp_update_post(array('ID' => \\\$alternative->ID, 'post_content' => sonoriva_marketing_soundshow_block_content())); } foreach (get_pages(array('post_status' => 'publish')) as \\\$page) { if (trim((string) \\\$page->post_content) !== '' && !has_blocks(\\\$page->post_content)) { \\\$converted = sonoriva_marketing_classic_content_to_blocks(\\\$page->post_content); if (\\\$converted === \\\$page->post_content) { fwrite(STDERR, 'La page ' . \\\$page->post_name . ' ne peut pas etre convertie en blocs sans perte.' . PHP_EOL); exit(1); } wp_update_post(array('ID' => \\\$page->ID, 'post_content' => \\\$converted)); \\\$page = get_post(\\\$page->ID); } if (trim((string) \\\$page->post_content) !== '' && !has_blocks(\\\$page->post_content)) { fwrite(STDERR, 'La page ' . \\\$page->post_name . ' n est pas editable en blocs.' . PHP_EOL); exit(1); } }\"
 "
 
+ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "cd '$WORDPRESS_ROOT' && php" < "$repo_root/scripts/update-wordpress-soundboard.php"
+
 expected_card_count=$(curl --fail --silent --show-error "$SONORIVA_PLANS_API_URL" | php -r '
   $data = json_decode(stream_get_contents(STDIN), true);
   if (!is_array($data) || !isset($data["plans"]) || !is_array($data["plans"])) exit(1);
@@ -72,7 +74,7 @@ for attempt in 1 2 3 4 5; do
     && grep --fixed-strings --quiet 'Démarrer maintenant' <<< "$wordpress_html" \
     && grep --fixed-strings --quiet 'Choisir ce forfait' <<< "$wordpress_html" \
     && grep --fixed-strings --quiet 'Essayer maintenant' <<< "$wordpress_html" \
-    && grep --fixed-strings --quiet 'Vos sons prêts. Vos départs instantanés.' <<< "$wordpress_html"; then
+    && grep --fixed-strings --quiet 'Votre soundboard pour le théâtre et le spectacle vivant' <<< "$wordpress_html"; then
     break
   fi
   [[ "$attempt" -eq 5 ]] || sleep 2
@@ -84,7 +86,7 @@ grep --fixed-strings --quiet 'SonoRiva Bridge pour macOS et Windows' <<< "$wordp
 grep --fixed-strings --quiet 'Démarrer maintenant' <<< "$wordpress_html" || fail "le forfait gratuit n’affiche pas son nouveau bouton."
 grep --fixed-strings --quiet 'Choisir ce forfait' <<< "$wordpress_html" || fail "les forfaits payants n’affichent pas leur nouveau bouton."
 grep --fixed-strings --quiet 'Essayer maintenant' <<< "$wordpress_html" || fail "le header WordPress ne renvoie pas vers la démonstration."
-grep --fixed-strings --quiet 'Vos sons prêts. Vos départs instantanés.' <<< "$wordpress_html" || fail "le contenu Gutenberg de la page d'accueil n'est pas publié."
+grep --fixed-strings --quiet 'Votre soundboard pour le théâtre et le spectacle vivant' <<< "$wordpress_html" || fail "le contenu Gutenberg de la page d'accueil n'est pas publié."
 grep --fixed-strings --quiet 'data-hero-logo' <<< "$wordpress_html" || fail "le logo animé est absent du Hero."
 grep --fixed-strings --quiet 'logo-anime-hero-transparent.svg' <<< "$wordpress_html" || fail "le fichier du logo animé n'est pas relié au Hero."
 grep --fixed-strings --quiet '<html lang="fr-FR">' <<< "$wordpress_html" || fail "la langue du site WordPress n'est pas déclarée en français."
