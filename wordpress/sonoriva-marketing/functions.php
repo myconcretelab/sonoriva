@@ -20,7 +20,7 @@ function sonoriva_marketing_setup(): void
     add_theme_support('responsive-embeds');
     add_theme_support('align-wide');
     add_theme_support('editor-styles');
-    add_editor_style(['style.css', 'assets/css/editor.css']);
+    add_editor_style(['style.css', 'assets/css/editor.css', 'assets/css/editorial.css']);
     add_theme_support('html5', ['search-form', 'comment-form', 'comment-list', 'gallery', 'caption', 'style', 'script']);
     register_nav_menus([
         'primary' => __('Navigation principale', 'sonoriva-marketing'),
@@ -58,6 +58,7 @@ function sonoriva_marketing_assets(): void
     $theme = wp_get_theme();
     $version = $theme->get('Version') ?: '1.0.0';
     wp_enqueue_style('sonoriva-marketing', get_stylesheet_uri(), [], $version);
+    wp_enqueue_style('sonoriva-editorial', get_template_directory_uri() . '/assets/css/editorial.css', ['sonoriva-marketing'], $version);
     wp_enqueue_script(
         'sonoriva-marketing',
         get_template_directory_uri() . '/assets/js/site.js',
@@ -249,3 +250,16 @@ function sonoriva_marketing_site_icon(): string
     return get_template_directory_uri() . '/assets/images/sonoriva-site-icon.png';
 }
 add_filter('get_site_icon_url', 'sonoriva_marketing_site_icon');
+
+/** Inline text styles in the native rich-text formatting menu. */
+function sonoriva_marketing_editor_formats(): void
+{
+    wp_enqueue_script(
+        'sonoriva-editor-formats',
+        get_template_directory_uri() . '/assets/js/editor-formats.js',
+        ['wp-rich-text', 'wp-block-editor', 'wp-element'],
+        wp_get_theme()->get('Version'),
+        true
+    );
+}
+add_action('enqueue_block_editor_assets', 'sonoriva_marketing_editor_formats');

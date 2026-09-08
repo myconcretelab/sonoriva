@@ -1,0 +1,128 @@
+/* Shared by the public site and the block editor. */
+:where(#main, .editor-styles-wrapper) {
+  --sr-inline-accent: #24586d;
+  --sr-inline-mark: #b6d7e6;
+  --sr-inline-mark-ink: #23364e;
+  --sr-inline-line: #6897ad;
+}
+:where(.sr-hero, .comparison-hero, .sr-offline-panel, .sr-layout-diagram, .sr-remote-diagram, .sr-routing, .has-dark-background) {
+  --sr-inline-accent: #b9e5f4;
+  --sr-inline-mark: #c9e8f4;
+  --sr-inline-mark-ink: #23364e;
+  --sr-inline-line: #95c8db;
+}
+
+/* Content lists only: navigation and pricing availability icons keep their semantics. */
+:is(#main, .editor-styles-wrapper) :is(ul, ol):is(.wp-block-list, .sr-checks, .check-list),
+#main .entry-content > :is(ul, ol) {
+  display: block;
+  margin-block: 1.5rem;
+  padding: 0;
+  border-top: 1px solid currentColor;
+  border-color: color-mix(in srgb, currentColor 25%, transparent);
+  font-size: inherit;
+  line-height: 1.65;
+  list-style: none;
+}
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) li,
+#main .entry-content > :is(ul, ol) li {
+  display: list-item;
+  position: relative;
+  margin: 0;
+  padding: .8rem 0 .8rem 2rem;
+  border-bottom: 1px solid currentColor;
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+  font-size: inherit;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+:is(#main, .editor-styles-wrapper) :is(ul.wp-block-list, ul.sr-checks, ul.check-list) > li::before,
+#main .entry-content > ul > li::before {
+  content: '✓' / '';
+  display: block;
+  position: absolute;
+  inset-inline-start: .05rem;
+  top: .8rem;
+  width: 1.3rem;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor !important;
+  font-size: 1em;
+  font-weight: 700;
+  line-height: inherit;
+}
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) li > :is(ul, ol),
+#main .entry-content > :is(ul, ol) li > :is(ul, ol) {
+  margin: .65rem 0 0;
+  padding: 0 0 0 1rem;
+  border: 0;
+  border-inline-start: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  font-size: .95em;
+  list-style: none;
+}
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) li li,
+#main .entry-content > :is(ul, ol) li li {
+  padding: .5rem 0 .5rem 1.3rem;
+  border-bottom-style: dashed;
+  border-color: color-mix(in srgb, currentColor 18%, transparent);
+}
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) li ul > li::before,
+#main .entry-content > :is(ul, ol) li ul > li::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: .1rem;
+  top: calc(.5rem + .65em);
+  width: .3rem;
+  height: .3rem;
+  border-radius: 50%;
+  background: currentColor;
+  color: currentColor !important;
+}
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) li li ul > li::before,
+#main .entry-content > :is(ul, ol) li li ul > li::before {
+  width: .5rem;
+  height: 1px;
+  border-radius: 0;
+}
+:is(#main, .editor-styles-wrapper) :is(ol.wp-block-list, ol.sr-checks, ol.check-list),
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) li > ol,
+#main .entry-content > ol,
+#main .entry-content > :is(ul, ol) li > ol {
+  list-style-type: decimal;
+  padding-inline-start: 1.6rem;
+}
+:is(#main, .editor-styles-wrapper) :is(ol.wp-block-list, ol.sr-checks, ol.check-list) > li,
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) ol > li,
+#main .entry-content > ol > li,
+#main .entry-content > :is(ul, ol) ol > li {
+  padding-inline-start: .4rem;
+}
+:is(#main, .editor-styles-wrapper) :is(ol.wp-block-list, ol.sr-checks, ol.check-list) > li::before,
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) ol > li::before,
+#main .entry-content > ol > li::before,
+#main .entry-content > :is(ul, ol) ol > li::before { content: none; }
+:is(#main, .editor-styles-wrapper) ol.wp-block-list li::marker { font-weight: 700; }
+:is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) li > :is(ul, ol) > li:last-child { border-bottom: 0; }
+
+/* Inline formats retain the paragraph or heading's size and wrap across lines. */
+.sr-text-accent { color: var(--sr-inline-accent, #24586d); font-weight: 750; }
+.sr-text-highlight {
+  padding: .02em .14em;
+  border-radius: .12em;
+  background: var(--sr-inline-mark, #b6d7e6);
+  color: var(--sr-inline-mark-ink, #23364e);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.sr-text-underline {
+  text-decoration-line: underline;
+  text-decoration-color: var(--sr-inline-line, #6897ad);
+  text-decoration-thickness: .09em;
+  text-underline-offset: .16em;
+  text-decoration-skip-ink: auto;
+}
+.sr-text-nuance { font-weight: 400; font-style: italic; letter-spacing: .01em; }
+@media (max-width: 600px) {
+  :is(#main, .editor-styles-wrapper) :is(.wp-block-list, .sr-checks, .check-list) li > :is(ul, ol) { padding-inline-start: .65rem; }
+}
