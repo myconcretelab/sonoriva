@@ -32,7 +32,9 @@ if ($content !== $page->post_content) {
 }
 update_post_meta($id, '_seopress_titles_title', $title);
 update_post_meta($id, '_seopress_titles_desc', $description);
-if (get_post($id)->post_content !== $content
+// WordPress may normalize whitespace before self-closing HTML tags on save.
+$normalize = static fn(string $html): string => preg_replace('~\s*/>~', '/>', $html);
+if ($normalize(get_post($id)->post_content) !== $normalize($content)
     || get_post_meta($id, '_seopress_titles_title', true) !== $title
     || get_post_meta($id, '_seopress_titles_desc', true) !== $description) {
     throw new RuntimeException('La vérification des données enregistrées a échoué.');
