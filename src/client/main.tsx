@@ -4,6 +4,7 @@ import App from './App';
 import { AdminApp } from './admin/AdminApp';
 import { PasswordResetScreen } from './components/PasswordResetScreen';
 import './styles.css';
+import './themes.css';
 import './admin/admin.css';
 import { registerAppServiceWorker } from './lib/app-update';
 import { applyAppSkin, readAppSkin } from './lib/app-skin';

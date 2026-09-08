@@ -41,4 +41,6 @@ Les commandes globales d’arrêt sont associées aux touches **Échap**, **Reto
 
 Les paramètres regroupent la gestion des spectacles, des couleurs, de la bibliothèque, de la [sortie audio](../reference/sortie-audio.md), du mode hors ligne, de la télécommande, des raccourcis, du compte et du stockage.
 
+**Paramètres → Général → Apparence** propose quatre thèmes : Original, Studio, Clair — Porcelaine et Rétro — Magnétophone. Porcelaine utilise des surfaces claires, des angles courts et des ombres. Magnétophone associe des textures de bois et de métal à des boutons crème. Le choix s’applique immédiatement et reste enregistré dans ce navigateur sur cet appareil.
+
 Les pages suivantes décrivent la [configuration d’un spectacle](./premier-spectacle.md) et l’[organisation des sons](../guides/organiser-un-spectacle.md).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appSkinStorageKey, applyAppSkin, normalizeAppSkin, readAppSkin, saveAppSkin } from '../src/client/lib/app-skin.js';
+import { appSkins, appSkinStorageKey, applyAppSkin, normalizeAppSkin, readAppSkin, saveAppSkin } from '../src/client/lib/app-skin.js';
 
 describe('skins de l’application', () => {
   it('utilise le skin original pour une valeur absente ou inconnue', () => {
@@ -7,14 +7,19 @@ describe('skins de l’application', () => {
     expect(normalizeAppSkin('inconnu')).toBe('original');
   });
 
-  it('lit et enregistre un skin reconnu', () => {
-    const values = new Map<string, string>([[appSkinStorageKey, 'studio']]);
+  it.each(appSkins)('lit, enregistre et applique le skin %s', (skin) => {
+    const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => values.set(key, value),
     };
 
-    expect(readAppSkin(storage)).toBe('studio');
+    expect(readAppSkin(storage)).toBe('original');
+    saveAppSkin(skin, storage);
+    expect(readAppSkin(storage)).toBe(skin);
+    const root = { dataset: {} } as unknown as HTMLElement;
+    applyAppSkin(readAppSkin(storage), root);
+    expect(root.dataset.skin).toBe(skin);
     saveAppSkin('original', storage);
     expect(values.get(appSkinStorageKey)).toBe('original');
   });

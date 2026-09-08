@@ -453,6 +453,16 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
             <span className="skin-preview studio" aria-hidden="true"><i /><i /><i /><i /></span>
             <span><strong>Studio</strong><small>Régie éditoriale · chaude et structurée</small></span>
           </label>
+          <label className={appSkin === 'porcelain' ? 'active' : ''}>
+            <input type="radio" name="app-skin" value="porcelain" checked={appSkin === 'porcelain'} onChange={() => onAppSkinChange('porcelain')} />
+            <span className="skin-preview porcelain" aria-hidden="true"><i /><i /><i /><i /></span>
+            <span><strong>Clair — Porcelaine</strong><small>Blanc minéral · angles courts et relief</small></span>
+          </label>
+          <label className={appSkin === 'tape' ? 'active' : ''}>
+            <input type="radio" name="app-skin" value="tape" checked={appSkin === 'tape'} onChange={() => onAppSkinChange('tape')} />
+            <span className="skin-preview tape" aria-hidden="true"><i /><i /><i /><i /></span>
+            <span><strong>Rétro — Magnétophone</strong><small>Bois, métal brossé et touches crème</small></span>
+          </label>
         </div>
         <label className="automatic-update-setting"><span><strong>Ouvrir au survol pendant un déplacement</strong><small>Déplie une sous-catégorie après une courte pause quand un morceau est glissé sur sa carte.</small></span><input type="checkbox" checked={openSubcategoriesOnDrag} onChange={(event) => onOpenSubcategoriesOnDragChange(event.target.checked)} /><i aria-hidden="true" /></label>
       </section>

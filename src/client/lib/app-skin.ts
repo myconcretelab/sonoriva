@@ -1,6 +1,6 @@
 export const appSkinStorageKey = 'sonoriva-app-skin';
 
-export const appSkins = ['original', 'studio'] as const;
+export const appSkins = ['original', 'studio', 'porcelain', 'tape'] as const;
 
 export type AppSkin = (typeof appSkins)[number];
 
