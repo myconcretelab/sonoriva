@@ -1,0 +1,6 @@
+.sr-slides-edit{padding:16px;border:1px dashed #8c9da8;border-radius:12px}
+.sr-editor-label{font:600 13px/1.5 system-ui!important;letter-spacing:.02em;margin:0 0 16px!important}
+.sr-editor-help{font:12px/1.5 system-ui!important;opacity:.7;margin:12px 0 0!important}
+.sr-slides-edit .sr-slide{margin-bottom:24px!important}
+.sr-slides-edit .sr-slide>.components-button{margin-top:8px}
+.sr-slides-edit .sr-slide-caption{min-height:32px}
