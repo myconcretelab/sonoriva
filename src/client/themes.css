@@ -138,7 +138,7 @@ html[data-skin='tape'] .workspace-block.workspace-players:not(.is-layout-editing
   border-color: transparent;
   box-shadow: none;
 }
-html[data-skin='tape'] .sidebar { border-right: 7px ridge #76543b; background: radial-gradient(#b4a2861c .6px, #0000 .8px) 0 0 / 3px 3px, #27261f; }
+html[data-skin='tape'] .sidebar { border-right: 7px ridge #76543b; background: var(--skin-wood); }
 html[data-skin='tape'] .topbar { border-bottom: 5px ridge #76543b; background: var(--skin-panel); box-shadow: 0 4px 12px #0005; }
 html[data-skin='tape'] :is(.topbar h1, .brand, .settings-section-title strong) { font-family: Rockwell, 'Courier New', monospace; letter-spacing: -.025em; }
 html[data-skin='tape'] :is(.side-label, .workspace-block-handle, .console-module > span, .statusbar) { font-family: 'Courier New', monospace; letter-spacing: .06em; }
