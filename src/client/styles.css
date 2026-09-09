@@ -1352,3 +1352,15 @@ html[data-skin='studio'] .statusbar { border-top: 3px double #594631; color: #8f
   .skin-options { grid-template-columns: 1fr; }
   html[data-skin='studio'] .topbar { border-bottom-width: 1px; }
 }
+
+.projection-console { display:flex; align-items:center; gap:16px; padding:12px 20px; border-top:1px solid var(--border, #34424b); flex-wrap:wrap; }
+.projection-console canvas { width:160px; height:90px; background:#000; border-radius:6px; }
+.projection-copy { display:flex; flex-direction:column; gap:4px; flex:1; min-width:180px; }
+.projection-copy strong, .projection-actions { display:flex; align-items:center; gap:8px; }
+.projection-copy small { opacity:.7; }
+.projection-actions { flex-wrap:wrap; }
+.video-editor { display:grid; gap:12px; }
+.video-editor video { width:100%; max-height:280px; background:#000; border-radius:8px; }
+.media-filter { display:flex; align-items:center; gap:6px; font-size:12px; }
+.media-filter select { width:auto; }
+.video-thumbnail { width:64px; height:36px; object-fit:contain; border-radius:4px; background:#000; }

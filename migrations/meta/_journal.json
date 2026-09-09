@@ -239,6 +239,13 @@
       "when": 1788684889736,
       "tag": "0033_wooden_wild_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788987583288,
+      "tag": "0034_heavy_radioactive_man",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
-const audioExtensions = /\.(?:mp3|wav|ogg|flac|m4a|aac)$/i;
+const audioExtensions = /\.(?:mp3|wav|ogg|flac|m4a|aac|mp4|webm)$/i;
 const audioMimeTypes = new Set([
+  'video/mp4', 'video/webm',
   'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave', 'audio/ogg', 'audio/flac',
   'audio/x-flac', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/x-aac', 'application/ogg',
 ]);

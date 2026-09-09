@@ -21,7 +21,7 @@ export function UploadDialog({ projectId, categories, onClose, onUploaded }: Pro
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!file) return setError('Choisissez un fichier audio.');
+    if (!file) return setError('Choisissez un fichier audio ou vidéo.');
     const data = new FormData(event.currentTarget);
     data.set('projectId', projectId);
     data.set('file', file);
@@ -40,11 +40,11 @@ export function UploadDialog({ projectId, categories, onClose, onUploaded }: Pro
 
   return <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <form className="dialog" onSubmit={submit}>
-      <header><div><p className="eyebrow">Bibliothèque</p><h2>Ajouter un son</h2></div><button type="button" className="icon-button" onClick={onClose}><X /></button></header>
+      <header><div><p className="eyebrow">Bibliothèque</p><h2>Ajouter un média</h2></div><button type="button" className="icon-button" onClick={onClose}><X /></button></header>
       <button type="button" className={`drop-zone ${file ? 'has-file' : ''}`} onClick={() => input.current?.click()}>
-        {file ? <><FileAudio size={36} /><strong>{file.name}</strong><span>{formatSize(file.size)}</span></> : <><Upload size={36} /><strong>Choisir un fichier audio</strong><span>MP3, WAV, OGG, FLAC, AAC · 250 Mo maximum</span></>}
+        {file ? <><FileAudio size={36} /><strong>{file.name}</strong><span>{formatSize(file.size)}</span></> : <><Upload size={36} /><strong>Choisir un fichier audio ou vidéo</strong><span>MP3, WAV, OGG, FLAC, AAC, MP4, WebM · 250 Mo maximum</span></>}
       </button>
-      <input ref={input} hidden type="file" name="file" accept="audio/*,.flac" onChange={(event) => {
+      <input ref={input} hidden type="file" name="file" accept="audio/*,.flac,video/mp4,video/webm,.mp4,.webm" onChange={(event) => {
         const selected = event.target.files?.[0]; setFile(selected); if (selected) setError('');
       }} />
       <label>Titre<input name="title" required defaultValue={file?.name.replace(/\.[^.]+$/, '') ?? ''} key={file?.name} placeholder="Entrée des comédiens" /></label>

@@ -1,3 +1,4 @@
+import { isVideoTrack, videoEngine } from './video-engine';
 import type { MouseAction, Track } from '../types';
 import { fetchTrackAudio } from './offline-audio';
 import { bridgeClient, isBridgeUnavailableError, type AudioPlaybackMode } from './bridge-client';
@@ -111,6 +112,7 @@ class AudioEngine {
 
   setMasterVolume(volume: number): void {
     this.masterVolume = Math.min(1, Math.max(0, volume));
+    videoEngine.setMasterVolume(this.masterVolume);
     if (bridgeClient.isEnabled()) {
       bridgeClient.setMasterVolume(this.masterVolume);
       return;
@@ -201,6 +203,7 @@ class AudioEngine {
 
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
+    const unsubscribeVideo = videoEngine.subscribe(() => this.notify());
     const unsubscribeBridge = bridgeClient.subscribe(() => {
       if (bridgeClient.isEnabled()) this.notify();
     });
@@ -208,6 +211,7 @@ class AudioEngine {
     return () => {
       this.listeners.delete(listener);
       unsubscribeBridge();
+      unsubscribeVideo();
     };
   }
 
@@ -256,6 +260,10 @@ class AudioEngine {
   }
 
   private getActivePlaybacks(): ActivePlayback[] {
+    return [...this.getAudioPlaybacks(), ...videoEngine.getPlaybacks()].sort((a, b) => a.startedAtMs - b.startedAtMs);
+  }
+
+  private getAudioPlaybacks(): ActivePlayback[] {
     if (bridgeClient.isEnabled()) {
       const now = performance.now();
       return bridgeClient.getPlaybacks().filter((playback) => playback.channel === 'main').map((playback) => ({
@@ -363,6 +371,7 @@ class AudioEngine {
   }
 
   async preload(track: Track): Promise<void> {
+    if (isVideoTrack(track)) return;
     if (bridgeClient.isEnabled()) {
       try {
         return await bridgeClient.preload(track);
@@ -375,6 +384,12 @@ class AudioEngine {
   }
 
   async play(track: Track, fadeInMs = track.fadeInMs, volumeMultiplier = 1, outputId?: string): Promise<string> {
+    if (isVideoTrack(track)) {
+      if (this.getAudioPlaybacks().length + this.pendingMainPlaybacks >= this.maxActivePlaybacks) {
+        throw new Error(`Limite de ${this.maxActivePlaybacks} lectures simultanées atteinte.`);
+      }
+      return videoEngine.play(track, ++this.playbackSequence, fadeInMs, volumeMultiplier);
+    }
     if (this.getActivePlaybacks().length + this.pendingMainPlaybacks >= this.maxActivePlaybacks) {
       throw new Error(`Limite de ${this.maxActivePlaybacks} lecture${this.maxActivePlaybacks > 1 ? 's' : ''} simultanée${this.maxActivePlaybacks > 1 ? 's' : ''} atteinte.`);
     }
@@ -438,6 +453,7 @@ class AudioEngine {
   }
 
   togglePauseInstance(playbackId: string): void {
+    if (videoEngine.owns(playbackId)) return videoEngine.togglePause();
     if (bridgeClient.isEnabled()) return bridgeClient.togglePause(playbackId);
     const playback = this.findPlayback(playbackId);
     if (!playback || playback.stopping) return;
@@ -456,6 +472,7 @@ class AudioEngine {
   }
 
   setInstanceVolume(playbackId: string, volume: number): void {
+    if (videoEngine.owns(playbackId)) return videoEngine.setVolume(volume);
     if (bridgeClient.isEnabled()) return bridgeClient.setVolume(playbackId, volume);
     const playback = this.findPlayback(playbackId);
     const context = this.context;
@@ -475,6 +492,7 @@ class AudioEngine {
   }
 
   setInstanceLoop(playbackId: string, loop: boolean): void {
+    if (videoEngine.owns(playbackId)) return videoEngine.setLoop(loop);
     if (bridgeClient.isEnabled()) return bridgeClient.setLoop(playbackId, loop);
     const playback = this.findPlayback(playbackId);
     if (!playback || playback.stopping || playback.loop === loop) return;
@@ -488,6 +506,7 @@ class AudioEngine {
   }
 
   seekInstance(playbackId: string, progress: number): void {
+    if (videoEngine.owns(playbackId)) return videoEngine.seek(progress);
     if (bridgeClient.isEnabled()) return bridgeClient.seek(playbackId, progress);
     const playback = this.findPlayback(playbackId);
     if (!playback || playback.stopping) return;
@@ -510,11 +529,13 @@ class AudioEngine {
   }
 
   async setInstanceOutput(playbackId: string, outputId: string): Promise<void> {
+    if (videoEngine.owns(playbackId)) throw new Error('Le son de la vidéo utilise la sortie système du navigateur.');
     if (!bridgeClient.isEnabled()) throw new Error('Le changement de sortie en cours de lecture nécessite SonoRiva Bridge.');
     await bridgeClient.setPlaybackOutput(playbackId, outputId);
   }
 
   stop(trackId: string, fadeOutMs = 250): void {
+    if (videoEngine.getState().trackId === trackId) videoEngine.stop(fadeOutMs);
     if (bridgeClient.isEnabled()) return bridgeClient.stopTrack(trackId, fadeOutMs);
     const context = this.context;
     const instances = this.active.get(trackId);
@@ -523,6 +544,7 @@ class AudioEngine {
   }
 
   stopInstance(playbackId: string, fadeOutMs = 250): void {
+    if (videoEngine.owns(playbackId)) return videoEngine.stop(fadeOutMs);
     if (bridgeClient.isEnabled()) return bridgeClient.stop(playbackId, fadeOutMs);
     const playback = this.findPlayback(playbackId);
     if (playback) this.stopPlayback(playback, fadeOutMs);
@@ -579,6 +601,7 @@ class AudioEngine {
   }
 
   stopAll(tracks: Track[], fadeOutMs?: number): void {
+    videoEngine.stop(0);
     if (bridgeClient.isEnabled()) {
       const fades = new Map(tracks.map((track) => [track.id, track.fadeOutMs]));
       for (const playback of bridgeClient.getPlaybacks()) {
@@ -599,6 +622,7 @@ class AudioEngine {
   }
 
   resetProjectSession(tracks: Track[]): void {
+    videoEngine.stop();
     if (bridgeClient.isEnabled()) {
       bridgeClient.stopAll(0);
       this.resetHistory(tracks.map((track) => track.id));
@@ -615,6 +639,11 @@ class AudioEngine {
 
   async runAction(action: MouseAction, track: Track, projectTracks: Track[], volumeMultiplier = 1, outputId?: string): Promise<void> {
     if (action === 'none') return;
+    if (isVideoTrack(track)) {
+      if (action === 'stop') this.stop(track.id, track.fadeOutMs);
+      else await this.play(track, action === 'fade-in' ? track.fadeInMs || 1200 : track.fadeInMs, volumeMultiplier);
+      return;
+    }
     if (action === 'stop') return this.stop(track.id, track.fadeOutMs);
     if (action === 'start') { await this.play(track, track.fadeInMs, volumeMultiplier, outputId); return; }
     if (action === 'fade-in') { await this.play(track, track.fadeInMs > 0 ? track.fadeInMs : 1_200, volumeMultiplier, outputId); return; }

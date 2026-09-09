@@ -1,3 +1,5 @@
+import { ProjectionConsole } from './components/ProjectionConsole';
+import { isVideoTrack } from './lib/video-engine';
 import { RetroActionSelector } from './components/RetroActionSelector';
 import { RotaryVolume } from './components/RotaryVolume';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
@@ -123,6 +125,7 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState(localStorage.getItem('sonoriva-project'));
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [mediaFilter, setMediaFilter] = useState<'all' | 'audio' | 'video'>('all');
   const [searchScopes, setSearchScopes] = useState<Set<SearchScope>>(() => new Set(['name']));
   const [activePlaybacks, setActivePlaybacks] = useState<ActivePlayback[]>([]);
   const [playbackHistory, setPlaybackHistory] = useState<Map<string, number>>(new Map());
@@ -624,8 +627,8 @@ export default function App() {
       name: searchScopes.has('name'),
       tags: searchScopes.has('tags'),
     });
-    return inCategory && matches;
-  }), [detail?.tracks, isSearching, normalizedSearch, searchScopes, selectedCategoryId]);
+    return inCategory && matches && (mediaFilter === 'all' || isVideoTrack(track) === (mediaFilter === 'video'));
+  }), [detail?.tracks, isSearching, normalizedSearch, searchScopes, selectedCategoryId, mediaFilter]);
   const visibleSubcategories = useMemo(() => (detail?.subcategories ?? []).filter((subcategory) => {
     if (isSearching) return searchScopes.has('subcategories') && subcategoryMatchesSearch(subcategory.name, normalizedSearch);
     return selectedCategoryId === 'all' || subcategory.categoryId === selectedCategoryId;
@@ -643,8 +646,8 @@ export default function App() {
   const openSubcategoryTracks = useMemo(() => {
     const subcategoryMatches = Boolean(isSearching && searchScopes.has('subcategories') && openSubcategory && subcategoryMatchesSearch(openSubcategory.name, normalizedSearch));
     const candidates = subcategoryMatches ? detail?.tracks ?? [] : categoryTracks;
-    return candidates.filter((track) => track.subcategoryId === openSubcategoryId).sort((first, second) => first.position - second.position);
-  }, [categoryTracks, detail?.tracks, isSearching, normalizedSearch, openSubcategory, openSubcategoryId, searchScopes]);
+    return candidates.filter((track) => track.subcategoryId === openSubcategoryId && (mediaFilter === 'all' || isVideoTrack(track) === (mediaFilter === 'video'))).sort((first, second) => first.position - second.position);
+  }, [categoryTracks, detail?.tracks, isSearching, normalizedSearch, openSubcategory, openSubcategoryId, searchScopes, mediaFilter]);
   const visibleTracks = useMemo(() => visibleBoardItems.flatMap((item) => {
     if (item.kind === 'track') return [item.track];
     if (item.kind === 'subcategory' && item.id === openSubcategoryId) return openSubcategoryTracks;
@@ -794,6 +797,7 @@ export default function App() {
       const track = detail?.tracks.find((candidate) => candidate.id === item.trackId);
       return track ? [track] : [];
     });
+    if (tracks.some(isVideoTrack)) { setError('Les vidéos se déclenchent depuis leurs pads. Les playlists vidéo ne sont pas encore disponibles.'); return []; }
     if (tracks.length === 0) return [];
     const generation = ++playlistRunGenerationRef.current;
     playlistRunRef.current = true;
@@ -932,8 +936,10 @@ export default function App() {
   }
 
   function addTrackToPlaylist(trackId: string, targetRowId?: string, placement: PlaylistItemPlacement = 'after') {
-    if (!playlistsEnabled) return;
-    if (!detail?.tracks.some((track) => track.id === trackId)) return;
+    if (!playlistsEnabled || !detail) return;
+    const track = detail?.tracks.find((track) => track.id === trackId);
+    if (!track) return;
+    if (isVideoTrack(track)) { setError('Les playlists acceptent uniquement les sons dans cette version.'); return; }
     revealPlaylistModule();
     setPlaylistItems((current) => {
       const rows = groupPlaylistItems(current).map((row) => ({ ...row, items: [...row.items] }));
@@ -960,7 +966,7 @@ export default function App() {
   function addCategoryToPlaylist() {
     if (!playlistsEnabled) return;
     if (tracksToPreload.length === 0) return;
-    setPlaylistItems((current) => [...current, ...tracksToPreload.map((track) => ({ id: crypto.randomUUID(), trackId: track.id, rowId: crypto.randomUUID() }))]);
+    setPlaylistItems((current) => [...current, ...tracksToPreload.filter((track) => !isVideoTrack(track)).map((track) => ({ id: crypto.randomUUID(), trackId: track.id, rowId: crypto.randomUUID() }))]);
     revealPlaylistModule();
   }
 
@@ -2126,7 +2132,7 @@ export default function App() {
     const color = track.color ?? category?.color ?? '#71717a';
     const shortcutIndex = visibleTracks.findIndex((candidate) => candidate.id === track.id);
     const reorderPositionTarget = dropTrackId === track.id && dropTrackPlacement !== 'group' ? dropTrackPlacement : undefined;
-    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} reorderEnabled={reorderMode} playlistDropEnabled={playlistsEnabled && !selectionMode && !remote} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || reorderMode || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
+    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} reorderEnabled={reorderMode} playlistDropEnabled={playlistsEnabled && !selectionMode && !remote && !isVideoTrack(track)} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || reorderMode || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
       onPrimary={() => detail && runTrackAction(detail.project.leftClickAction ?? 'start', track)}
       onOutputPlay={(outputId) => playTrackOnOutput(track, outputId)}
       onSecondary={() => detail && runTrackAction(detail.project.rightClickAction ?? 'crossfade', track)}
@@ -2206,7 +2212,7 @@ export default function App() {
           const category = detail?.categories.find((item) => item.id === track.categoryId);
           const color = track.color ?? category?.color ?? '#71717a';
           return <article className={`player-card ${playback.paused ? 'is-paused' : ''}`} key={playback.id} style={{ '--track-color': color } as React.CSSProperties}>
-            <div className="player-card-main"><div className="player-card-copy"><strong>{track.title}</strong><PlaybackOutputSelector title={track.title} outputId={playback.outputId} outputs={routedBridgeOutputs} disabled={playback.fadingOut} onChange={(outputId) => audioEngine.setInstanceOutput(playback.id, outputId).catch((cause) => setError(cause instanceof Error ? cause.message : 'Impossible de changer la sortie audio.'))} /></div>
+            <div className="player-card-main"><div className="player-card-copy"><strong>{track.title}</strong><PlaybackOutputSelector title={track.title} outputId={playback.outputId} outputs={isVideoTrack(track) ? [] : routedBridgeOutputs} disabled={playback.fadingOut} onChange={(outputId) => audioEngine.setInstanceOutput(playback.id, outputId).catch((cause) => setError(cause instanceof Error ? cause.message : 'Impossible de changer la sortie audio.'))} /></div>
               <PlaybackPositionControl playback={playback} title={track.title} />
               <PlaybackVolumeControl playback={playback} title={track.title} rotary={appSkin === 'tape'} />
             </div>
@@ -2338,7 +2344,7 @@ export default function App() {
           <button className="icon-button support-button" onClick={() => setSupportOpen(true)} aria-label="Ouvrir le support" title="Support"><LifeBuoy size={19} />{supportUnreadCount > 0 && <i aria-label={`${supportUnreadCount} réponse${supportUnreadCount > 1 ? 's' : ''} non lue${supportUnreadCount > 1 ? 's' : ''}`}>{Math.min(supportUnreadCount, 9)}</i>}</button>
           <button className={`icon-button settings-button ${unseenReleases.length > 0 ? 'has-update' : ''}`} onClick={() => { setSettingsInitialSection(undefined); setSettingsOpen(true); }} aria-label="Ouvrir les paramètres" title="Paramètres"><Settings size={19} />{unseenReleases.length > 0 && <i aria-hidden="true" />}</button>
           {!remote && <button className="icon-button reset-show-button" onClick={resetCurrentProject} disabled={!detail} aria-label="Réinitialiser le spectacle en cours" title="Réinitialiser le spectacle"><RefreshCcw size={18} /></button>}
-          {!remote && <button className="button primary" onClick={() => setUploadOpen(true)}><Upload size={17} />Ajouter un son</button>}
+          {!remote && <button className="button primary" onClick={() => setUploadOpen(true)}><Upload size={17} />Ajouter un média</button>}
         </div>
       </header>
 
@@ -2422,6 +2428,7 @@ export default function App() {
           onResize={(id, width, height) => setWorkspaceLayout((current) => resizeWorkspaceItem(current, id, width, height))}>
 
       <section className="dashboard" aria-label="Tableau de bord des morceaux">
+        <label className="media-filter">Médias<select aria-label="Type de média" value={mediaFilter} onChange={(event) => setMediaFilter(event.target.value as 'all' | 'audio' | 'video')}><option value="all">Tous</option><option value="audio">Audio</option><option value="video">Vidéo</option></select></label>
         <div className="search"><div className="search-scope" role="group" aria-label="Filtres de recherche cumulables"><button type="button" className={searchScopes.has('name') ? 'active' : ''} aria-pressed={searchScopes.has('name')} onClick={() => toggleSearchScope('name')}>Noms</button><button type="button" className={searchScopes.has('tags') ? 'active' : ''} aria-pressed={searchScopes.has('tags')} onClick={() => toggleSearchScope('tags')}>Tags</button><button type="button" className={searchScopes.has('subcategories') ? 'active' : ''} aria-pressed={searchScopes.has('subcategories')} onClick={() => toggleSearchScope('subcategories')}>SC</button></div><Search size={18} /><input ref={searchInputRef} aria-label="Rechercher dans les filtres actifs" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher…" /><span className="search-end-actions">{isSearching && <button type="button" className="search-clear" onClick={() => { setSearch(''); searchInputRef.current?.focus(); }} aria-label="Annuler la recherche" title="Effacer la recherche"><X size={16} /></button>}{!remote && <button type="button" className="search-openverse" onClick={() => { setOpenverseAutoSearch(true); setOpenverseOpen(true); }} aria-label={search.trim() ? `Rechercher « ${search.trim()} » sur Openverse` : 'Ouvrir la recherche Openverse'} title={search.trim() ? `Rechercher « ${search.trim()} » sur Openverse` : 'Rechercher sur Openverse'}><Waves size={17} /></button>}<kbd>{formatShortcut(projectShortcut(detail?.project ?? {}, 'searchShortcut'))}</kbd></span></div>
         <div className="dashboard-actions">
           {!remote && <button className={`dashboard-button ${preloadedInCategory === tracksToPreload.length && tracksToPreload.length ? 'is-loaded' : ''}`} onClick={() => preloadCategory()} disabled={!tracksToPreload.length || Boolean(preloadProgress) || preloadedInCategory === tracksToPreload.length}
@@ -2463,7 +2470,7 @@ export default function App() {
 
       <section className="soundboard">
         {remote && <div className="remote-banner"><Radio size={18} /><span>Mode télécommande — les sons seront joués sur la régie connectée.</span></div>}
-        {!detail ? <div className="empty-state"><div className="skeleton-grid" /></div> : visibleBoardItems.length === 0 ? <div className="empty-state"><span className="empty-icon"><AudioLines /></span><h2>{search ? 'Aucun résultat trouvé' : 'Votre scène attend son premier son'}</h2><p>{search ? 'Essayez une autre recherche ou activez un autre filtre.' : 'Importez une musique ou un bruitage pour commencer votre soundboard.'}</p>{!remote && !search && <button className="button primary" onClick={() => setUploadOpen(true)}><Upload size={17} />Importer un son</button>}</div> : <div className={`track-grid ${soundboardView === 'list' ? 'is-list' : ''} ${selectionMode ? 'selection-mode' : ''} ${draggingSelectedTracks ? 'dragging-selection' : ''}`} style={{ '--track-columns': trackColumns } as React.CSSProperties} onPointerDown={beginMarqueeSelection} onPointerMove={moveMarqueeSelection} onPointerUp={endMarqueeSelection} onPointerCancel={endMarqueeSelection}>
+        {!detail ? <div className="empty-state"><div className="skeleton-grid" /></div> : visibleBoardItems.length === 0 ? <div className="empty-state"><span className="empty-icon"><AudioLines /></span><h2>{search ? 'Aucun résultat trouvé' : 'Votre scène attend son premier son'}</h2><p>{search ? 'Essayez une autre recherche ou activez un autre filtre.' : 'Importez une musique ou un bruitage pour commencer votre soundboard.'}</p>{!remote && !search && <button className="button primary" onClick={() => setUploadOpen(true)}><Upload size={17} />Importer un média</button>}</div> : <div className={`track-grid ${soundboardView === 'list' ? 'is-list' : ''} ${selectionMode ? 'selection-mode' : ''} ${draggingSelectedTracks ? 'dragging-selection' : ''}`} style={{ '--track-columns': trackColumns } as React.CSSProperties} onPointerDown={beginMarqueeSelection} onPointerMove={moveMarqueeSelection} onPointerUp={endMarqueeSelection} onPointerCancel={endMarqueeSelection}>
           {visibleBoardItems.map((boardItem, boardIndex) => {
             let tile: React.ReactNode;
             if (boardItem.kind === 'playlist') {
@@ -2511,6 +2518,7 @@ export default function App() {
         </WorkspaceLayoutBlock>
       </div>
 
+      {!remote && <ProjectionConsole />}
       <footer className="statusbar"><span><i className={connected ? 'live' : ''} />{remote ? 'Contrôleur' : 'Lecteur principal'} · volume maître {masterVolume} %{shortcutOutputSecondary ? ' · sortie secondaire' : ''}</span><span><Settings2 size={14} /> SonoRiva {releaseInfo?.currentVersion ?? __APP_VERSION__} · {audioEngine.getPlaybackMode() === 'bridge' ? 'Bridge audio' : 'Web Audio'} · {activePlaybacks.length} actif{activePlaybacks.length !== 1 ? 's' : ''}</span></footer>
     </main>
 

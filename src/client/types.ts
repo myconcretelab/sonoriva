@@ -310,6 +310,7 @@ export interface Track {
   title: string;
   originalFilename: string;
   mimeType: string;
+  videoEndBehavior?: 'black' | 'hold';
   sizeBytes: number;
   durationMs: number | null;
   startTimeMs: number;

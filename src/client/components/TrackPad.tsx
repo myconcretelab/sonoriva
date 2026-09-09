@@ -1,5 +1,7 @@
+import { VideoThumbnail } from './VideoThumbnail';
+import { isVideoTrack } from '../lib/video-engine';
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
-import { AudioWaveform, CircleCheck, Infinity as InfinityIcon, MoreHorizontal, Play } from 'lucide-react';
+import { Video, AudioWaveform, CircleCheck, Infinity as InfinityIcon, MoreHorizontal, Play } from 'lucide-react';
 import type { ActivePlayback } from '../lib/audio-engine';
 import type { RoutedBridgeOutput } from '../lib/bridge-output-routing';
 import { contrastColor } from '../lib/color-contrast';
@@ -41,7 +43,7 @@ interface Props {
 }
 
 export function TrackPad({ track, color, active, playbacks, historyProgress, loaded, reorderEnabled, playlistDropEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
-  const mainOutput = bridgeOutputs.find((output) => output.id === mainBridgeOutputId);
+  const mainOutput = (isVideoTrack(track) ? [] : bridgeOutputs).find((output) => output.id === mainBridgeOutputId);
   const alternateOutputs = mainOutput ? bridgeOutputs.filter((output) => output.id !== mainOutput.id) : [];
   const pointerDrag = useRef<{ pointerId: number; start: ClientPoint; started: boolean } | undefined>(undefined);
   const suppressClick = useRef(false);
@@ -89,7 +91,8 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
     {loaded && <span className="track-loaded" title="Disponible hors ligne" aria-label="Disponible hors ligne"><CircleCheck size={15} /></span>}
     <button className="icon-button subtle track-edit" onClick={() => !selectionMode && onEdit()} aria-label={`Modifier ${track.title}`} tabIndex={selectionMode ? -1 : undefined}><MoreHorizontal size={18} /></button>
     <button className="track-trigger" onClick={() => !selectionMode && onPrimary()} onContextMenu={(event) => { event.preventDefault(); if (!selectionMode) onSecondary(); }} aria-pressed={selectionMode ? selected : undefined}>
-      <span className={`play-disc ${mainOutput ? 'has-output-route' : ''}`} style={mainOutput ? { '--main-output-color': mainOutput.color } as React.CSSProperties : undefined}>{active ? <AudioWaveform size={18} /> : <Play size={18} fill="currentColor" />}</span>
+      <span className={`play-disc ${mainOutput ? 'has-output-route' : ''}`} style={mainOutput ? { '--main-output-color': mainOutput.color } as React.CSSProperties : undefined}>{isVideoTrack(track) ? <Video size={18} /> : active ? <AudioWaveform size={18} /> : <Play size={18} fill="currentColor" />}</span>
+      {isVideoTrack(track) && <VideoThumbnail trackId={track.id} />}
       <span className="track-title">{track.title}</span>
     </button>
     {alternateOutputs.length > 0 && <div className="track-output-plays" aria-label="Jouer sur une autre sortie">
@@ -105,7 +108,7 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
       } as React.CSSProperties} />)}
     </span>}
     <div className="track-meta">
-      <span>{track.durationMs ? formatDuration((track.endTimeMs ?? track.durationMs) - track.startTimeMs) : '—:—'}</span>
+      <span>{isVideoTrack(track) && 'Vidéo · '}{track.durationMs ? formatDuration((track.endTimeMs ?? track.durationMs) - track.startTimeMs) : '—:—'}</span>
       <span className="track-card-secondary">{track.loop && <InfinityIcon size={15} />}{shortcut ? `Touche ${shortcut}` : `${Math.min(100, Math.round(track.volume * 100))} %`}</span>
       <span className="track-list-shortcut" title={shortcut ? `Raccourci ${shortcut}` : 'Aucun raccourci'}>{track.loop && <InfinityIcon size={15} />}{shortcut ?? '—'}</span>
     </div>

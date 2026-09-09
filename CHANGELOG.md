@@ -2,6 +2,21 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.18.0] - 2026-09-09
+
+### Ajouté
+
+- import MP4 et WebM dans les catégories existantes, miniatures et filtre de type de média ;
+- fenêtre de projection séparée, aperçu en régie, pause, arrêt et noir écran ;
+- édition des points d’entrée/sortie, boucle, fondus image/son et choix écran noir ou dernière image ;
+- lecture des vidéos téléchargées hors ligne avec réponses HTTP Range depuis le cache ;
+- commandes vidéo intégrées aux pads, raccourcis, télécommande et arrêt général.
+
+### Limites
+
+- une seule projection simultanée, son vidéo sur la sortie système du navigateur ;
+- playlists audio uniquement, sans transcodage ni synchronisation vidéo native via le Bridge.
+
 ## [1.17.0] - 2026-09-06
 
 ### Ajouté

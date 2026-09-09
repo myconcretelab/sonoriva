@@ -14,7 +14,8 @@ L’identité visuelle repose sur le monogramme **SR** et un accent aqua ; les i
 - forfait interne de démonstration avec durée d’inactivité, imports, taille de fichier et stockage configurables ;
 - plusieurs spectacles et catégories colorées, réordonnables et supprimables, avec recherche globale ;
 - sous-catégories de morceaux en tuiles compactes avec ouverture dans un tiroir ;
-- import MP3, WAV, OGG, FLAC et AAC jusqu’à 250 Mo ;
+- import audio MP3, WAV, OGG, FLAC et AAC et vidéo MP4/WebM jusqu’à 250 Mo ;
+- projection vidéo dans une fenêtre séparée avec aperçu, boucle, points d’entrée/sortie, fondus et noir écran ;
 - recherche Freesound avec filtres de durée minimale et maximale, préécoute, renommage et import dans la catégorie choisie ;
 - import complet d’un projet SoundShow `.ssp` avec catégories, couleurs, boucles et points d’entrée/sortie ;
 - lecture polyphonique plafonnée par spectacle, navigation dans le morceau, boucles, volume limité à 100 % et fondus animés, avec lecteurs compacts automatiques et commandes indépendantes pour chaque instance ;

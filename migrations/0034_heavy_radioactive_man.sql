@@ -1,0 +1,1 @@
+ALTER TABLE "tracks" ADD COLUMN "video_end_behavior" text DEFAULT 'black' NOT NULL;

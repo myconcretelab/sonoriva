@@ -2,6 +2,14 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.18.0 — 9 septembre 2026
+
+- import vidéo MP4/WebM et pads avec miniatures ;
+- fenêtre de projection, aperçu privé, noir écran, boucle et points d’entrée/sortie ;
+- lecture hors ligne et commandes par raccourcis ou télécommande.
+
+[Détails de la version 1.18.0](./1.18.0.md)
+
 ## Version 1.17.0 — 6 septembre 2026
 
 - alertes e-mail et Telegram pour les nouveaux forfaits gratuits ou payants ;

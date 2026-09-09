@@ -15,6 +15,14 @@ La taille maximale d’un fichier importé est de **250 Mo**.
 
 L’extension est contrôlée par SonoRiva. Le décodage dépend ensuite des codecs fournis par le navigateur et le système d’exploitation.
 
+## Fichiers vidéo
+
+Les fichiers `.mp4` et `.webm` sont acceptés, avec la même limite de 250 Mo et les limites éventuelles du forfait de démonstration. La lecture dépend des codecs du navigateur. SonoRiva ne convertit pas les vidéos.
+
+Une seule vidéo est projetée à la fois. Les playlists restent audio. Le son vidéo utilise la sortie système du navigateur, indépendamment du Bridge.
+
+[Commandes et paramètres de projection](./video.md)
+
 ## Stockage du compte
 
 L’utilisation et le quota apparaissent dans **Paramètres → Offre et stockage**. Un import est bloqué lorsque sa taille ferait dépasser le quota.

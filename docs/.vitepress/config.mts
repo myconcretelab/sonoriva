@@ -54,6 +54,7 @@ export default defineConfig({
         items: [
           { text: 'Formats et limites', link: '/reference/formats-et-limites' },
           { text: 'Moteur et sorties audio', link: '/reference/sortie-audio' },
+          { text: 'Projection vidéo', link: '/reference/video' },
           { text: 'Raccourcis et commandes', link: '/reference/raccourcis' },
         ],
       },

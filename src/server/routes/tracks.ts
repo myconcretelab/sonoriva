@@ -20,10 +20,11 @@ import { reorderTracks } from '../services/reorder.js';
 import { applyTrackTagChange, batchTrackLocationUpdate } from '../services/track-batch.js';
 
 const acceptedMimeTypes = new Set([
+  'video/mp4', 'video/webm',
   'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave', 'audio/ogg', 'audio/flac',
   'audio/x-flac', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/x-aac', 'application/ogg',
 ]);
-const acceptedExtensions = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac']);
+const acceptedExtensions = new Set(['.mp4', '.webm', '.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac']);
 const maxAudioBytes = 250 * 1024 * 1024;
 const trackTagSchema = z.string().trim()
   .transform((tag) => tag.replace(/^#+/, '').replace(/\s+/g, ' '))
@@ -111,7 +112,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
         }
         if (!isAcceptedAudio(part.mimetype, part.filename)) {
           part.file.resume();
-          return reply.code(415).send({ error: 'Format audio non pris en charge.' });
+          return reply.code(415).send({ error: 'Format média non pris en charge.' });
         }
         const key = `${randomUUID()}${extensionFor(part.filename)}`;
         stagedKey = key;
@@ -121,17 +122,17 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
           transform(chunk: Buffer, _encoding, callback) {
             received += chunk.length;
             callback(received > userMaxAudioBytes
-              ? demoLimits ? new DemoUploadError('file-too-large', demoLimits.maxFileBytes) : new Error('Fichier audio trop volumineux.')
+              ? demoLimits ? new DemoUploadError('file-too-large', demoLimits.maxFileBytes) : new Error('Fichier média trop volumineux.')
               : null, chunk);
           },
         });
         await pipeline(part.file, limiter, createWriteStream(destination, { flags: 'wx' }));
         const info = await stat(destination);
-        uploaded = { key, originalFilename: part.filename, mimeType: part.mimetype, size: info.size };
+        uploaded = { key, originalFilename: part.filename, mimeType: /\.mp4$/i.test(part.filename) ? 'video/mp4' : /\.webm$/i.test(part.filename) ? 'video/webm' : part.mimetype, size: info.size };
       }
 
       const input = importedMetadataSchema.parse(fields);
-      if (!uploaded) return reply.code(400).send({ error: 'Fichier audio manquant.' });
+      if (!uploaded) return reply.code(400).send({ error: 'Fichier média manquant.' });
       if (!(await ownsProject(user.id, input.projectId))) {
         await unlink(path.join(config.STORAGE_PATH, uploaded.key));
         return reply.code(404).send({ error: 'Projet introuvable.' });
@@ -359,6 +360,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
       fadeOutMs: z.number().int().min(0).max(60_000).optional(),
       startTimeMs: z.number().int().min(0).optional(),
       endTimeMs: z.number().int().positive().nullable().optional(),
+      videoEndBehavior: z.enum(['black', 'hold']).optional(),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
       tags: trackTagsSchema.optional(),
     }).parse(request.body);

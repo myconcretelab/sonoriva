@@ -11,6 +11,21 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.18.0',
+    date: '2026-09-09',
+    title: 'Projection vidéo',
+    summary: 'Les vidéos rejoignent les pads avec une fenêtre de projection séparée.',
+    important: false,
+    changes: [
+      'Import MP4 et WebM, miniatures et filtre audio/vidéo dans la bibliothèque.',
+      'Projection sur une fenêtre séparée avec aperçu, pause, arrêt et noir écran.',
+      'Points d’entrée et de sortie, boucle, volume et conservation de la dernière image.',
+      'Téléchargement hors ligne des vidéos et commandes depuis la télécommande.',
+      'Une seule projection à la fois ; les playlists restent audio et le son vidéo utilise la sortie système du navigateur.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.17.0',
     date: '2026-09-06',
     title: 'Notifications de souscription',

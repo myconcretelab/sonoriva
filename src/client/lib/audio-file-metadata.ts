@@ -1,6 +1,6 @@
 export async function readAudioFileDurationMs(file: File): Promise<number | undefined> {
   const objectUrl = URL.createObjectURL(file);
-  const audio = document.createElement('audio');
+  const audio = document.createElement(/\.(mp4|webm)$/i.test(file.name) || file.type.startsWith('video/') ? 'video' : 'audio');
   audio.preload = 'metadata';
   try {
     return await new Promise<number | undefined>((resolve) => {

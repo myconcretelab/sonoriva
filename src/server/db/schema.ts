@@ -286,6 +286,7 @@ export const tracks = pgTable('tracks', {
   originalFilename: text('original_filename').notNull(),
   storageKey: text('storage_key').notNull().unique(),
   mimeType: text('mime_type').notNull(),
+  videoEndBehavior: text('video_end_behavior').notNull().default('black'),
   sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
   durationMs: integer('duration_ms'),
   startTimeMs: integer('start_time_ms').notNull().default(0),
