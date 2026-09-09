@@ -133,6 +133,11 @@ html[data-skin='porcelain'] .statusbar { background: #e9eff3; }
 html[data-skin='tape'] body,
 html[data-skin='tape'] .app-shell,
 html[data-skin='tape'] .workspace-layout-grid { background: var(--skin-wood); }
+html[data-skin='tape'] .workspace-block.workspace-players:not(.is-layout-editing) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
 html[data-skin='tape'] .sidebar { border-right: 7px ridge #76543b; background: radial-gradient(#b4a2861c .6px, #0000 .8px) 0 0 / 3px 3px, #27261f; }
 html[data-skin='tape'] .topbar { border-bottom: 5px ridge #76543b; background: var(--skin-panel); box-shadow: 0 4px 12px #0005; }
 html[data-skin='tape'] :is(.topbar h1, .brand, .settings-section-title strong) { font-family: Rockwell, 'Courier New', monospace; letter-spacing: -.025em; }
