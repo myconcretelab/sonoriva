@@ -8,10 +8,15 @@ export default tseslint.config(
   { ignores: ['dist', 'node_modules', 'coverage', 'docs/.vitepress/.temp', 'public/sw.js', 'bridge/src-tauri/target'] },
   js.configs.recommended,
   {
-    files: ['bridge/ui/**/*.js'],
+    files: ['bridge/ui/**/*.js', 'wordpress/sonoriva-slides/**/*.js'],
     languageOptions: { globals: globals.browser },
   },
   ...tseslint.configs.recommended,
+  {
+    files: ['wordpress/**/*.cjs'],
+    languageOptions: { globals: globals.node },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },

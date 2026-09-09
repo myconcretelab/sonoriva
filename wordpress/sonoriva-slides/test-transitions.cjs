@@ -7,7 +7,7 @@ class E {
 async function test(effect,reduced=false){
 const root=new E('sr-slides');root.dataset={srTransition:effect,srDuration:'450'};root.track=new E();const slides=root.track.children=[new E('sr-slide'),new E('sr-slide'),new E('sr-slide')];const motion={matches:reduced,addEventListener(k,f){this.change=f}};
 vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'view.js'),'utf8'),{window:{matchMedia:()=>motion},document:{readyState:'complete',querySelectorAll:()=>[root],createElement:()=>new E()}});
-const [prev,dots,next]=root.children[0].children;next.events.click();
+const [,dots,next]=root.children[0].children;next.events.click();
 if(effect==='none'||reduced){assert.deepEqual(slides.map(x=>x.hidden),[true,false,true]);assert(!slides[1].animations);return;}
 const anim=slides[1].animations[0];assert.equal(anim.options.duration,450);
 if(effect==='slide')assert.equal(anim.frames[0].transform,'translateX(100%)');
