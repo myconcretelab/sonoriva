@@ -64,7 +64,7 @@ html[data-skin='tape'] {
   --skin-button: linear-gradient(#f2e7cb, #cfc1a0);
   --skin-button-shadow: inset 0 1px #fff9, inset 1px 0 #fff4, 0 3px 0 #655740, 0 4px 5px #0006;
   --skin-button-pressed: inset 0 2px 4px #38291870;
-  --skin-wood: repeating-linear-gradient(2deg, #1e0e0b30 0 1px, #0000 1px 6px, #e9b57915 6px 8px, #0000 8px 14px), linear-gradient(90deg, #4b2e20, #765035 26%, #533523 61%, #6c462e);
+  --skin-wood: url('/textures/retro-wood.webp');
 }
 html:is([data-skin='porcelain'], [data-skin='tape']) :is(.workspace-block, .workspace-block.is-collapsed:not(.is-layout-editing), .dialog, .settings-section, .console-module) {
   border-radius: var(--skin-radius);
@@ -130,15 +130,18 @@ html[data-skin='porcelain'] .auth-intro { background: radial-gradient(ellipse at
 html[data-skin='porcelain'] .brand-mark { filter: brightness(.5) drop-shadow(0 2px 2px #17324620); }
 html[data-skin='porcelain'] .subcategory-drawer { --subcategory-drawer-bg: #f4f7f9; --subcategory-drawer-border: #94a9b8; }
 html[data-skin='porcelain'] .statusbar { background: #e9eff3; }
-html[data-skin='tape'] body,
+html[data-skin='tape'] body {
+  background: #533523 var(--skin-wood) center bottom / max(112vw, 112vh) max(112vw, 112vh) no-repeat fixed;
+  /* Crop the source image's top label while keeping a continuous wood surface. */
+}
 html[data-skin='tape'] .app-shell,
-html[data-skin='tape'] .workspace-layout-grid { background: var(--skin-wood); }
+html[data-skin='tape'] .workspace-layout-grid { background: transparent; }
 html[data-skin='tape'] .workspace-block.workspace-players:not(.is-layout-editing) {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
 }
-html[data-skin='tape'] .sidebar { border-right: 7px ridge #76543b; background: var(--skin-wood); }
+html[data-skin='tape'] .sidebar { border-right: 7px ridge #76543b; background: transparent; box-shadow: none; }
 html[data-skin='tape'] .topbar { border-bottom: 5px ridge #76543b; background: var(--skin-panel); box-shadow: 0 4px 12px #0005; }
 html[data-skin='tape'] :is(.topbar h1, .brand, .settings-section-title strong) { font-family: Rockwell, 'Courier New', monospace; letter-spacing: -.025em; }
 html[data-skin='tape'] :is(.side-label, .workspace-block-handle, .console-module > span, .statusbar) { font-family: 'Courier New', monospace; letter-spacing: .06em; }
@@ -147,14 +150,15 @@ html[data-skin='tape'] .button.primary { color: #2a1b10; background: linear-grad
 html[data-skin='tape'] .button.primary:hover { background: #f6ca84; }
 html[data-skin='tape'] .console-module { background: #1c2118; border: 2px inset #7a715c; box-shadow: inset 0 2px 8px #0009; }
 html[data-skin='tape'] .console-module strong { color: #f6cd7c; font-family: 'Courier New', monospace; text-shadow: 0 0 8px #f4b95355; }
-html[data-skin='tape'] .track-pad { background-image: linear-gradient(#ffffff0a, #00000024); border-bottom-width: 3px; }
+html[data-skin='tape'] .track-pad { background-image: linear-gradient(#ffffff0a, #00000024); border-width: 4px; border-color: var(--track-color); }
+html[data-skin='tape'] .player-card { border-width: 4px; border-color: var(--track-color); }
 html[data-skin='tape'] .play-disc { border: 2px outset #ecdfbb; color: #3e3022; background: linear-gradient(#f7edce, #c4b28c); box-shadow: 0 2px 4px #0005; }
 html[data-skin='tape'] .track-title { font-family: 'Courier New', monospace; font-weight: 800; }
 html[data-skin='tape'] .category-tab { border-bottom: 4px solid color-mix(in srgb, var(--category-color) 60%, #24180f); }
 html[data-skin='tape'] .dialog { border: 5px ridge #93734c; }
 html[data-skin='tape'] .settings-section { background: linear-gradient(#292a24dd, #292a24dd), var(--skin-panel); }
 html[data-skin='tape'] .dialog-backdrop { background: #17110cbb; }
-html[data-skin='tape'] .auth-intro { background: var(--skin-wood); }
+html[data-skin='tape'] .auth-intro { background: transparent; }
 html[data-skin='tape'] .statusbar { background: #25251f; border-top: 2px ridge #7a715c; }
 .skin-preview.porcelain { border-color: #acbdc8; border-radius: 3px; background: #dce3e8; }
 .skin-preview.porcelain i { background: linear-gradient(#fff, #e5ecf0); box-shadow: 0 2px 2px #233d4e30; }
