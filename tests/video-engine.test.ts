@@ -11,7 +11,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   paused = true; finishLoad = true;
   const doc = document.implementation.createHTMLDocument();
-  Object.defineProperty(doc, 'readyState', { value: 'complete' });
+  Object.defineProperty(doc, 'readyState', { value: 'complete', configurable: true });
   popup = { setInterval: window.setInterval.bind(window), clearInterval: window.clearInterval.bind(window), location: { pathname: '/projection.html' }, document: doc, closed: false, focus: vi.fn(), close: vi.fn(), addEventListener: vi.fn() } as unknown as Window;
   vi.spyOn(window, 'open').mockReturnValue(popup);
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(function (this: HTMLMediaElement) { if (this.getAttribute('src') && finishLoad) queueMicrotask(() => this.dispatchEvent(new Event('loadedmetadata'))); });
@@ -34,6 +34,30 @@ describe('projection vidéo', () => {
     await expect(videoEngine.play(track, 1, 0, 1)).rejects.toThrow('Ouvrez');
     vi.mocked(window.open).mockReturnValue(null);
     expect(() => videoEngine.open()).toThrow('bloquée');
+  });
+  it('attend que la fenêtre soit prête avant de lancer une vidéo', async () => {
+    videoEngine.open();
+    const ready = vi.fn();
+    const waiting = videoEngine.whenReady().then(ready);
+    expect(ready).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(50);
+    await waiting;
+    expect(ready).toHaveBeenCalledOnce();
+    await videoEngine.play(track, 1, 0, 1);
+    expect(videoEngine.getPlaybacks()[0]?.trackId).toBe(track.id);
+  });
+  it('annule l’attente lorsque la fenêtre est fermée', async () => {
+    videoEngine.open();
+    const waiting = expect(videoEngine.whenReady()).rejects.toThrow('fermée');
+    videoEngine.close();
+    await waiting;
+  });
+  it('borne l’attente d’une fenêtre qui ne charge pas', async () => {
+    Object.defineProperty(popup.document, 'readyState', { value: 'loading', configurable: true });
+    videoEngine.open();
+    const waiting = expect(videoEngine.whenReady()).rejects.toThrow('ne répond pas');
+    await vi.advanceTimersByTimeAsync(10000);
+    await waiting;
   });
   it('joue la sélection avec volume maître et remplace la projection précédente', async () => {
     videoEngine.open(); await vi.advanceTimersByTimeAsync(50); videoEngine.setMasterVolume(.5);

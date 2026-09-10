@@ -58,6 +58,22 @@ class VideoEngine {
     this.notify();
   }
 
+  whenReady(): Promise<void> {
+    if (this.video && this.getState().connected) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const finish = (error?: string) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        if (error) reject(new Error(error)); else resolve();
+      };
+      const unsubscribe = this.subscribe(() => {
+        if (!this.getState().connected) finish('La projection a été fermée avant la lecture.');
+        else if (this.video) finish();
+      });
+      const timeout = window.setTimeout(() => finish('La fenêtre de projection ne répond pas.'), 10000);
+    });
+  }
+
   private initialize(popup: Window) {
     popup.document.title = 'SonoRiva — Projection';
     popup.document.body.replaceChildren();

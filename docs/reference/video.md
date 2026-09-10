@@ -2,17 +2,19 @@
 
 Les fichiers MP4 et WebM s’importent par **Ajouter un média** ou par glisser-déposer. Ils occupent le même espace de stockage que les sons. La limite habituelle est de 250 Mo par fichier ; les limites du forfait de démonstration s’appliquent à ses imports.
 
-Les vidéos apparaissent dans les catégories existantes avec une miniature et la mention **Vidéo**. Le filtre **Médias** affiche tous les médias, les sons ou les vidéos.
+Les vidéos apparaissent dans les catégories existantes avec une miniature et la mention **Vidéo**. Le filtre **Tous les médias / Audio / Vidéo**, situé près de la recherche, filtre les pads affichés et les résultats de recherche. Il apparaît lorsque le spectacle contient des vidéos.
 
 ## Fenêtre de projection
 
+Le bouton **Projection** du tableau de bord affiche un panneau avec un aperçu et les commandes vidéo. Replier ce panneau laisse la projection ouverte.
+
 **Ouvrir la projection** crée une fenêtre séparée. Cette fenêtre se déplace sur l’écran de destination. Son bouton **Activer la projection en plein écran** demande le plein écran ; un double-clic sur l’image permet de le redemander.
 
-Le navigateur peut bloquer l’ouverture de la fenêtre ou la lecture. SonoRiva affiche alors une erreur. Les vidéos se déclenchent après ouverture de la fenêtre de projection.
+Le navigateur peut bloquer l’ouverture de la fenêtre ou la lecture. SonoRiva affiche alors une erreur. Cliquer sur un pad vidéo lorsque la projection est fermée affiche le panneau avec le bouton **Ouvrir la projection et lire**. Ce bouton ouvre la fenêtre puis lance la vidéo choisie.
 
 Un pad vidéo remplace la vidéo en cours et laisse les sons indépendants continuer. Une seule vidéo peut être projetée à la fois. Les actions Démarrer, Remplacer et Fondu enchaîné sur un pad vidéo déclenchent ce remplacement ; cette version ne superpose pas deux vidéos pour un fondu enchaîné.
 
-La console **Projection vidéo** affiche un aperçu de la sortie, le titre et le temps restant. Elle comporte les commandes pause/reprise, arrêt et fermeture de la projection.
+Lorsque la projection est ouverte, une barre compacte sous les médias affiche le titre, le temps restant, pause/reprise, arrêt et **Noir écran**. Le panneau **Projection vidéo** affiche également un aperçu et la commande de fermeture de la projection.
 
 **Noir écran** masque l’image, sans arrêter le temps de lecture ni le son. Un second clic rétablit l’image. **Arrêter la vidéo** interrompt la vidéo et remet la projection au noir. L’arrêt général interrompt également la vidéo. Fermer la fenêtre arrête sa lecture. Une actualisation de la régie ferme la projection.
 

@@ -1,10 +1,10 @@
 import { ProjectionConsole } from './components/ProjectionConsole';
-import { isVideoTrack } from './lib/video-engine';
+import { isVideoTrack, videoEngine } from './lib/video-engine';
 import { RetroActionSelector } from './components/RetroActionSelector';
 import { RotaryVolume } from './components/RotaryVolume';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
-  ArrowUpDown, AudioLines, AudioWaveform, CircleCheck, Clock3, Columns3, Download, FolderInput, FolderPlus, GripVertical, History, LayoutDashboard, LifeBuoy, ListMusic, ListPlus, LoaderCircle, Menu, Move, Pause, Pencil, Play, Plus, Radio,
+  ArrowUpDown, AudioLines, AudioWaveform, CircleCheck, Clock3, Columns3, Download, FolderInput, FolderPlus, GripVertical, History, LayoutDashboard, LifeBuoy, ListMusic, ListPlus, LoaderCircle, Menu, MonitorPlay, MoreHorizontal, Move, Pause, Pencil, Play, Plus, Radio,
   LockKeyhole, LogIn, RefreshCcw, Repeat2, RotateCcw, Scan, Search, Settings, Settings2, SlidersHorizontal, Square, SquareDashed, Timer, Trash2, Upload, Volume2, VolumeX, Waves, Wifi, WifiOff, X,
 } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
@@ -125,6 +125,9 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState(localStorage.getItem('sonoriva-project'));
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [projectionOpen, setProjectionOpen] = useState(false);
+  const [pendingVideo, setPendingVideo] = useState<{ title: string; run: () => Promise<unknown> }>();
+  const [dashboardToolsOpen, setDashboardToolsOpen] = useState(false);
   const [mediaFilter, setMediaFilter] = useState<'all' | 'audio' | 'video'>('all');
   const [searchScopes, setSearchScopes] = useState<Set<SearchScope>>(() => new Set(['name']));
   const [activePlaybacks, setActivePlaybacks] = useState<ActivePlayback[]>([]);
@@ -772,7 +775,13 @@ export default function App() {
     }
     else if (preparedCommand.type === 'stop-last') audioEngine.stopLast(detail?.tracks ?? [], preparedCommand.immediate);
     else if (preparedCommand.type === 'stop' && track) audioEngine.stop(track.id, track.fadeOutMs);
-    else if (preparedCommand.type === 'play' && track) audioEngine.play(track, track.fadeInMs, preparedCommand.volumeMultiplier, preparedCommand.outputId ?? shortcutLaunchOutputId()).catch((cause) => setError(cause.message));
+    else if (preparedCommand.type === 'play' && track) {
+      const run = () => audioEngine.play(track, track.fadeInMs, preparedCommand.volumeMultiplier, preparedCommand.outputId ?? shortcutLaunchOutputId());
+      if (isVideoTrack(track) && !videoEngine.getState().connected) {
+        setPendingVideo({ title: track.title, run });
+        setProjectionOpen(true);
+      } else run().catch((cause) => setError(cause.message));
+    }
   }, [consumeNextTrackVolume, detail, remote, shortcutLaunchOutputId, socket]);
 
   const runTrackAction = useCallback((action: MouseAction, track: Track) => {
@@ -783,7 +792,13 @@ export default function App() {
       socket?.emit('remote-command', { projectId: detail.project.id, command: { type: 'run-action', trackId: track.id, action, volumeMultiplier } satisfies RemoteCommand });
       return;
     }
-    audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, shortcutLaunchOutputId()).catch((cause) => setError(cause.message));
+    const run = () => audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, shortcutLaunchOutputId());
+    if (startsPlayback && isVideoTrack(track) && !videoEngine.getState().connected) {
+      setPendingVideo({ title: track.title, run });
+      setProjectionOpen(true);
+      return;
+    }
+    run().catch((cause) => setError(cause.message));
   }, [consumeNextTrackVolume, detail, remote, shortcutLaunchOutputId, socket]);
 
   const playTrackOnOutput = useCallback((track: Track, outputId: string) => {
@@ -1725,6 +1740,9 @@ export default function App() {
   }
 
   function chooseProject(id: string) {
+    setPendingVideo(undefined);
+    setProjectionOpen(false);
+    setMediaFilter('all');
     audioEngine.stopAll(detail?.tracks ?? []);
     resetPlaylistEditor();
     setSelectedProjectId(id);
@@ -2355,6 +2373,7 @@ export default function App() {
         onDeleteSaved={deleteNamedWorkspaceLayout}
         onReset={() => setWorkspaceLayout(createWorkspaceLayout('classic'))}
         onClose={() => setLayoutEditing(false)} />}
+      <div className="workspace-with-projection">
       <div className={`workspace-layout-grid ${layoutEditing ? 'is-editing' : ''}`} style={{ '--workspace-columns': workspaceLayout.columns } as React.CSSProperties}
         onDragOver={(event) => { if (!layoutEditing || !event.dataTransfer.types.includes(workspaceBlockMime)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
         onDrop={(event) => {
@@ -2428,9 +2447,15 @@ export default function App() {
           onResize={(id, width, height) => setWorkspaceLayout((current) => resizeWorkspaceItem(current, id, width, height))}>
 
       <section className="dashboard" aria-label="Tableau de bord des morceaux">
-        <label className="media-filter">Médias<select aria-label="Type de média" value={mediaFilter} onChange={(event) => setMediaFilter(event.target.value as 'all' | 'audio' | 'video')}><option value="all">Tous</option><option value="audio">Audio</option><option value="video">Vidéo</option></select></label>
+        <div className="dashboard-search-group">
         <div className="search"><div className="search-scope" role="group" aria-label="Filtres de recherche cumulables"><button type="button" className={searchScopes.has('name') ? 'active' : ''} aria-pressed={searchScopes.has('name')} onClick={() => toggleSearchScope('name')}>Noms</button><button type="button" className={searchScopes.has('tags') ? 'active' : ''} aria-pressed={searchScopes.has('tags')} onClick={() => toggleSearchScope('tags')}>Tags</button><button type="button" className={searchScopes.has('subcategories') ? 'active' : ''} aria-pressed={searchScopes.has('subcategories')} onClick={() => toggleSearchScope('subcategories')}>SC</button></div><Search size={18} /><input ref={searchInputRef} aria-label="Rechercher dans les filtres actifs" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher…" /><span className="search-end-actions">{isSearching && <button type="button" className="search-clear" onClick={() => { setSearch(''); searchInputRef.current?.focus(); }} aria-label="Annuler la recherche" title="Effacer la recherche"><X size={16} /></button>}{!remote && <button type="button" className="search-openverse" onClick={() => { setOpenverseAutoSearch(true); setOpenverseOpen(true); }} aria-label={search.trim() ? `Rechercher « ${search.trim()} » sur Openverse` : 'Ouvrir la recherche Openverse'} title={search.trim() ? `Rechercher « ${search.trim()} » sur Openverse` : 'Rechercher sur Openverse'}><Waves size={17} /></button>}<kbd>{formatShortcut(projectShortcut(detail?.project ?? {}, 'searchShortcut'))}</kbd></span></div>
+        {(detail?.tracks.some(isVideoTrack) || mediaFilter !== 'all') && <select className="media-filter" aria-label="Type de média" value={mediaFilter} onChange={(event) => setMediaFilter(event.target.value as 'all' | 'audio' | 'video')}><option value="all">Tous les médias</option><option value="audio">Audio</option><option value="video">Vidéo</option></select>}
+        </div>
         <div className="dashboard-actions">
+          {!remote && <button className={`dashboard-button projection-toggle ${projectionOpen ? 'active' : ''}`} onClick={() => { setProjectionOpen((value) => !value); setPendingVideo(undefined); }} aria-label="Commandes de projection vidéo" aria-expanded={projectionOpen} title="Projection vidéo"><MonitorPlay size={18} /><span>Projection</span></button>}
+          <div className="dashboard-tools">
+          <button className={`dashboard-button dashboard-more ${dashboardToolsOpen ? 'active' : ''}`} aria-label="Outils du tableau de bord" aria-expanded={dashboardToolsOpen} onClick={() => setDashboardToolsOpen((value) => !value)}><MoreHorizontal size={18} /></button>
+          <div className={`dashboard-tools-list ${dashboardToolsOpen ? 'is-open' : ''}`} onKeyDown={(event) => { if (event.key === 'Escape') setDashboardToolsOpen(false); }}>
           {!remote && <button className={`dashboard-button ${preloadedInCategory === tracksToPreload.length && tracksToPreload.length ? 'is-loaded' : ''}`} onClick={() => preloadCategory()} disabled={!tracksToPreload.length || Boolean(preloadProgress) || preloadedInCategory === tracksToPreload.length}
             aria-label={preloadProgress ? `Mise hors ligne ${preloadProgress.done} sur ${preloadProgress.total}` : preloadedInCategory === tracksToPreload.length && tracksToPreload.length ? 'Catégorie disponible hors ligne' : 'Rendre la catégorie disponible hors ligne'} title={preloadProgress ? `${preloadProgress.done}/${preloadProgress.total}` : preloadedInCategory === tracksToPreload.length && tracksToPreload.length ? 'Disponible hors ligne' : 'Rendre la catégorie disponible hors ligne'}>
             {preloadProgress ? <LoaderCircle className="spin" size={18} /> : preloadedInCategory === tracksToPreload.length && tracksToPreload.length ? <CircleCheck size={18} /> : <Download size={18} />}
@@ -2459,7 +2484,8 @@ export default function App() {
             aria-label={currentCategory ? `Ajouter les ${tracksToPreload.length} morceaux de ${currentCategory.name} à la playlist` : `Ajouter les ${tracksToPreload.length} morceaux à la playlist`}
             title={!playlistsEnabled ? 'Playlists non incluses dans votre forfait' : currentCategory ? `Ajouter toute la catégorie « ${currentCategory.name} » à la playlist` : 'Ajouter tous les morceaux à la playlist'}><ListPlus size={19} /></button>}
           {!remote && !isSearching && <button className="dashboard-button" onClick={() => setSubcategoryDialog('new')} aria-label="Créer une sous-catégorie" title="Nouvelle sous-catégorie"><FolderPlus size={19} /></button>}
-          <div className="track-count"><span>{isSearching ? visibleBoardItems.length : categoryTracks.length}</span><small>{isSearching ? 'rés.' : `son${categoryTracks.length !== 1 ? 's' : ''}`}</small></div>
+          </div></div>
+          <div className="track-count"><span>{isSearching ? visibleBoardItems.length : categoryTracks.length}</span><small>{isSearching ? 'rés.' : mediaFilter === 'video' ? `vidéo${categoryTracks.length !== 1 ? 's' : ''}` : mediaFilter === 'audio' || !detail?.tracks.some(isVideoTrack) ? `son${categoryTracks.length !== 1 ? 's' : ''}` : 'médias'}</small></div>
         </div>
       </section>
 
@@ -2518,7 +2544,9 @@ export default function App() {
         </WorkspaceLayoutBlock>
       </div>
 
-      {!remote && <ProjectionConsole />}
+      {!remote && projectionOpen && <ProjectionConsole panel onClose={() => { setProjectionOpen(false); setPendingVideo(undefined); }} pending={pendingVideo} onPlayed={() => setPendingVideo(undefined)} />}
+      </div>
+      {!remote && <ProjectionConsole onExpand={() => setProjectionOpen(true)} />}
       <footer className="statusbar"><span><i className={connected ? 'live' : ''} />{remote ? 'Contrôleur' : 'Lecteur principal'} · volume maître {masterVolume} %{shortcutOutputSecondary ? ' · sortie secondaire' : ''}</span><span><Settings2 size={14} /> SonoRiva {releaseInfo?.currentVersion ?? __APP_VERSION__} · {audioEngine.getPlaybackMode() === 'bridge' ? 'Bridge audio' : 'Web Audio'} · {activePlaybacks.length} actif{activePlaybacks.length !== 1 ? 's' : ''}</span></footer>
     </main>
 
