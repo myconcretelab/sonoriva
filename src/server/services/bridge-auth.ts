@@ -1,8 +1,9 @@
+import { membershipAccess } from './memberships.js';
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../db/index.js';
-import { accounts, bridgeDevices, plans, type BridgeDevice } from '../db/schema.js';
+import { accounts, bridgeDevices, plans, sessions, users, type BridgeDevice } from '../db/schema.js';
 import { accountCanUseBridge } from './commercial-plans.js';
 
 export const bridgePairingLifetimeMs = 5 * 60 * 1000;
@@ -50,6 +51,12 @@ export async function requireBridgeDevice(request: FastifyRequest, reply: Fastif
   }
   if (!accountCanUseBridge(context)) {
     await reply.code(403).send({ error: 'SonoRiva Bridge est réservé aux forfaits payants actifs.' });
+    return null;
+  }
+  const [active] = await db.select({ id: users.id }).from(sessions).innerJoin(users, eq(users.id, sessions.userId))
+    .where(and(eq(sessions.userId, context.device.userId), gt(sessions.expiresAt, new Date()), isNull(users.disabledAt))).limit(1);
+  if (!active || !(await membershipAccess(context.device.userId))) {
+    await reply.code(401).send({ error: 'Connectez cet utilisateur pour utiliser son bridge.' });
     return null;
   }
   const now = new Date();

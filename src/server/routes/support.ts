@@ -215,7 +215,7 @@ export async function supportRoutes(app: FastifyInstance): Promise<void> {
       planCode: plans.code,
       planName: plans.name,
       storageQuotaBytes: sql<number>`coalesce(${accounts.storageQuotaOverrideBytes}, ${plans.storageQuotaBytes})`,
-      storageUsedBytes: sql<number>`(select coalesce(sum(t.size_bytes), 0)::bigint from ${projects} p left join ${tracks} t on t.project_id = p.id where p.account_id = ${accounts.id})`,
+      storageUsedBytes: sql<number>`(select coalesce(sum(f.size_bytes), 0)::bigint from (select distinct t.storage_key, t.size_bytes from ${projects} p join ${tracks} t on t.project_id = p.id where p.account_id = ${accounts.id}) f)`,
       messageCount: sql<number>`(select count(*)::int from ${supportMessages} sm where sm.ticket_id = ${sql.raw('"support_tickets"."id"')})`,
       unreadCount: sql<number>`(select count(*)::int from ${supportMessages} sm where sm.ticket_id = ${sql.raw('"support_tickets"."id"')} and sm.author_kind = 'user' and sm.created_at > coalesce(${sql.raw('"support_tickets"."admin_last_read_at"')}, to_timestamp(0)))`,
     }).from(supportTickets)
@@ -257,7 +257,7 @@ export async function supportRoutes(app: FastifyInstance): Promise<void> {
       planCode: plans.code,
       planName: plans.name,
       storageQuotaBytes: sql<number>`coalesce(${accounts.storageQuotaOverrideBytes}, ${plans.storageQuotaBytes})`,
-      storageUsedBytes: sql<number>`(select coalesce(sum(t.size_bytes), 0)::bigint from ${projects} p left join ${tracks} t on t.project_id = p.id where p.account_id = ${accounts.id})`,
+      storageUsedBytes: sql<number>`(select coalesce(sum(f.size_bytes), 0)::bigint from (select distinct t.storage_key, t.size_bytes from ${projects} p join ${tracks} t on t.project_id = p.id where p.account_id = ${accounts.id}) f)`,
     }).from(supportTickets)
       .innerJoin(users, eq(supportTickets.createdByUserId, users.id))
       .innerJoin(accounts, eq(supportTickets.accountId, accounts.id))

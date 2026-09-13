@@ -50,7 +50,7 @@ export async function accountForUserProject(userId: string, projectId: string): 
     .from(accountMemberships)
     .innerJoin(accounts, eq(accountMemberships.accountId, accounts.id))
     .innerJoin(plans, eq(accounts.planCode, plans.code))
-    .innerJoin(projects, and(eq(projects.accountId, accounts.id), eq(projects.id, projectId)))
+    .innerJoin(projects, and(eq(projects.accountId, accounts.id), eq(projects.id, projectId), eq(projects.userId, userId)))
     .where(eq(accountMemberships.userId, userId))
     .limit(1);
   if (!row) return null;
@@ -64,10 +64,10 @@ export async function accountUsage(userId: string) {
   const context = await accountForUser(userId);
   if (!context) return null;
   const [usage] = await db.select({
-    usedBytes: sql<number>`coalesce(sum(${tracks.sizeBytes}), 0)::bigint`,
+    usedBytes: sql<number>`(select coalesce(sum(files.size_bytes), 0)::bigint from (select distinct t.storage_key, t.size_bytes from tracks t join projects p on p.id = t.project_id where p.account_id = ${projects.accountId}) files)`,
   }).from(projects)
     .leftJoin(tracks, eq(tracks.projectId, projects.id))
-    .where(eq(projects.accountId, context.account.id));
+    .where(eq(projects.accountId, context.account.id)).groupBy(projects.accountId);
   return { ...context, usedBytes: Number(usage?.usedBytes ?? 0) };
 }
 
@@ -93,18 +93,18 @@ export async function insertTrackWithinQuota(userId: string, values: typeof trac
       .innerJoin(users, eq(accountMemberships.userId, users.id))
       .innerJoin(accounts, eq(accountMemberships.accountId, accounts.id))
       .innerJoin(plans, eq(accounts.planCode, plans.code))
-      .innerJoin(projects, and(eq(projects.accountId, accounts.id), eq(projects.id, values.projectId)))
+      .innerJoin(projects, and(eq(projects.accountId, accounts.id), eq(projects.id, values.projectId), eq(projects.userId, userId)))
       .where(eq(accountMemberships.userId, userId))
       .limit(1);
     if (!membership) throw new Error('Projet introuvable.');
 
     await transaction.execute(sql`select ${accounts.id} from ${accounts} where ${accounts.id} = ${membership.account.id} for update`);
     const [usage] = await transaction.select({
-      usedBytes: sql<number>`coalesce(sum(${tracks.sizeBytes}), 0)::bigint`,
+      usedBytes: sql<number>`(select coalesce(sum(files.size_bytes), 0)::bigint from (select distinct t.storage_key, t.size_bytes from tracks t join projects p on p.id = t.project_id where p.account_id = ${projects.accountId}) files)`,
       uploadedFiles: sql<number>`count(*) filter (where ${tracks.demoSeed} = false)::int`,
     }).from(projects)
       .leftJoin(tracks, eq(tracks.projectId, projects.id))
-      .where(eq(projects.accountId, membership.account.id));
+      .where(eq(projects.accountId, membership.account.id)).groupBy(projects.accountId);
     const demoLimits = membership.isDemo ? demoLimitsForPlan(membership.plan) : null;
     if (demoLimits && Number(values.sizeBytes) > demoLimits.maxFileBytes) throw new DemoUploadError('file-too-large', demoLimits.maxFileBytes);
     if (demoLimits && Number(usage?.uploadedFiles ?? 0) >= demoLimits.maxUploads) throw new DemoUploadError('file-count-exceeded', demoLimits.maxUploads);

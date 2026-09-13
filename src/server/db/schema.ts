@@ -42,6 +42,7 @@ export const plans = pgTable('plans', {
   playlistsEnabled: boolean('playlists_enabled').notNull().default(true),
   remoteControlEnabled: boolean('remote_control_enabled').notNull().default(true),
   maxProjects: integer('max_projects'),
+  maxUsers: integer('max_users').notNull().default(0),
   isDemoPlan: boolean('is_demo_plan').notNull().default(false),
   demoLifetimeHours: integer('demo_lifetime_hours'),
   demoMaxUploads: integer('demo_max_uploads'),
@@ -171,6 +172,7 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
 ]);
 
 export const bridgeDevices = pgTable('bridge_devices', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
@@ -203,6 +205,7 @@ export const bridgePairingTickets = pgTable('bridge_pairing_tickets', {
 export const projects = pgTable('projects', {
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   leftClickAction: text('left_click_action').notNull().default('start'),
   rightClickAction: text('right_click_action').notNull().default('crossfade'),
@@ -229,7 +232,7 @@ export const projects = pgTable('projects', {
   position: integer('position').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index('projects_account_id_idx').on(table.accountId)]);
+}, (table) => [index('projects_account_id_idx').on(table.accountId), index('projects_user_id_idx').on(table.userId)]);
 
 export const categories = pgTable('categories', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -284,7 +287,7 @@ export const tracks = pgTable('tracks', {
   subcategoryId: uuid('subcategory_id').references(() => trackSubcategories.id, { onDelete: 'set null' }),
   title: text('title').notNull(),
   originalFilename: text('original_filename').notNull(),
-  storageKey: text('storage_key').notNull().unique(),
+  storageKey: text('storage_key').notNull(),
   mimeType: text('mime_type').notNull(),
   videoEndBehavior: text('video_end_behavior').notNull().default('black'),
   sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
@@ -304,7 +307,7 @@ export const tracks = pgTable('tracks', {
   demoSeed: boolean('demo_seed').notNull().default(false),
   position: integer('position').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index('tracks_project_id_idx').on(table.projectId), index('tracks_category_id_idx').on(table.categoryId), index('tracks_subcategory_id_idx').on(table.subcategoryId)]);
+}, (table) => [index('tracks_storage_key_idx').on(table.storageKey), index('tracks_project_id_idx').on(table.projectId), index('tracks_category_id_idx').on(table.categoryId), index('tracks_subcategory_id_idx').on(table.subcategoryId)]);
 
 export const playlistItems = pgTable('playlist_items', {
   id: uuid('id').primaryKey().defaultRandom(),

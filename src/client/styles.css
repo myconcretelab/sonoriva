@@ -1417,3 +1417,14 @@ html[data-skin='studio'] .statusbar { border-top: 3px double #594631; color: #8f
   .projection-bar > .button span { display: none; }
   .projection-bar .projection-actions { gap: 4px; }
 }
+
+.account-members-panel { display: grid; gap: 16px; }
+.account-members-panel p { margin: 0; line-height: 1.5; }
+.account-members-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.account-members-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.account-members-list small, .account-copy-tracks small { display: block; opacity: .7; }
+.account-member-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.account-member-form, .account-copy-panel { display: grid; gap: 12px; }
+.account-copy-tracks { max-height: 280px; overflow-y: auto; display: grid; gap: 8px; }
+.account-copy-tracks label { display: flex; align-items: center; gap: 10px; }
+.account-copy-tracks input[type=checkbox] { width: auto; flex: 0 0 auto; }

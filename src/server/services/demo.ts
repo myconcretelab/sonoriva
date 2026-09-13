@@ -78,7 +78,7 @@ export async function createDemoWorkspace(now = new Date()): Promise<User> {
       }).returning();
       await transaction.insert(accountMemberships).values({ accountId: account.id, userId: user.id, role: 'owner' });
       await transaction.insert(subscriptions).values({ accountId: account.id });
-      const [project] = await transaction.insert(projects).values({ accountId: account.id, name: 'Découverte de SonoRiva' }).returning();
+      const [project] = await transaction.insert(projects).values({ accountId: account.id, userId: user.id, name: 'Découverte de SonoRiva' }).returning();
       const seededCategories = await transaction.insert(categories).values(demoCategories.map((category, position) => ({
         projectId: project.id,
         ...category,

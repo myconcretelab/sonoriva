@@ -2,6 +2,12 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.19.0 — 13 septembre 2026
+
+Plusieurs utilisateurs par compte, spectacles personnels, copie des sons avec un fichier commun et une seule session active par compte.
+
+[Détails de la version 1.19.0](./1.19.0.md)
+
 ## Version 1.18.0 — 9 septembre 2026
 
 - import vidéo MP4/WebM et pads avec miniatures ;

@@ -81,6 +81,7 @@ class AudioEngine {
   private routingListeners = new Set<RoutingListener>();
   private history = readHistory();
   private playbackSequence = 0;
+  private sessionGeneration = 0;
   private maxActivePlaybacks = 8;
   private pendingMainPlaybacks = 0;
   private outputSelection = readAudioOutputSelection();
@@ -384,6 +385,7 @@ class AudioEngine {
   }
 
   async play(track: Track, fadeInMs = track.fadeInMs, volumeMultiplier = 1, outputId?: string): Promise<string> {
+    const sessionGeneration = this.sessionGeneration;
     if (isVideoTrack(track)) {
       if (this.getAudioPlaybacks().length + this.pendingMainPlaybacks >= this.maxActivePlaybacks) {
         throw new Error(`Limite de ${this.maxActivePlaybacks} lectures simultanées atteinte.`);
@@ -404,6 +406,7 @@ class AudioEngine {
         }
       }
       const [context, buffer] = await Promise.all([this.getContext(), this.load(track)]);
+      if (sessionGeneration !== this.sessionGeneration) throw new Error('La session de lecture a été fermée.');
       const gain = context.createGain();
       const startAt = Math.min(track.startTimeMs / 1000, Math.max(0, buffer.duration - 0.01));
       const endAt = track.endTimeMs ? Math.min(track.endTimeMs / 1000, buffer.duration) : buffer.duration;
@@ -598,6 +601,16 @@ class AudioEngine {
     gain.gain.linearRampToValueAtTime(0, now + fadeOutMs / 1000);
     source.stop(now + fadeOutMs / 1000 + 0.02);
     this.notify();
+  }
+
+  endUserSession(): void {
+    this.sessionGeneration += 1;
+    videoEngine.close();
+    if (bridgeClient.isEnabled()) bridgeClient.stopAll(0);
+    for (const instances of this.active.values()) {
+      for (const playback of [...instances]) this.stopPlayback(playback, 0);
+    }
+    this.resetHistory();
   }
 
   stopAll(tracks: Track[], fadeOutMs?: number): void {

@@ -11,6 +11,21 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.19.0',
+    date: '2026-09-13',
+    title: 'Plusieurs utilisateurs par compte',
+    summary: 'Un même forfait peut accueillir plusieurs utilisateurs avec des identifiants individuels.',
+    important: true,
+    changes: [
+      'Gestion des utilisateurs depuis Paramètres → Compte, selon la limite du forfait.',
+      'Spectacles, catégories, sons et mises en page personnels.',
+      'Copie de sons entre utilisateurs avec noms indépendants et fichier commun compté une seule fois.',
+      'Une nouvelle connexion remplace la session précédente du compte.',
+      'La déconnexion à distance nécessite que l’appareil soit en ligne.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.18.0',
     date: '2026-09-09',
     title: 'Projection vidéo',

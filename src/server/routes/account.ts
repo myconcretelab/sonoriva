@@ -29,6 +29,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
           isDemo: account.isDemo,
         }),
         features: planFeatures(plan),
+        maxUsers: plan.maxUsers,
         demoLimits: account.isDemo ? demoLimitsForPlan(plan) : null,
         billing,
       },

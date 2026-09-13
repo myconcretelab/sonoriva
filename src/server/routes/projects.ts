@@ -1,9 +1,7 @@
-import { unlink } from 'node:fs/promises';
-import path from 'node:path';
+import { removeUnreferencedFiles } from '../services/shared-files.js';
 import type { FastifyInstance } from 'fastify';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { config } from '../config.js';
 import { db } from '../db/index.js';
 import { accounts, categories, playlistItems, playlists, projectColors, projects, tracks, trackSubcategories } from '../db/schema.js';
 import { requireUser } from '../services/auth.js';
@@ -46,7 +44,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const account = await accountForUser(user.id);
     if (!account) return reply.code(404).send({ error: 'Espace de travail introuvable.' });
     return {
-      projects: await db.select().from(projects).where(eq(projects.accountId, account.account.id)).orderBy(asc(projects.position), asc(projects.createdAt)),
+      projects: await db.select().from(projects).where(and(eq(projects.accountId, account.account.id), eq(projects.userId, user.id))).orderBy(asc(projects.position), asc(projects.createdAt)),
     };
   });
 
@@ -59,10 +57,10 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const features = planFeatures(account.plan);
     const project = await db.transaction(async (transaction) => {
       await transaction.execute(sql`select ${accounts.id} from ${accounts} where ${accounts.id} = ${account.account.id} for update`);
-      const ownerProjects = await transaction.select({ position: projects.position }).from(projects).where(eq(projects.accountId, account.account.id));
+      const ownerProjects = await transaction.select({ position: projects.position }).from(projects).where(and(eq(projects.accountId, account.account.id), eq(projects.userId, user.id)));
       if (projectLimitReached(features.maxProjects, ownerProjects.length)) return null;
       const position = Math.max(-1, ...ownerProjects.map((ownerProject) => ownerProject.position)) + 1;
-      const [created] = await transaction.insert(projects).values({ accountId: account.account.id, name: input.name, position }).returning();
+      const [created] = await transaction.insert(projects).values({ accountId: account.account.id, userId: user.id, name: input.name, position }).returning();
       return created;
     });
     if (!project) {
@@ -77,7 +75,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const account = await accountForUser(user.id);
     if (!account) return reply.code(404).send({ error: 'Espace de travail introuvable.' });
     const input = z.object({ projectIds: z.array(z.string().uuid()).min(1).max(500) }).parse(request.body);
-    const ownerProjects = await db.select().from(projects).where(eq(projects.accountId, account.account.id));
+    const ownerProjects = await db.select().from(projects).where(and(eq(projects.accountId, account.account.id), eq(projects.userId, user.id)));
     if (!sameIds(input.projectIds, ownerProjects.map((project) => project.id))) {
       return reply.code(400).send({ error: 'Ordre des spectacles invalide.' });
     }
@@ -86,7 +84,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         await transaction.update(projects).set({ position, updatedAt: new Date() }).where(eq(projects.id, projectId));
       }
     });
-    const reordered = await db.select().from(projects).where(eq(projects.accountId, account.account.id)).orderBy(asc(projects.position), asc(projects.createdAt));
+    const reordered = await db.select().from(projects).where(and(eq(projects.accountId, account.account.id), eq(projects.userId, user.id))).orderBy(asc(projects.position), asc(projects.createdAt));
     return { projects: reordered };
   });
 
@@ -174,16 +172,18 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const account = await accountForUser(user.id);
     if (!account) return reply.code(404).send({ error: 'Espace de travail introuvable.' });
-    const projectTracks = await db.select({ storageKey: tracks.storageKey }).from(tracks).where(eq(tracks.projectId, id));
-    await db.transaction(async (transaction) => {
-      await transaction.delete(projects).where(and(eq(projects.id, id), eq(projects.accountId, account.account.id)));
+    const projectTracks = await db.transaction(async (transaction) => {
+      await transaction.execute(sql`select id from accounts where id = ${account.account.id} for update`);
+      const files = await transaction.select({ storageKey: tracks.storageKey }).from(tracks).where(eq(tracks.projectId, id));
+      await transaction.delete(projects).where(and(eq(projects.id, id), and(eq(projects.accountId, account.account.id), eq(projects.userId, user.id))));
       const remaining = await transaction.select({ id: projects.id }).from(projects)
-        .where(eq(projects.accountId, account.account.id)).orderBy(asc(projects.position), asc(projects.createdAt));
+        .where(and(eq(projects.accountId, account.account.id), eq(projects.userId, user.id))).orderBy(asc(projects.position), asc(projects.createdAt));
       for (const [position, project] of remaining.entries()) {
         await transaction.update(projects).set({ position }).where(eq(projects.id, project.id));
       }
+      return files;
     });
-    await Promise.all(projectTracks.map((track) => unlink(path.join(config.STORAGE_PATH, track.storageKey)).catch(() => undefined)));
+    await removeUnreferencedFiles(projectTracks.map((track) => track.storageKey));
     return reply.code(204).send();
   });
 

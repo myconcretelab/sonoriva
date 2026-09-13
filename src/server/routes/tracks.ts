@@ -1,3 +1,4 @@
+import { removeUnreferencedFiles } from '../services/shared-files.js';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
@@ -71,7 +72,7 @@ async function ownedTrack(userId: string, trackId: string) {
   const [row] = await db.select({ track: tracks }).from(tracks)
     .innerJoin(projects, eq(tracks.projectId, projects.id))
     .innerJoin(accountMemberships, eq(accountMemberships.accountId, projects.accountId))
-    .where(and(eq(tracks.id, trackId), eq(accountMemberships.userId, userId))).limit(1);
+    .where(and(eq(tracks.id, trackId), eq(projects.userId, userId), eq(accountMemberships.userId, userId))).limit(1);
   return row?.track;
 }
 
@@ -422,7 +423,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
     const track = await ownedTrack(user.id, id);
     if (!track) return reply.code(404).send({ error: 'Son introuvable.' });
     await db.delete(tracks).where(eq(tracks.id, id));
-    await unlink(path.join(config.STORAGE_PATH, track.storageKey)).catch(() => undefined);
+    await removeUnreferencedFiles([track.storageKey]);
     return reply.code(204).send();
   });
 }

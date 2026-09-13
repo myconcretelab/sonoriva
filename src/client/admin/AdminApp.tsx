@@ -406,6 +406,7 @@ function PlanEditor({ target, onClose, onSaved, onError }: { target: PlanEditorT
       customLayoutsEnabled: data.get('customLayoutsEnabled') === 'on',
       playlistsEnabled: data.get('playlistsEnabled') === 'on',
       remoteControlEnabled: data.get('remoteControlEnabled') === 'on',
+      maxUsers: Number(data.get('maxUsers')),
       maxProjects: String(data.get('maxProjects')).trim() ? Number(data.get('maxProjects')) : null,
       demoLifetimeHours: demoPlan ? Number(data.get('demoLifetimeHours')) : null,
       demoMaxUploads: demoPlan ? Number(data.get('demoMaxUploads')) : null,
@@ -447,6 +448,7 @@ function PlanEditor({ target, onClose, onSaved, onError }: { target: PlanEditorT
       <label>Description<textarea name="description" defaultValue={template?.description ?? ''} rows={3} /></label>
       <div className="admin-form-grid">
         <label>Stockage en Go<input name="storageGb" type="number" min="0.001" step="0.001" defaultValue={template ? template.storageQuotaBytes / 1024 ** 3 : 5} required /></label>
+        <label>Nombre maximal d’utilisateurs <small>Titulaire inclus. 0 désactive la gestion multiutilisateur.</small><input name="maxUsers" type="number" min="0" max="1000" step="1" defaultValue={template?.maxUsers ?? 0} /></label>
         <label>Nombre maximal de spectacles <small>Laisser vide pour un nombre illimité.</small><input name="maxProjects" type="number" min="1" max="10000" step="1" defaultValue={template?.maxProjects ?? ''} /></label>
         {demoPlan ? <>
           <label>Durée d’inactivité en heures<input name="demoLifetimeHours" type="number" min="1" max="168" step="1" defaultValue={template?.demoLifetimeHours ?? 24} required /></label>

@@ -143,6 +143,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
       const pairing = context.pairing;
       const [device] = await transaction.insert(bridgeDevices).values({
         accountId: pairing.accountId,
+        userId: pairing.userId,
         name: input.name,
         platform: input.platform,
         tokenHash: hashBridgeToken(deviceToken),
@@ -195,6 +196,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
       createdAt: bridgeDevices.createdAt,
     }).from(bridgeDevices).where(and(
       eq(bridgeDevices.accountId, account.account.id),
+      eq(bridgeDevices.userId, user.id),
       isNull(bridgeDevices.revokedAt),
     )).orderBy(asc(bridgeDevices.createdAt));
     return { devices };
@@ -209,6 +211,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
     const revoked = await db.update(bridgeDevices).set({ revokedAt: new Date(), updatedAt: new Date() }).where(and(
       eq(bridgeDevices.id, id),
       eq(bridgeDevices.accountId, account.account.id),
+      eq(bridgeDevices.userId, user.id),
       isNull(bridgeDevices.revokedAt),
     )).returning({ id: bridgeDevices.id });
     if (!revoked.length) return reply.code(404).send({ error: 'Bridge introuvable.' });
@@ -220,7 +223,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
     if (!device) return;
     return {
       projects: await db.select().from(projects)
-        .where(eq(projects.accountId, device.accountId))
+        .where(and(eq(projects.accountId, device.accountId), eq(projects.userId, device.userId)))
         .orderBy(asc(projects.position), asc(projects.createdAt)),
     };
   });
@@ -231,7 +234,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
     const { id } = deviceIdSchema.parse(request.params);
     const [project] = await db.select().from(projects).where(and(
       eq(projects.id, id),
-      eq(projects.accountId, device.accountId),
+      and(eq(projects.accountId, device.accountId), eq(projects.userId, device.userId)),
     )).limit(1);
     if (!project) return reply.code(404).send({ error: 'Projet introuvable.' });
     const [projectCategories, projectSubcategories, projectTracks, savedPlaylists, savedItems] = await Promise.all([
@@ -261,7 +264,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
     const { id } = deviceIdSchema.parse(request.params);
     const [track] = await db.select({ track: tracks }).from(tracks)
       .innerJoin(projects, eq(tracks.projectId, projects.id))
-      .where(and(eq(tracks.id, id), eq(projects.accountId, device.accountId))).limit(1);
+      .where(and(eq(tracks.id, id), and(eq(projects.accountId, device.accountId), eq(projects.userId, device.userId)))).limit(1);
     if (!track?.track) return reply.code(404).send({ error: 'Son introuvable.' });
     const filePath = path.join(config.STORAGE_PATH, track.track.storageKey);
     const info = await stat(filePath);

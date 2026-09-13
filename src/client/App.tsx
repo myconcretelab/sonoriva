@@ -32,7 +32,7 @@ import { WorkspaceLayoutBlock, workspaceBlockMime } from './components/Workspace
 import { WorkspaceLayoutToolbar } from './components/WorkspaceLayoutToolbar';
 import { api, ApiError } from './lib/api';
 import { applyAppUpdate, subscribeToAppUpdate } from './lib/app-update';
-import { applyAppSkin, readAppSkin, saveAppSkin, type AppSkin } from './lib/app-skin';
+import { applyAppSkin, normalizeAppSkin, readAppSkin, saveAppSkin, type AppSkin } from './lib/app-skin';
 import { appNoticesEnabled, shouldApplyAppUpdate, shouldOpenReleaseNotes } from './lib/app-mode';
 import { readAudioFileDurationMs } from './lib/audio-file-metadata';
 import { audioEngine, playbackPositionAt, playbackVolumeAt, type ActivePlayback } from './lib/audio-engine';
@@ -249,8 +249,15 @@ export default function App() {
   const changeAppSkin = useCallback((skin: AppSkin) => {
     setAppSkin(skin);
     saveAppSkin(skin);
+    if (user) localStorage.setItem(`sonoriva-user-skin:${user.id}`, skin);
     applyAppSkin(skin);
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const skin = localStorage.getItem(`sonoriva-user-skin:${user.id}`);
+    changeAppSkin(normalizeAppSkin(skin ?? localStorage.getItem('sonoriva-app-skin')));
+  }, [user, changeAppSkin]);
 
   useEffect(() => audioEngine.subscribe(setActivePlaybacks), []);
   useEffect(() => {
@@ -347,6 +354,7 @@ export default function App() {
       result = await api.projects();
       localStorage.setItem('sonoriva-projects', JSON.stringify(result));
     } catch (cause) {
+      if (cause instanceof ApiError) throw cause;
       const cached = readCache<{ projects: Project[] }>('sonoriva-projects');
       if (!cached) throw cause;
       result = cached;
@@ -398,12 +406,54 @@ export default function App() {
       result = await api.project(selectedProjectId);
       localStorage.setItem(`sonoriva-detail:${selectedProjectId}`, JSON.stringify(result));
     } catch (cause) {
+      if (cause instanceof ApiError) throw cause;
       const cached = readCache<ProjectDetail>(`sonoriva-detail:${selectedProjectId}`);
       if (!cached) throw cause;
       result = cached;
     }
     setDetail({ ...result, colors: result.colors ?? [], playlists: result.playlists ?? [], subcategories: result.subcategories ?? [] });
   }, [selectedProjectId]);
+
+  useEffect(() => {
+    const refresh = () => { refreshProject().catch((cause: Error) => setError(cause.message)); };
+    window.addEventListener('sonoriva:project-updated', refresh);
+    return () => window.removeEventListener('sonoriva:project-updated', refresh);
+  }, [refreshProject]);
+
+  useEffect(() => {
+    if (!user) return;
+    const revoke = () => {
+      playlistRunRef.current = false;
+      playlistTransitioningRef.current = false;
+      playlistRunGenerationRef.current += 1;
+      if (playlistAdvanceTimerRef.current !== undefined) window.clearTimeout(playlistAdvanceTimerRef.current);
+      playlistAdvanceTimerRef.current = undefined;
+      setPlaylistPlaybackIds([]); setPlaylistItems([]); setLoadedPlaylistId(undefined);
+      setPlaylistCurrentIndex(0); setPlaylistOptionsOpen(false); setSettingsOpen(false);
+      playlistPlayedRowIdsRef.current.clear();
+      audioEngine.endUserSession();
+      window.dispatchEvent(new Event('sonoriva:stop-temporary-audio'));
+      bridgeClient.forgetAssociation();
+      audioEngine.resetHistory();
+      void deleteOfflineAudio().catch(() => false);
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('sonoriva-') && !key.startsWith('sonoriva-workspace-layout') && !key.startsWith('sonoriva-user-skin:') && !key.startsWith('sonoriva-track-columns')) localStorage.removeItem(key);
+      }
+      setUser(null); setDetail(undefined); setProjects([]); setAccountSummary(undefined);
+      setError('Cette session a été fermée. Une autre connexion a pu la remplacer.');
+    };
+    const check = () => { api.me().then(({ user: current }) => { if (current.id !== user.id) revoke(); }).catch(() => undefined); };
+    const timer = window.setInterval(check, 15_000);
+    window.addEventListener('focus', check);
+    window.addEventListener('online', check);
+    window.addEventListener('sonoriva:session-revoked', revoke);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', check);
+      window.removeEventListener('online', check);
+      window.removeEventListener('sonoriva:session-revoked', revoke);
+    };
+  }, [user]);
 
   const uploadDroppedFiles = useCallback(async (files: DroppedAudioFile[], mode?: FolderImportMode) => {
     if (!detail || fileUploadBusy.current || files.length === 0) return;
@@ -605,6 +655,8 @@ export default function App() {
       connection.emit('join-project', { projectId: selectedProjectId, role: remote ? 'controller' : 'player' });
     });
     connection.on('disconnect', () => setConnected(false));
+    connection.on('session-revoked', () => window.dispatchEvent(new Event('sonoriva:session-revoked')));
+    connection.on('connect_error', (cause) => { if (cause.message === 'unauthorized') window.dispatchEvent(new Event('sonoriva:session-revoked')); });
     if (!remote) connection.on('remote-command', (command: RemoteCommand) => {
       const currentTracks = detail?.tracks ?? [];
       if (command.type === 'stop-all' || command.type === 'stop-all-immediate') {
@@ -1961,14 +2013,14 @@ export default function App() {
   }
 
   async function logout() {
-    audioEngine.stopAll(detail?.tracks ?? []);
+    audioEngine.endUserSession();
     bridgeClient.forgetAssociation();
     audioEngine.resetHistory();
     resetPlaylistEditor();
     await api.logout();
     await deleteOfflineAudio().catch(() => false);
     for (const key of Object.keys(localStorage)) {
-      if ((key.startsWith('sonoriva-') || key.startsWith('sonoriva:')) && !key.startsWith('sonoriva-track-columns')) localStorage.removeItem(key);
+      if ((key.startsWith('sonoriva-') || key.startsWith('sonoriva:')) && !key.startsWith('sonoriva-track-columns') && !key.startsWith('sonoriva-workspace-layout') && !key.startsWith('sonoriva-user-skin:')) localStorage.removeItem(key);
     }
     setUser(null); setDetail(undefined); setProjects([]);
   }

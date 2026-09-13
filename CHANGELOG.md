@@ -2,6 +2,23 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.19.0] - 2026-09-13
+
+### Ajouté
+
+- utilisateurs avec adresses e-mail et mots de passe individuels sous un même compte ;
+- limite totale configurable par forfait, titulaire inclus, avec `0` pour désactiver la fonctionnalité ;
+- spectacles isolés par utilisateur et conservation des mises en page locales après déconnexion ;
+- copie des sons entre utilisateurs sans duplication des fichiers ni du quota consommé ;
+- remplacement atomique de la session précédente, notification temps réel et arrêt des lectures en ligne ;
+- association du Bridge à son utilisateur et contrôle de sa session active.
+
+### Migration
+
+- attribution des spectacles et des bridges existants au titulaire du compte ;
+- conservation de la session la plus récente par compte ;
+- gestion multiutilisateur désactivée par défaut pour les forfaits existants.
+
 ## [1.18.0] - 2026-09-09
 
 ### Ajouté

@@ -1,10 +1,15 @@
+import { EventEmitter } from 'node:events';
+import { MembershipError, membershipAccess } from './memberships.js';
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../db/index.js';
-import { sessions, users, type User } from '../db/schema.js';
+import { accountMemberships, sessions, users, type User } from '../db/schema.js';
 import { demoExpiration, demoLimitsForUser } from './demo.js';
+
+export const sessionEvents = new EventEmitter();
+sessionEvents.setMaxListeners(0);
 
 const scrypt = promisify(scryptCallback);
 export const sessionCookieName = 'sonoriva_session';
@@ -34,14 +39,27 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-function tokenHash(token: string): string {
+export function tokenHash(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
 export async function startSession(userId: string, reply: FastifyReply): Promise<void> {
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + sessionLifetimeMs);
-  await db.insert(sessions).values({ tokenHash: tokenHash(token), userId, expiresAt });
+  const revoked = await db.transaction(async (tx) => {
+    const memberships = await tx.select({ accountId: accountMemberships.accountId }).from(accountMemberships)
+      .where(eq(accountMemberships.userId, userId)).orderBy(accountMemberships.accountId);
+    for (const membership of memberships) {
+      await tx.execute(sql`select id from accounts where id = ${membership.accountId} for update`);
+    }
+    if (!(await membershipAccess(userId, tx))) throw new MembershipError('Votre accès utilisateur n’est pas inclus dans le forfait actuel.');
+    const memberIds = tx.select({ userId: accountMemberships.userId }).from(accountMemberships)
+      .where(inArray(accountMemberships.accountId, memberships.map((membership) => membership.accountId)));
+    const previous = await tx.delete(sessions).where(inArray(sessions.userId, memberIds)).returning({ hash: sessions.tokenHash });
+    await tx.insert(sessions).values({ tokenHash: tokenHash(token), userId, expiresAt });
+    return previous;
+  });
+  for (const session of revoked) sessionEvents.emit('revoked', session.hash);
   reply.setCookie(sessionCookieName, token, sessionCookieOptions(expiresAt));
 }
 
@@ -59,7 +77,7 @@ export async function userFromToken(token?: string): Promise<User | null> {
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(and(eq(sessions.tokenHash, tokenHash(token)), gt(sessions.expiresAt, new Date())))
     .limit(1);
-  if (!row?.user) return null;
+  if (!row?.user || row.user.disabledAt || !(await membershipAccess(row.user.id))) return null;
   if (row.user.isDemo && (!row.user.demoExpiresAt || row.user.demoExpiresAt <= new Date())) return null;
   return row.user;
 }

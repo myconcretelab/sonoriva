@@ -7,7 +7,7 @@ export async function ownsProject(userId: string, projectId: string): Promise<bo
     .select({ id: projects.id })
     .from(projects)
     .innerJoin(accountMemberships, eq(accountMemberships.accountId, projects.accountId))
-    .where(and(eq(projects.id, projectId), eq(accountMemberships.userId, userId)))
+    .where(and(eq(projects.id, projectId), eq(projects.userId, userId), eq(accountMemberships.userId, userId)))
     .limit(1);
   return Boolean(project);
 }

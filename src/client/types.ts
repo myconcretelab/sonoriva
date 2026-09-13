@@ -81,6 +81,7 @@ export interface PlaylistEntry {
 }
 
 export interface AccountSummary {
+  maxUsers: number;
   id: string;
   name: string;
   planCode: string;
@@ -154,6 +155,7 @@ export interface CommercialPlan {
   customLayoutsEnabled: boolean;
   playlistsEnabled: boolean;
   remoteControlEnabled: boolean;
+  maxUsers: number;
   maxProjects: number | null;
   isDemoPlan: boolean;
   demoLifetimeHours: number | null;
@@ -435,3 +437,17 @@ export type RemoteCommand =
   | { type: 'stop-all-immediate' }
   | { type: 'stop-last'; immediate: boolean }
   | { type: 'run-action'; trackId: string; action: MouseAction; volumeMultiplier?: number; outputId?: string };
+
+export interface AccountMember {
+  id: string;
+  displayName: string;
+  email: string;
+  role: string;
+  disabledAt: string | null;
+  allowed: boolean;
+}
+
+export interface SharedLibrary {
+  tracks: { id: string; title: string; projectId: string; projectName: string; userId: string; displayName: string }[];
+  projects: { id: string; name: string; userId: string; displayName: string }[];
+}

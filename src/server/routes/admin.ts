@@ -39,6 +39,7 @@ const planFieldsSchema = z.object({
   customLayoutsEnabled: z.boolean().default(true),
   playlistsEnabled: z.boolean().default(true),
   remoteControlEnabled: z.boolean().default(true),
+  maxUsers: z.number().int().min(0).max(1000).default(0),
   maxProjects: z.number().int().min(1).max(10_000).nullable().default(null),
   demoLifetimeHours: z.number().int().min(1).max(168).nullable().default(null),
   demoMaxUploads: z.number().int().min(0).max(10_000).nullable().default(null),
@@ -101,9 +102,10 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         active: sql<number>`count(*) filter (where ${accounts.accessStatus} in ('active', 'grace_period'))::int`,
         restricted: sql<number>`count(*) filter (where ${accounts.accessStatus} in ('read_only', 'suspended'))::int`,
       }).from(accounts).where(eq(accounts.isDemo, false)),
-      db.select({ bytes: sql<number>`coalesce(sum(${tracks.sizeBytes}), 0)::bigint` }).from(tracks)
-        .innerJoin(projects, eq(tracks.projectId, projects.id))
-        .innerJoin(accounts, and(eq(projects.accountId, accounts.id), eq(accounts.isDemo, false))),
+      db.select({ bytes: sql<number>`coalesce(sum(files.size_bytes), 0)::bigint` }).from(
+        db.selectDistinct({ key: tracks.storageKey, size_bytes: tracks.sizeBytes }).from(tracks)
+          .innerJoin(projects, eq(tracks.projectId, projects.id))
+          .innerJoin(accounts, and(eq(projects.accountId, accounts.id), eq(accounts.isDemo, false))).as('files')),
       db.select({
         id: auditLogs.id,
         action: auditLogs.action,
@@ -147,7 +149,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       trialEndsAt: accounts.trialEndsAt,
       storageQuotaOverrideBytes: accounts.storageQuotaOverrideBytes,
       storageQuotaBytes: sql<number>`coalesce(${accounts.storageQuotaOverrideBytes}, ${plans.storageQuotaBytes})`,
-      storageUsedBytes: sql<number>`(select coalesce(sum(t.size_bytes), 0)::bigint from ${projects} p left join ${tracks} t on t.project_id = p.id where p.account_id = ${accounts.id})`,
+      storageUsedBytes: sql<number>`(select coalesce(sum(f.size_bytes), 0)::bigint from (select distinct t.storage_key, t.size_bytes from ${projects} p join ${tracks} t on t.project_id = p.id where p.account_id = ${accounts.id}) f)`,
       memberCount: sql<number>`(select count(*)::int from ${accountMemberships} am where am.account_id = ${accounts.id})`,
       projectCount: sql<number>`(select count(*)::int from ${projects} p where p.account_id = ${accounts.id})`,
       subscriptionStatus: subscriptions.status,
@@ -176,7 +178,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       account: accounts,
       plan: plans,
       subscription: subscriptions,
-      storageUsedBytes: sql<number>`(select coalesce(sum(t.size_bytes), 0)::bigint from ${projects} p left join ${tracks} t on t.project_id = p.id where p.account_id = ${accounts.id})`,
+      storageUsedBytes: sql<number>`(select coalesce(sum(f.size_bytes), 0)::bigint from (select distinct t.storage_key, t.size_bytes from ${projects} p join ${tracks} t on t.project_id = p.id where p.account_id = ${accounts.id}) f)`,
     }).from(accounts)
       .innerJoin(plans, eq(accounts.planCode, plans.code))
       .leftJoin(subscriptions, eq(subscriptions.accountId, accounts.id))

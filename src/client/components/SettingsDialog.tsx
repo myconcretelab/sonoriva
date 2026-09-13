@@ -1,3 +1,4 @@
+import { AccountMembersPanel } from './AccountMembersPanel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioWaveform, BookOpen, Cable, CloudDownload, CreditCard, FileArchive, FolderPlus, Gift, GripVertical, HardDrive, Keyboard, LifeBuoy, ListMusic, LoaderCircle, LogIn, LogOut, Palette, Plus, RefreshCcw, Settings2, ShieldCheck, Speaker, Smartphone, Trash2, Waves, X } from 'lucide-react';
 import { api } from '../lib/api';
@@ -571,6 +572,7 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
           </div>)}
         </div>
       </section>
+      {activeTab === 'account' && account && !user.isDemo && <AccountMembersPanel account={account} user={user} />}
       <section className="settings-section settings-section-wide" ref={billingSectionRef} hidden={activeTab !== 'account'}>
         <div className="settings-section-title"><HardDrive size={16} /><div><strong>Offre et stockage</strong><span>{account?.name ?? 'Chargement de votre espace…'}</span></div></div>
         {account && <div className="account-plan">

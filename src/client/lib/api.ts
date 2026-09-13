@@ -1,4 +1,4 @@
-import type { AccountSummary, AdminAccount, AdminOverview, AdminReleaseInfo, AdminSupportTicket, AdminUser, AuditEntry, BatchTrackUpdateInput, BridgeDevice, Category, CommercialPlan, FreesoundLicenseFilter, FreesoundSearchResult, KeyAction, MouseAction, OpenverseLicenseFilter, OpenverseSearchResult, OpenverseSource, Playlist, PlaylistEntry, Project, ProjectColor, ProjectDetail, ProjectKeyboardShortcuts, PublicDemo, PublicPlan, ReleaseInfo, SoundShowAnalysis, SubscriptionNotificationSettings, SupportMessage, SupportTicket, SupportTicketPriority, SupportTicketStatus, Track, TrackSubcategory, User } from '../types';
+import type { AccountMember, SharedLibrary, AccountSummary, AdminAccount, AdminOverview, AdminReleaseInfo, AdminSupportTicket, AdminUser, AuditEntry, BatchTrackUpdateInput, BridgeDevice, Category, CommercialPlan, FreesoundLicenseFilter, FreesoundSearchResult, KeyAction, MouseAction, OpenverseLicenseFilter, OpenverseSearchResult, OpenverseSource, Playlist, PlaylistEntry, Project, ProjectColor, ProjectDetail, ProjectKeyboardShortcuts, PublicDemo, PublicPlan, ReleaseInfo, SoundShowAnalysis, SubscriptionNotificationSettings, SupportMessage, SupportTicket, SupportTicketPriority, SupportTicketStatus, Track, TrackSubcategory, User } from '../types';
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -14,6 +14,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     headers: hasJsonBody ? { 'Content-Type': 'application/json', ...init?.headers } : init?.headers,
   });
   if (!response.ok) {
+    if (response.status === 401 && !url.startsWith('/api/auth/login') && typeof window !== 'undefined') window.dispatchEvent(new Event('sonoriva:session-revoked'));
     const body = await response.json().catch(() => ({ error: 'La requête a échoué.' }));
     throw new ApiError(body.error ?? 'La requête a échoué.', response.status);
   }
@@ -22,6 +23,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  accountMembers: () => request<{ maxUsers: number; members: AccountMember[] }>('/api/account/members'),
+  createAccountMember: (input: { displayName: string; email: string; password: string }) => request<{ user: User }>('/api/account/members', { method: 'POST', body: JSON.stringify(input) }),
+  updateAccountMember: (id: string, input: { displayName?: string; disabled?: boolean }) => request<void>(`/api/account/members/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  removeAccountMember: (id: string) => request<void>(`/api/account/members/${id}`, { method: 'DELETE' }),
+  sharedLibrary: () => request<SharedLibrary>('/api/account/library'),
+  copyAccountTracks: (input: { trackIds: string[]; projectId: string }) => request<{ tracks: Track[] }>('/api/account/copy-tracks', { method: 'POST', body: JSON.stringify(input) }),
   me: () => request<{ user: User }>('/api/auth/me'),
   startDemo: () => request<{ user: User }>('/api/auth/demo', { method: 'POST' }),
   resetDemo: () => request<{ user: User }>('/api/auth/demo/reset', { method: 'POST' }),

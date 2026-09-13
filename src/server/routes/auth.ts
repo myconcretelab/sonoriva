@@ -79,7 +79,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       accountId = account.id;
       await tx.insert(accountMemberships).values({ accountId: account.id, userId: created.id, role: 'owner' });
       await tx.insert(subscriptions).values({ accountId: account.id });
-      await tx.insert(projects).values({ accountId: account.id, name: 'Mon premier spectacle' });
+      await tx.insert(projects).values({ accountId: account.id, userId: created.id, name: 'Mon premier spectacle' });
       return created;
     });
     if (freePlan) {

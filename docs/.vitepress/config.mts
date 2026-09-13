@@ -45,6 +45,7 @@ export default defineConfig({
         items: [
           { text: 'Import des sons', link: '/guides/importer-des-sons' },
           { text: 'Organisation d’un spectacle', link: '/guides/organiser-un-spectacle' },
+          { text: 'Utilisateurs du compte', link: '/guides/utilisateurs' },
           { text: 'Mode hors ligne', link: '/guides/mode-hors-ligne' },
           { text: 'Télécommande', link: '/guides/telecommande' },
         ],

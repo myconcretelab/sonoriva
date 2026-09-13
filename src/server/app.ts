@@ -1,3 +1,5 @@
+import { memberRoutes } from './routes/members.js';
+import { MembershipError } from './services/memberships.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
@@ -55,6 +57,7 @@ export async function buildApp() {
     if (error instanceof DemoUploadError) {
       return reply.code(413).send({ error: error.message, reason: error.reason });
     }
+    if (error instanceof MembershipError) return reply.code(403).send({ error: error.message });
     if (error instanceof BillingError) {
       return reply.code(error.statusCode).send({ error: error.message, reason: error.code });
     }
@@ -73,6 +76,7 @@ export async function buildApp() {
   app.get('/api/health', async () => ({ status: 'ok', version: CURRENT_VERSION }));
   await app.register(authRoutes);
   await app.register(accountRoutes);
+  await app.register(memberRoutes);
   await app.register(adminRoutes);
   await app.register(releaseRoutes);
   await app.register(publicPlanRoutes);
