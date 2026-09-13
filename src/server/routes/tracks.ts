@@ -14,7 +14,7 @@ import { accountMemberships, categories, projects, tracks, trackSubcategories } 
 import { DemoUploadError, insertTrackWithinQuota } from '../services/accounts.js';
 import { requireUser } from '../services/auth.js';
 import { demoLimitsForUser } from '../services/demo.js';
-import { ownsProject } from '../services/ownership.js';
+import { canAccessProject, projectAccessCondition } from '../services/ownership.js';
 import { isAllowedOpenverseAudioUrl } from '../services/openverse.js';
 import { parseByteRange } from '../services/range.js';
 import { reorderTracks } from '../services/reorder.js';
@@ -72,7 +72,7 @@ async function ownedTrack(userId: string, trackId: string) {
   const [row] = await db.select({ track: tracks }).from(tracks)
     .innerJoin(projects, eq(tracks.projectId, projects.id))
     .innerJoin(accountMemberships, eq(accountMemberships.accountId, projects.accountId))
-    .where(and(eq(tracks.id, trackId), eq(projects.userId, userId), eq(accountMemberships.userId, userId))).limit(1);
+    .where(and(eq(tracks.id, trackId), projectAccessCondition(userId), eq(accountMemberships.userId, userId))).limit(1);
   return row?.track;
 }
 
@@ -134,7 +134,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
 
       const input = importedMetadataSchema.parse(fields);
       if (!uploaded) return reply.code(400).send({ error: 'Fichier média manquant.' });
-      if (!(await ownsProject(user.id, input.projectId))) {
+      if (!(await canAccessProject(user.id, input.projectId))) {
         await unlink(path.join(config.STORAGE_PATH, uploaded.key));
         return reply.code(404).send({ error: 'Projet introuvable.' });
       }
@@ -186,7 +186,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
       url: z.string().url(),
       loop: z.boolean().default(false),
     }).parse(request.body);
-    if (!(await ownsProject(user.id, input.projectId))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, input.projectId))) return reply.code(404).send({ error: 'Projet introuvable.' });
     if (input.categoryId && !(await categoryBelongsToProject(input.categoryId, input.projectId))) {
       return reply.code(400).send({ error: 'Catégorie invalide pour ce projet.' });
     }
@@ -301,7 +301,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
       tagChange: z.object({ mode: z.enum(['add', 'remove', 'replace']), tags: trackTagsSchema }).optional(),
     }).refine((value) => value.updates || value.tagChange, { message: 'Sélectionnez au moins une modification.' }).parse(request.body);
 
-    if (!(await ownsProject(user.id, input.projectId))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, input.projectId))) return reply.code(404).send({ error: 'Projet introuvable.' });
     if (input.updates?.categoryId && !(await categoryBelongsToProject(input.updates.categoryId, input.projectId))) {
       return reply.code(400).send({ error: 'Catégorie invalide pour ce projet.' });
     }

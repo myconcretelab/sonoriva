@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { accountMemberships, accounts, plans, projects, sessions, tracks, users } from '../db/schema.js';
+import { accountMemberships, accounts, plans, projects, projectShares, sessions, tracks, users } from '../db/schema.js';
 import { hashPassword, publicUser, requireUser, sessionEvents } from '../services/auth.js';
 import { accountForUser, requireWritableAccount } from '../services/accounts.js';
 import { memberIsAllowed, membershipAccess, MembershipError } from '../services/memberships.js';
@@ -81,6 +81,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
         .where(and(eq(projects.accountId, context.account.id), eq(projects.userId, id)));
       const hashes = await tx.delete(sessions).where(eq(sessions.userId, id)).returning({ hash: sessions.tokenHash });
       await tx.delete(projects).where(and(eq(projects.accountId, context.account.id), eq(projects.userId, id)));
+      await tx.delete(projectShares).where(and(eq(projectShares.userId, id), inArray(projectShares.projectId, tx.select({ id: projects.id }).from(projects).where(eq(projects.accountId, context.account.id)))));
       await tx.delete(accountMemberships).where(and(eq(accountMemberships.accountId, context.account.id), eq(accountMemberships.userId, id)));
       // Keep the identity for audit and support history; it no longer has access to this account.
       return { files, hashes };

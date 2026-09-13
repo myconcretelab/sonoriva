@@ -6,7 +6,7 @@ import { db } from '../db/index.js';
 import { accounts, categories, playlistItems, playlists, projectColors, projects, tracks, trackSubcategories } from '../db/schema.js';
 import { requireUser } from '../services/auth.js';
 import { sameIds } from '../services/order.js';
-import { ownsProject } from '../services/ownership.js';
+import { canAccessProject, ownsProject, projectAccessCondition } from '../services/ownership.js';
 import { accountForUser, accountForUserProject } from '../services/accounts.js';
 import { playlistRowsAreValid } from '../services/playlist-rows.js';
 import { planFeatures, projectLimitReached } from '../services/commercial-plans.js';
@@ -44,7 +44,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const account = await accountForUser(user.id);
     if (!account) return reply.code(404).send({ error: 'Espace de travail introuvable.' });
     return {
-      projects: await db.select().from(projects).where(and(eq(projects.accountId, account.account.id), eq(projects.userId, user.id))).orderBy(asc(projects.position), asc(projects.createdAt)),
+      projects: await db.select().from(projects).where(and(eq(projects.accountId, account.account.id), projectAccessCondition(user.id))).orderBy(asc(projects.position), asc(projects.createdAt)),
     };
   });
 
@@ -84,7 +84,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         await transaction.update(projects).set({ position, updatedAt: new Date() }).where(eq(projects.id, projectId));
       }
     });
-    const reordered = await db.select().from(projects).where(and(eq(projects.accountId, account.account.id), eq(projects.userId, user.id))).orderBy(asc(projects.position), asc(projects.createdAt));
+    const reordered = await db.select().from(projects).where(and(eq(projects.accountId, account.account.id), projectAccessCondition(user.id))).orderBy(asc(projects.position), asc(projects.createdAt));
     return { projects: reordered };
   });
 
@@ -92,7 +92,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id } = idParams.parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const [project] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
 
     const [colors, savedPlaylists, savedPlaylistItems, projectCategories, projectSubcategories, projectTracks] = await Promise.all([
@@ -121,7 +121,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id } = idParams.parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const input = z.object({
       leftClickAction: mouseActionSchema.optional(),
       rightClickAction: mouseActionSchema.optional(),
@@ -191,7 +191,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id } = idParams.parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const input = z.object({ color: z.string().toLowerCase().regex(/^#[0-9a-f]{6}$/) }).parse(request.body);
     const existingColors = await db.select().from(projectColors).where(eq(projectColors.projectId, id)).orderBy(asc(projectColors.position));
     const existing = existingColors.find((item) => item.color.toLowerCase() === input.color);
@@ -206,7 +206,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id } = idParams.parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const input = z.object({ colorIds: z.array(z.string().uuid()).max(48) }).parse(request.body);
     const colors = await db.select().from(projectColors).where(eq(projectColors.projectId, id));
     if (!sameIds(input.colorIds, colors.map((item) => item.id))) {
@@ -225,7 +225,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id, colorId } = z.object({ id: z.string().uuid(), colorId: z.string().uuid() }).parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const deleted = await db.delete(projectColors).where(and(eq(projectColors.id, colorId), eq(projectColors.projectId, id))).returning({ id: projectColors.id });
     if (deleted.length === 0) return reply.code(404).send({ error: 'Couleur introuvable.' });
     const remaining = await db.select().from(projectColors).where(eq(projectColors.projectId, id)).orderBy(asc(projectColors.position));
@@ -241,7 +241,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id } = idParams.parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const input = z.object({
       name: z.string().trim().min(1).max(80),
       categoryId: z.string().uuid().nullable(),
@@ -282,7 +282,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id, subcategoryId } = z.object({ id: z.string().uuid(), subcategoryId: z.string().uuid() }).parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const input = z.object({
       name: z.string().trim().min(1).max(80).optional(),
       categoryId: z.string().uuid().nullable().optional(),
@@ -308,7 +308,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id, subcategoryId } = z.object({ id: z.string().uuid(), subcategoryId: z.string().uuid() }).parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const result = await db.transaction(async (transaction) => {
       const memberTracks = await transaction.update(tracks).set({ subcategoryId: null }).where(and(eq(tracks.projectId, id), eq(tracks.subcategoryId, subcategoryId))).returning();
       const deleted = await transaction.delete(trackSubcategories).where(and(eq(trackSubcategories.id, subcategoryId), eq(trackSubcategories.projectId, id))).returning({ id: trackSubcategories.id });
@@ -322,7 +322,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id, trackId } = z.object({ id: z.string().uuid(), trackId: z.string().uuid() }).parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const { subcategoryId } = z.object({ subcategoryId: z.string().uuid().nullable() }).parse(request.body);
     const [track] = await db.select().from(tracks).where(and(eq(tracks.id, trackId), eq(tracks.projectId, id))).limit(1);
     if (!track) return reply.code(404).send({ error: 'Morceau introuvable.' });
@@ -338,7 +338,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id } = idParams.parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     if (!(await userCanUsePlaylists(user.id, id))) return reply.code(403).send({ error: 'Les playlists ne sont pas incluses dans votre forfait.' });
     const input = playlistInputSchema.parse(request.body);
     if (input.categoryId) {
@@ -367,7 +367,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id, playlistId } = z.object({ id: z.string().uuid(), playlistId: z.string().uuid() }).parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     if (!(await userCanUsePlaylists(user.id, id))) return reply.code(403).send({ error: 'Les playlists ne sont pas incluses dans votre forfait.' });
     const input = z.object({ position: z.number().finite().min(-1_000_000).max(1_000_000), categoryId: z.string().uuid().nullable().optional() }).parse(request.body);
     if (input.categoryId) {
@@ -383,7 +383,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id, playlistId } = z.object({ id: z.string().uuid(), playlistId: z.string().uuid() }).parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     if (!(await userCanUsePlaylists(user.id, id))) return reply.code(403).send({ error: 'Les playlists ne sont pas incluses dans votre forfait.' });
     const input = playlistInputSchema.parse(request.body);
     const [existing] = await db.select().from(playlists).where(and(eq(playlists.id, playlistId), eq(playlists.projectId, id))).limit(1);
@@ -410,7 +410,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id, playlistId } = z.object({ id: z.string().uuid(), playlistId: z.string().uuid() }).parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     if (!(await userCanUsePlaylists(user.id, id))) return reply.code(403).send({ error: 'Les playlists ne sont pas incluses dans votre forfait.' });
     const deleted = await db.delete(playlists).where(and(eq(playlists.id, playlistId), eq(playlists.projectId, id))).returning({ id: playlists.id });
     if (deleted.length === 0) return reply.code(404).send({ error: 'Playlist introuvable.' });
@@ -421,7 +421,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id } = idParams.parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const input = z.object({
       name: z.string().trim().min(1).max(80),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#8b5cf6'),
@@ -437,7 +437,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id } = idParams.parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const input = z.object({ categoryIds: z.array(z.string().uuid()).max(500) }).parse(request.body);
     const projectCategories = await db.select().from(categories).where(eq(categories.projectId, id));
     if (!sameIds(input.categoryIds, projectCategories.map((category) => category.id))) {
@@ -456,7 +456,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const user = await requireUser(request, reply);
     if (!user) return;
     const { id, categoryId } = z.object({ id: z.string().uuid(), categoryId: z.string().uuid() }).parse(request.params);
-    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     const [category] = await db.select({ id: categories.id }).from(categories)
       .where(and(eq(categories.id, categoryId), eq(categories.projectId, id))).limit(1);
     if (!category) return reply.code(404).send({ error: 'Catégorie introuvable.' });

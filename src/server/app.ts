@@ -1,3 +1,4 @@
+import { projectSharingRoutes } from './routes/project-sharing.js';
 import { memberRoutes } from './routes/members.js';
 import { MembershipError } from './services/memberships.js';
 import path from 'node:path';
@@ -84,6 +85,7 @@ export async function buildApp() {
   await app.register(bridgeRoutes);
   await app.register(supportRoutes);
   await app.register(projectRoutes);
+  await app.register(projectSharingRoutes);
   await app.register(trackRoutes);
   await app.register(importRoutes);
   await app.register(freesoundRoutes);

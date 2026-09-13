@@ -1,3 +1,4 @@
+import { ProjectSharingPanel } from './ProjectSharingPanel';
 import { AccountMembersPanel } from './AccountMembersPanel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioWaveform, BookOpen, Cable, CloudDownload, CreditCard, FileArchive, FolderPlus, Gift, GripVertical, HardDrive, Keyboard, LifeBuoy, ListMusic, LoaderCircle, LogIn, LogOut, Palette, Plus, RefreshCcw, Settings2, ShieldCheck, Speaker, Smartphone, Trash2, Waves, X } from 'lucide-react';
@@ -216,7 +217,8 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
   const playlistsEnabled = account?.features.playlists ?? true;
   const remoteControlEnabled = account?.features.remoteControl ?? true;
   const maxProjects = account?.features.maxProjects ?? null;
-  const projectLimitReached = maxProjects !== null && projects.length >= maxProjects;
+  const ownProjects = projects.filter((project) => project.userId === user.id);
+  const projectLimitReached = maxProjects !== null && ownProjects.length >= maxProjects;
 
   useEffect(() => {
     if (!selectedBillingPlan) return;
@@ -225,10 +227,10 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
   }, [billingInterval, selectedBillingPlan]);
 
   function dropProject(targetId: string, after: boolean) {
-    if (!draggedProjectId || draggedProjectId === targetId) return;
-    const moving = projects.find((project) => project.id === draggedProjectId);
+    if (!draggedProjectId || draggedProjectId === targetId || !ownProjects.some((project) => project.id === targetId)) return;
+    const moving = ownProjects.find((project) => project.id === draggedProjectId);
     if (!moving) return;
-    const reordered = projects.filter((project) => project.id !== draggedProjectId);
+    const reordered = ownProjects.filter((project) => project.id !== draggedProjectId);
     const targetIndex = reordered.findIndex((project) => project.id === targetId);
     reordered.splice(Math.max(0, targetIndex) + (after ? 1 : 0), 0, moving);
     onReorderProjects(reordered.map((project) => project.id)).catch(() => undefined);
@@ -467,23 +469,24 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
         </div>
         <label className="automatic-update-setting"><span><strong>Ouvrir au survol pendant un déplacement</strong><small>Déplie une sous-catégorie après une courte pause quand un morceau est glissé sur sa carte.</small></span><input type="checkbox" checked={openSubcategoriesOnDrag} onChange={(event) => onOpenSubcategoriesOnDragChange(event.target.checked)} /><i aria-hidden="true" /></label>
       </section>
+      {activeTab === 'show' && selectedProject && !user.isDemo && <ProjectSharingPanel key={selectedProject.id} project={selectedProject} user={user} enabled={(account?.maxUsers ?? 0) > 0} />}
       <section className="settings-section" hidden={activeTab !== 'show'}>
         <div className="settings-section-title"><Settings2 size={16} /><div><strong>Spectacles</strong><span>Sélectionnez, glissez ou supprimez une régie.</span></div></div>
         <div className="settings-project-list">
-          {projects.map((project) => <div key={project.id} className={`settings-project-item ${project.id === selectedProjectId ? 'active' : ''} ${project.id === dropProjectId ? `drop-target ${dropProjectAfter ? 'drop-after' : 'drop-before'}` : ''}`} draggable
+          {projects.map((project) => <div key={project.id} className={`settings-project-item ${project.id === selectedProjectId ? 'active' : ''} ${project.id === dropProjectId ? `drop-target ${dropProjectAfter ? 'drop-after' : 'drop-before'}` : ''}`} draggable={project.userId === user.id}
             onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', project.id); setDraggedProjectId(project.id); }}
-            onDragOver={(event) => { if (!draggedProjectId || draggedProjectId === project.id) return; event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); setDropProjectId(project.id); setDropProjectAfter(event.clientY > bounds.top + bounds.height / 2); }}
+            onDragOver={(event) => { if (project.userId !== user.id || !draggedProjectId || draggedProjectId === project.id) return; event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); setDropProjectId(project.id); setDropProjectAfter(event.clientY > bounds.top + bounds.height / 2); }}
             onDragLeave={() => setDropProjectId((current) => current === project.id ? undefined : current)}
             onDrop={(event) => { event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); dropProject(project.id, event.clientY > bounds.top + bounds.height / 2); }}
             onDragEnd={() => { setDraggedProjectId(undefined); setDropProjectId(undefined); setDropProjectAfter(false); }}>
             <GripVertical size={16} aria-hidden="true" />
-            <button className="settings-project-select" onClick={() => onChooseProject(project.id)} aria-current={project.id === selectedProjectId ? 'true' : undefined}>{project.name}</button>
-            <button className="settings-project-delete" onClick={() => onDeleteProject(project).catch(() => undefined)} aria-label={`Supprimer le spectacle ${project.name}`} title="Supprimer"><Trash2 size={15} /></button>
+            <button className="settings-project-select" onClick={() => onChooseProject(project.id)} aria-current={project.id === selectedProjectId ? 'true' : undefined}>{project.name}{project.userId !== user.id && <small> · Partagé avec vous</small>}</button>
+            {project.userId === user.id && <button className="settings-project-delete" onClick={() => onDeleteProject(project).catch(() => undefined)} aria-label={`Supprimer le spectacle ${project.name}`} title="Supprimer"><Trash2 size={15} /></button>}
           </div>)}
           {projects.length === 0 && <span className="settings-project-empty">Aucun spectacle.</span>}
         </div>
         <button className="button ghost wide" onClick={onCreateProject} disabled={projectLimitReached}><FolderPlus size={17} />Nouveau spectacle</button>
-        {maxProjects !== null && <p className="audio-output-note">{projects.length} spectacle{projects.length > 1 ? 's' : ''} sur {maxProjects} autorisé{maxProjects > 1 ? 's' : ''} par le forfait.</p>}
+        {maxProjects !== null && <p className="audio-output-note">{ownProjects.length} spectacle personnel{ownProjects.length > 1 ? 's' : ''} sur {maxProjects} autorisé{maxProjects > 1 ? 's' : ''} par le forfait.</p>}
       </section>
       <section className="settings-section" hidden={activeTab !== 'show'}>
         <div className="settings-section-title"><Palette size={16} /><div><strong>Couleurs du spectacle</strong><span>Ajoutez, supprimez ou glissez les couleurs pour les réordonner.</span></div></div>

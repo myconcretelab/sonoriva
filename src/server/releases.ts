@@ -11,6 +11,21 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.20.0',
+    date: '2026-09-13',
+    title: 'Partage des spectacles',
+    summary: 'Chaque propriétaire peut partager ses spectacles avec les utilisateurs de son compte.',
+    important: false,
+    changes: [
+      'Choix des destinataires dans Paramètres → Spectacle → Partage du spectacle.',
+      'Accès commun aux sons, catégories, playlists et réglages, sans duplication.',
+      'Retrait du partage et suppression du spectacle réservés à son propriétaire.',
+      'Spectacles reçus identifiés dans la liste et disponibles avec le Bridge.',
+      'La limite d’une session active par compte reste appliquée.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.19.0',
     date: '2026-09-13',
     title: 'Plusieurs utilisateurs par compte',

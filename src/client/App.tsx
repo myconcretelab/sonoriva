@@ -1376,7 +1376,7 @@ export default function App() {
       const project = byId.get(id);
       return project ? [{ ...project, position }] : [];
     });
-    setProjects(optimistic);
+    setProjects([...optimistic, ...previous.filter((project) => !projectIds.includes(project.id))]);
     try {
       const result = await api.reorderProjects(projectIds);
       setProjects(result.projects);

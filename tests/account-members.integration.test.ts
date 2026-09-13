@@ -1,3 +1,4 @@
+import { createBridgeToken, hashBridgeToken } from '../src/server/services/bridge-auth.js';
 import { io as connectSocket, type Socket } from 'socket.io-client';
 import { registerSocketServer } from '../src/server/socket.js';
 import { randomUUID } from 'node:crypto';
@@ -7,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/server/app.js';
 import { db, pool } from '../src/server/db/index.js';
-import { accountMemberships, accounts, plans, projects, tracks, users } from '../src/server/db/schema.js';
+import { accountMemberships, accounts, bridgeDevices, plans, projects, projectShares, tracks, users } from '../src/server/db/schema.js';
 import { config } from '../src/server/config.js';
 import { hashPassword } from '../src/server/services/auth.js';
 import { insertTrackWithinQuota } from '../src/server/services/accounts.js';
@@ -114,6 +115,61 @@ describe.skipIf(process.env.SONORIVA_INTEGRATION_DB !== '1')('compte multiutilis
     expect(await readFile(file(), 'utf8')).toBe('1234567890');
   });
 
+  it('partage volontairement un spectacle sans le copier et autorise les modifications communes', async () => {
+    await login(email);
+    const before = await db.select({ id: tracks.id }).from(tracks).where(eq(tracks.projectId, ownerProject));
+    expect((await call('PUT', `/api/projects/${ownerProject}/sharing`, { userIds: [memberId] })).statusCode).toBe(200);
+    expect((await call('GET', `/api/projects/${ownerProject}/sharing`)).json().userIds).toEqual([memberId]);
+    expect(await db.select({ id: tracks.id }).from(tracks).where(eq(tracks.projectId, ownerProject))).toEqual(before);
+    await login(memberEmail);
+    expect((await call('GET', '/api/projects')).json().projects.map((p: { id: string }) => p.id)).toContain(ownerProject);
+    expect((await call('GET', `/api/projects/${ownerProject}`)).statusCode).toBe(200);
+    expect((await call('GET', `/api/tracks/${sourceId}/stream`)).statusCode).toBe(200);
+    await db.update(plans).set({ monthlyPriceCents: 100 }).where(eq(plans.code, planCode));
+    const bridgeToken = createBridgeToken();
+    await db.insert(bridgeDevices).values({ accountId, userId: memberId, name: 'Bridge partagé', platform: 'macos', tokenHash: hashBridgeToken(bridgeToken) });
+    const bridgeList = await app.inject({ method: 'GET', url: '/api/bridge/projects', headers: { authorization: `Bearer ${bridgeToken}` } });
+    expect(bridgeList.statusCode).toBe(200);
+    expect(bridgeList.json().projects.map((p: { id: string }) => p.id)).toContain(ownerProject);
+    const bridgeAudio = await app.inject({ method: 'GET', url: `/api/bridge/tracks/${sourceId}/audio`, headers: { authorization: `Bearer ${bridgeToken}` } });
+    expect(bridgeAudio.statusCode).toBe(200);
+    liveSocket = connectSocket(socketUrl, { extraHeaders: { cookie }, transports: ['websocket'], reconnection: false });
+    await new Promise<void>((resolve, reject) => { liveSocket!.once('connect', resolve); liveSocket!.once('connect_error', reject); });
+    const joined = await liveSocket.timeout(2000).emitWithAck('join-project', { projectId: ownerProject, role: 'player' });
+    expect(joined).toEqual({ ok: true });
+    liveSocket.disconnect();
+
+    expect((await call('PATCH', `/api/tracks/${sourceId}`, { title: 'Nom commun' })).statusCode).toBe(200);
+    expect((await call('POST', `/api/projects/${ownerProject}/categories`, { name: 'Catégorie commune', color: '#112233' })).statusCode).toBe(201);
+    expect((await call('DELETE', `/api/projects/${ownerProject}`)).statusCode).toBe(404);
+    expect((await call('PUT', `/api/projects/${ownerProject}/sharing`, { userIds: [] })).statusCode).toBe(403);
+    expect((await call('GET', `/api/projects/${ownerProject}/sharing`)).statusCode).toBe(404);
+    await expect(insertTrackWithinQuota(memberId, { projectId: ownerProject, title: 'Quota', originalFilename: 'quota.mp3', storageKey: 'not-written', sizeBytes: 1, mimeType: 'audio/mpeg' })).rejects.toThrow('quota');
+    const reordered = await call('PATCH', '/api/projects/reorder', { projectIds: [memberProject] });
+    expect(reordered.statusCode).toBe(200);
+    expect(reordered.json().projects.map((p: { id: string }) => p.id)).toContain(ownerProject);
+    await login(email);
+    expect((await call('GET', `/api/projects/${ownerProject}`)).json().tracks[0].title).toBe('Nom commun');
+  });
+
+  it('retire le partage et refuse les destinataires externes au compte', async () => {
+    const [outsider] = await db.insert(users).values({ email: `outside-${randomUUID()}@example.com`, displayName: 'Externe', passwordHash: 'test' }).returning();
+    expect((await call('PUT', `/api/projects/${ownerProject}/sharing`, { userIds: [outsider.id] })).statusCode).toBe(403);
+    expect((await call('GET', `/api/projects/${ownerProject}/sharing`)).json().userIds).toEqual([memberId]);
+    expect((await call('PUT', `/api/projects/${ownerProject}/sharing`, { userIds: [] })).statusCode).toBe(200);
+    await login(memberEmail);
+    expect((await call('GET', `/api/projects/${ownerProject}`)).statusCode).toBe(404);
+    expect((await call('GET', `/api/tracks/${sourceId}/stream`)).statusCode).toBe(404);
+    expect((await call('PATCH', `/api/tracks/${sourceId}`, { title: 'Interdit' })).statusCode).toBe(404);
+    // A member also owns their shows and may share them with the account holder.
+    expect((await call('PUT', `/api/projects/${memberProject}/sharing`, { userIds: [ownerId] })).statusCode).toBe(200);
+    await login(email);
+    expect((await call('GET', `/api/projects/${memberProject}`)).statusCode).toBe(200);
+    await db.update(plans).set({ maxUsers: 0 }).where(eq(plans.code, planCode));
+    expect((await call('GET', `/api/projects/${memberProject}`)).statusCode).toBe(404);
+    await db.update(plans).set({ maxUsers: 2 }).where(eq(plans.code, planCode));
+  });
+
   it('notifie et ferme immédiatement le socket de l’ancienne session', async () => {
     liveSocket = connectSocket(socketUrl, { extraHeaders: { cookie }, transports: ['websocket'], reconnection: false });
     await new Promise<void>((resolve, reject) => { liveSocket!.once('connect', resolve); liveSocket!.once('connect_error', reject); });
@@ -163,6 +219,7 @@ describe.skipIf(process.env.SONORIVA_INTEGRATION_DB !== '1')('compte multiutilis
     expect((await call('DELETE', `/api/account/members/${memberId}`)).statusCode).toBe(204);
     expect((await call('GET', '/api/account/members')).json().members).toHaveLength(1);
     expect((await db.select().from(projects).where(eq(projects.id, memberProject)))).toHaveLength(0);
+    expect((await db.select().from(projectShares).where(eq(projectShares.projectId, memberProject)))).toHaveLength(0);
     expect((await call('POST', '/api/auth/login', { email: memberEmail, password })).statusCode).toBe(403);
   });
 });

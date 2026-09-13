@@ -3,7 +3,7 @@ import { Server } from 'socket.io';
 import { z } from 'zod';
 import { config } from './config.js';
 import { cookieValue, sessionCookieName, userFromToken, sessionEvents, tokenHash } from './services/auth.js';
-import { ownsProject } from './services/ownership.js';
+import { canAccessProject } from './services/ownership.js';
 import { accountForUserProject } from './services/accounts.js';
 import { planFeatures } from './services/commercial-plans.js';
 
@@ -53,7 +53,7 @@ export function registerSocketServer(app: FastifyInstance): Server {
     });
     socket.on('join-project', async (payload, acknowledge) => {
       const parsed = z.object({ projectId: z.string().uuid(), role: z.enum(['player', 'controller']) }).safeParse(payload);
-      if (!parsed.success || !(await ownsProject(socket.data.userId, parsed.data.projectId))) {
+      if (!parsed.success || !(await canAccessProject(socket.data.userId, parsed.data.projectId))) {
         acknowledge?.({ ok: false });
         return;
       }
@@ -70,7 +70,7 @@ export function registerSocketServer(app: FastifyInstance): Server {
 
     socket.on('remote-command', async (payload) => {
       const parsed = z.object({ projectId: z.string().uuid(), command: commandSchema }).safeParse(payload);
-      if (!parsed.success || !(await ownsProject(socket.data.userId, parsed.data.projectId))) return;
+      if (!parsed.success || !(await canAccessProject(socket.data.userId, parsed.data.projectId))) return;
       const account = await accountForUserProject(socket.data.userId, parsed.data.projectId);
       if (!account || !planFeatures(account.plan).remoteControl) return;
       io.to(`${parsed.data.projectId}:player`).emit('remote-command', parsed.data.command);

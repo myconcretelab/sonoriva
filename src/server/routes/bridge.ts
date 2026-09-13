@@ -1,3 +1,4 @@
+import { projectAccessCondition } from '../services/ownership.js';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -223,7 +224,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
     if (!device) return;
     return {
       projects: await db.select().from(projects)
-        .where(and(eq(projects.accountId, device.accountId), eq(projects.userId, device.userId)))
+        .where(and(eq(projects.accountId, device.accountId), projectAccessCondition(device.userId)))
         .orderBy(asc(projects.position), asc(projects.createdAt)),
     };
   });
@@ -234,7 +235,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
     const { id } = deviceIdSchema.parse(request.params);
     const [project] = await db.select().from(projects).where(and(
       eq(projects.id, id),
-      and(eq(projects.accountId, device.accountId), eq(projects.userId, device.userId)),
+      and(eq(projects.accountId, device.accountId), projectAccessCondition(device.userId)),
     )).limit(1);
     if (!project) return reply.code(404).send({ error: 'Projet introuvable.' });
     const [projectCategories, projectSubcategories, projectTracks, savedPlaylists, savedItems] = await Promise.all([
@@ -264,7 +265,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
     const { id } = deviceIdSchema.parse(request.params);
     const [track] = await db.select({ track: tracks }).from(tracks)
       .innerJoin(projects, eq(tracks.projectId, projects.id))
-      .where(and(eq(tracks.id, id), and(eq(projects.accountId, device.accountId), eq(projects.userId, device.userId)))).limit(1);
+      .where(and(eq(tracks.id, id), and(eq(projects.accountId, device.accountId), projectAccessCondition(device.userId)))).limit(1);
     if (!track?.track) return reply.code(404).send({ error: 'Son introuvable.' });
     const filePath = path.join(config.STORAGE_PATH, track.track.storageKey);
     const info = await stat(filePath);

@@ -57,6 +57,7 @@ export interface ProjectKeyboardShortcuts {
 export type ProjectKeyboardShortcutKey = keyof ProjectKeyboardShortcuts;
 
 export interface Project extends ProjectKeyboardShortcuts {
+  userId: string;
   id: string;
   name: string;
   accountId: string;

@@ -12,9 +12,21 @@ Dans **Paramètres → Compte → Utilisateurs du compte**, le titulaire crée u
 
 ## Espaces personnels
 
-Les spectacles, catégories, playlists et sons appartiennent à leur utilisateur. Les spectacles existants sont attribués au titulaire lors de la mise à jour. La limite de spectacles s’applique à chaque utilisateur.
+Les spectacles, catégories, playlists et sons appartiennent à leur utilisateur. Les spectacles existants sont attribués au titulaire lors de la mise à jour. La limite de spectacles s’applique aux spectacles personnels de chaque utilisateur ; les spectacles reçus en partage ne consomment pas cette limite.
 
 Les mises en page personnalisées et leurs variantes sont enregistrées par utilisateur dans le navigateur. Elles restent disponibles après déconnexion sur ce navigateur, sans synchronisation automatique entre appareils. Le skin choisi est également enregistré par utilisateur sur cet appareil.
+
+## Partage des spectacles
+
+Dans **Paramètres → Spectacle → Partage du spectacle**, le propriétaire sélectionne les autres utilisateurs du compte, puis clique sur **Enregistrer le partage**. Les spectacles restent privés tant qu’aucun destinataire n’est sélectionné.
+
+Un destinataire retrouve le spectacle dans sa liste, avec la mention **Partagé avec vous** dans les paramètres. Il peut le lire et modifier ses sons, catégories, playlists, couleurs et réglages. Tous les participants accèdent au même spectacle : les changements sont communs, sans duplication du spectacle, des fichiers ou du stockage. Les mises en page de l’espace de travail restent personnelles au navigateur et à l’utilisateur.
+
+Seul le propriétaire peut modifier les destinataires ou supprimer le spectacle. Décocher un utilisateur puis enregistrer retire son accès au spectacle sur le serveur. Les sons déjà copiés dans son propre espace restent indépendants. Les téléchargements hors ligne existants ne peuvent pas être retirés à distance tant que l’appareil reste hors ligne.
+
+La suppression du propriétaire depuis le compte supprime aussi ses spectacles partagés. Le partage nécessite que la gestion multiutilisateur soit activée dans le forfait. À `0`, les accès partagés sont suspendus ; les destinataires enregistrés sont conservés et peuvent être retirés par le propriétaire.
+
+Les spectacles partagés sont également accessibles depuis le Bridge associé à un destinataire connecté. La règle d’une seule session active par compte continue de s’appliquer.
 
 ## Copie de sons
 

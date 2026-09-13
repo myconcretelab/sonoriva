@@ -1,3 +1,4 @@
+import { projectAccessCondition } from './ownership.js';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { accountMemberships, accounts, plans, projects, tracks, users, type Account, type Plan, type Track } from '../db/schema.js';
@@ -50,7 +51,7 @@ export async function accountForUserProject(userId: string, projectId: string): 
     .from(accountMemberships)
     .innerJoin(accounts, eq(accountMemberships.accountId, accounts.id))
     .innerJoin(plans, eq(accounts.planCode, plans.code))
-    .innerJoin(projects, and(eq(projects.accountId, accounts.id), eq(projects.id, projectId), eq(projects.userId, userId)))
+    .innerJoin(projects, and(eq(projects.accountId, accounts.id), eq(projects.id, projectId), projectAccessCondition(userId)))
     .where(eq(accountMemberships.userId, userId))
     .limit(1);
   if (!row) return null;
@@ -93,7 +94,7 @@ export async function insertTrackWithinQuota(userId: string, values: typeof trac
       .innerJoin(users, eq(accountMemberships.userId, users.id))
       .innerJoin(accounts, eq(accountMemberships.accountId, accounts.id))
       .innerJoin(plans, eq(accounts.planCode, plans.code))
-      .innerJoin(projects, and(eq(projects.accountId, accounts.id), eq(projects.id, values.projectId), eq(projects.userId, userId)))
+      .innerJoin(projects, and(eq(projects.accountId, accounts.id), eq(projects.id, values.projectId), projectAccessCondition(userId)))
       .where(eq(accountMemberships.userId, userId))
       .limit(1);
     if (!membership) throw new Error('Projet introuvable.');

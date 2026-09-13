@@ -234,6 +234,12 @@ export const projects = pgTable('projects', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index('projects_account_id_idx').on(table.accountId), index('projects_user_id_idx').on(table.userId)]);
 
+export const projectShares = pgTable('project_shares', {
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [primaryKey({ columns: [table.projectId, table.userId] }), index('project_shares_user_id_idx').on(table.userId)]);
+
 export const categories = pgTable('categories', {
   id: uuid('id').primaryKey().defaultRandom(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),

@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.20.0] - 2026-09-13
+
+### Ajouté
+
+- partage volontaire d’un spectacle avec des utilisateurs sélectionnés du même compte ;
+- édition commune des sons, catégories, playlists et réglages, sans copie des données ;
+- liste des spectacles reçus et accès partagé depuis le Bridge et la télécommande ;
+- gestion du partage et suppression réservées au propriétaire du spectacle ;
+- retrait des accès au départ d’un membre ou à la désactivation du multiutilisateur.
+
 ## [1.19.0] - 2026-09-13
 
 ### Ajouté
