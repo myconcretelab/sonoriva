@@ -1,3 +1,4 @@
+import { appropriateProject } from '../services/appropriate-project.js';
 import type { FastifyInstance } from 'fastify';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -9,6 +10,26 @@ import { accountForUser } from '../services/accounts.js';
 import { MembershipError } from '../services/memberships.js';
 
 export async function projectSharingRoutes(app: FastifyInstance): Promise<void> {
+  app.post('/api/projects/:id/appropriate', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return;
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const { name } = z.object({ name: z.string().trim().min(1).max(120) }).parse(request.body);
+    const project = await appropriateProject(user.id, id, name);
+    return reply.code(201).send({ project });
+  });
+
+  app.patch('/api/projects/:id/name', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return;
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const { name } = z.object({ name: z.string().trim().min(1).max(120) }).parse(request.body);
+    if (!(await ownsProject(user.id, id))) return reply.code(404).send({ error: 'Spectacle personnel introuvable.' });
+    const [project] = await db.update(projects).set({ name, updatedAt: new Date() }).where(and(eq(projects.id, id), eq(projects.userId, user.id))).returning();
+    if (!project) return reply.code(404).send({ error: 'Spectacle personnel introuvable.' });
+    return { project };
+  });
+
   app.get('/api/projects/:id/sharing', async (request, reply) => {
     const user = await requireUser(request, reply);
     if (!user) return;

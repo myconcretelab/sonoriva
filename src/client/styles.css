@@ -1435,3 +1435,5 @@ html[data-skin='studio'] .statusbar { border-top: 3px double #594631; color: #8f
 .project-sharing-members label { display: flex; align-items: center; gap: 10px; }
 .project-sharing-members input[type=checkbox] { width: auto; flex: 0 0 auto; }
 .project-sharing-members small { display: block; opacity: .7; }
+
+.project-personal-copy { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; }

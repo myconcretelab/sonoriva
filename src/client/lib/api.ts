@@ -23,6 +23,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  appropriateProject: (id: string, name: string) => request<{ project: Project }>(`/api/projects/${id}/appropriate`, { method: 'POST', body: JSON.stringify({ name }) }),
+  renameProject: (id: string, name: string) => request<{ project: Project }>(`/api/projects/${id}/name`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   projectSharing: (id: string) => request<{ userIds: string[] }>(`/api/projects/${id}/sharing`),
   updateProjectSharing: (id: string, userIds: string[]) => request<{ userIds: string[] }>(`/api/projects/${id}/sharing`, { method: 'PUT', body: JSON.stringify({ userIds }) }),
   accountMembers: () => request<{ maxUsers: number; members: AccountMember[] }>('/api/account/members'),

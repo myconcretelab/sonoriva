@@ -11,6 +11,21 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.21.0',
+    date: '2026-09-13',
+    title: 'S’approprier un spectacle',
+    summary: 'Un spectacle partagé peut devenir une copie privée et indépendante dans votre espace.',
+    important: false,
+    changes: [
+      'Action S’approprier le spectacle dans les paramètres d’un spectacle reçu en partage.',
+      'Choix du nom et copie des catégories, groupes, sons, playlists, couleurs et réglages.',
+      'La copie vous appartient exclusivement ; le spectacle original et ses partages restent inchangés.',
+      'Fichiers audio et vidéo réutilisés sans stockage supplémentaire, dans la limite de spectacles du forfait.',
+      'Renommage des spectacles personnels depuis les paramètres.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.20.0',
     date: '2026-09-13',
     title: 'Partage des spectacles',

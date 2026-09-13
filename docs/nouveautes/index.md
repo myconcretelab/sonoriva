@@ -2,6 +2,12 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.21.0 — 13 septembre 2026
+
+Appropriation d’un spectacle partagé : copie privée complète, nom indépendant et fichiers communs sans stockage supplémentaire.
+
+[Détails de la version 1.21.0](./1.21.0.md)
+
 ## Version 1.20.0 — 13 septembre 2026
 
 Partage volontaire des spectacles avec les utilisateurs du compte, édition commune et retrait des accès par le propriétaire.

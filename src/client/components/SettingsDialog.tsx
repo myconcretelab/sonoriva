@@ -30,6 +30,7 @@ interface Props {
   onAccountChange: (account: AccountSummary) => void;
   onChooseProject: (id: string) => void;
   onCreateProject: () => void;
+  onProjectSaved: (project: Project) => void;
   onReorderProjects: (projectIds: string[]) => Promise<void>;
   onDeleteProject: (project: Project) => Promise<void>;
   onCreateProjectColor: (color: string) => Promise<void>;
@@ -123,7 +124,7 @@ function formatPrice(cents: number): string {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 }
 
-export function SettingsDialog({ user, projects, projectColors, selectedProjectId, initialSection, offlineStatus, remote, appVersion, hasUnseenReleases, automaticUpdates, openSubcategoriesOnDrag, appSkin, supportUnreadCount, onAutomaticUpdatesChange, onOpenSubcategoriesOnDragChange, onAppSkinChange, onAccountChange, onChooseProject, onCreateProject, onReorderProjects, onDeleteProject, onCreateProjectColor, onDeleteProjectColor, onReorderProjectColors, onImportSoundShow, onOpenOpenverse, onOpenWhatsNew, onOpenSupport, onToggleRemote, onCacheOffline, onUpdateKeyAction, onUpdateKeyboardShortcut, onUpdatePlaylistGroupLimit, onUpdatePlaybackSettings, onLogout, onLogin, onClose }: Props) {
+export function SettingsDialog({ user, projects, projectColors, selectedProjectId, initialSection, offlineStatus, remote, appVersion, hasUnseenReleases, automaticUpdates, openSubcategoriesOnDrag, appSkin, supportUnreadCount, onAutomaticUpdatesChange, onOpenSubcategoriesOnDragChange, onAppSkinChange, onAccountChange, onChooseProject, onCreateProject, onProjectSaved, onReorderProjects, onDeleteProject, onCreateProjectColor, onDeleteProjectColor, onReorderProjectColors, onImportSoundShow, onOpenOpenverse, onOpenWhatsNew, onOpenSupport, onToggleRemote, onCacheOffline, onUpdateKeyAction, onUpdateKeyboardShortcut, onUpdatePlaylistGroupLimit, onUpdatePlaybackSettings, onLogout, onLogin, onClose }: Props) {
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
   const [newColor, setNewColor] = useState('#DBEDF7');
   const [draggedProjectId, setDraggedProjectId] = useState<string>();
@@ -469,7 +470,7 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
         </div>
         <label className="automatic-update-setting"><span><strong>Ouvrir au survol pendant un déplacement</strong><small>Déplie une sous-catégorie après une courte pause quand un morceau est glissé sur sa carte.</small></span><input type="checkbox" checked={openSubcategoriesOnDrag} onChange={(event) => onOpenSubcategoriesOnDragChange(event.target.checked)} /><i aria-hidden="true" /></label>
       </section>
-      {activeTab === 'show' && selectedProject && !user.isDemo && <ProjectSharingPanel key={selectedProject.id} project={selectedProject} user={user} enabled={(account?.maxUsers ?? 0) > 0} />}
+      {activeTab === 'show' && selectedProject && !user.isDemo && <ProjectSharingPanel key={selectedProject.id} project={selectedProject} user={user} enabled={(account?.maxUsers ?? 0) > 0} onProjectSaved={onProjectSaved} />}
       <section className="settings-section" hidden={activeTab !== 'show'}>
         <div className="settings-section-title"><Settings2 size={16} /><div><strong>Spectacles</strong><span>Sélectionnez, glissez ou supprimez une régie.</span></div></div>
         <div className="settings-project-list">

@@ -2,6 +2,16 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.21.0] - 2026-09-13
+
+### Ajouté
+
+- appropriation d’un spectacle partagé sous un nom choisi : création d’un spectacle privé appartenant au destinataire ;
+- copie transactionnelle des catégories, sous-catégories, couleurs, sons, playlists, rangées et réglages avec identifiants indépendants ;
+- réutilisation des fichiers sans consommation supplémentaire de stockage et contrôle de la limite de spectacles personnels ;
+- renommage des spectacles personnels, réservé à leur propriétaire ;
+- conservation de la copie après retrait du partage ou suppression du spectacle original.
+
 ## [1.20.0] - 2026-09-13
 
 ### Ajouté

@@ -22,11 +22,25 @@ Dans **Paramètres → Spectacle → Partage du spectacle**, le propriétaire s�
 
 Un destinataire retrouve le spectacle dans sa liste, avec la mention **Partagé avec vous** dans les paramètres. Il peut le lire et modifier ses sons, catégories, playlists, couleurs et réglages. Tous les participants accèdent au même spectacle : les changements sont communs, sans duplication du spectacle, des fichiers ou du stockage. Les mises en page de l’espace de travail restent personnelles au navigateur et à l’utilisateur.
 
-Seul le propriétaire peut modifier les destinataires ou supprimer le spectacle. Décocher un utilisateur puis enregistrer retire son accès au spectacle sur le serveur. Les sons déjà copiés dans son propre espace restent indépendants. Les téléchargements hors ligne existants ne peuvent pas être retirés à distance tant que l’appareil reste hors ligne.
+Seul le propriétaire peut renommer le spectacle, modifier les destinataires ou le supprimer. Décocher un utilisateur puis enregistrer retire son accès au spectacle sur le serveur. Les sons déjà copiés dans son propre espace restent indépendants. Les téléchargements hors ligne existants ne peuvent pas être retirés à distance tant que l’appareil reste hors ligne.
 
 La suppression du propriétaire depuis le compte supprime aussi ses spectacles partagés. Le partage nécessite que la gestion multiutilisateur soit activée dans le forfait. À `0`, les accès partagés sont suspendus ; les destinataires enregistrés sont conservés et peuvent être retirés par le propriétaire.
 
 Les spectacles partagés sont également accessibles depuis le Bridge associé à un destinataire connecté. La règle d’une seule session active par compte continue de s’appliquer.
+
+## S’approprier un spectacle
+
+Un utilisateur peut créer sa propre version d’un spectacle reçu en partage. Dans **Paramètres → Spectacle → Partage du spectacle**, il renseigne **Nom de mon spectacle**, puis clique sur **S’approprier le spectacle**.
+
+Cette action crée et sélectionne un nouveau spectacle privé, appartenant uniquement à cet utilisateur. Les catégories, sous-catégories, sons, couleurs, playlists avec leurs rangées et réglages du spectacle sont copiés. Aucun destinataire du partage original n’est repris. Le nouveau spectacle consomme une place dans la limite de spectacles personnels du forfait.
+
+Par exemple, Fred partage **Trombone** avec Alex. Alex saisit **Flûte** puis s’approprie le spectacle : Fred conserve **Trombone**, tandis qu’Alex possède **Flûte**, sans partage activé. Les modifications d’un spectacle n’affectent pas l’autre. Alex peut ensuite partager sa version à son tour.
+
+Les fichiers audio et vidéo sont réutilisés, sans duplication de stockage. L’appropriation reste possible lorsque le stockage est plein, si le compte autorise les modifications et qu’une place de spectacle est disponible. Elle nécessite un accès au spectacle partagé au moment de sa création.
+
+La copie reste disponible si Fred retire le partage ou supprime **Trombone**. Les fichiers ne sont supprimés qu’après disparition de leur dernière référence. Les dispositions locales de l’interface restent celles de l’utilisateur ; les préférences locales propres au spectacle original ne sont pas transférées.
+
+Le propriétaire peut changer le nom de son spectacle depuis **Nom du spectacle → Renommer mon spectacle**, dans la même section des paramètres.
 
 ## Copie de sons
 

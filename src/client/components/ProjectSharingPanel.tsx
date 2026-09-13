@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { AccountMember, Project, User } from '../types';
 
-export function ProjectSharingPanel({ project, user, enabled }: { project: Project; user: User; enabled: boolean }) {
+export function ProjectSharingPanel({ project, user, enabled, onProjectSaved }: { project: Project; user: User; enabled: boolean; onProjectSaved: (project: Project) => void }) {
   const [members, setMembers] = useState<AccountMember[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [name, setName] = useState(project.name);
   const owner = project.userId === user.id;
   useEffect(() => {
     if (!owner) return;
@@ -30,6 +31,16 @@ export function ProjectSharingPanel({ project, user, enabled }: { project: Proje
     finally { setBusy(false); }
   }
 
+  async function savePersonalProject() {
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const result = owner ? await api.renameProject(project.id, name) : await api.appropriateProject(project.id, name);
+      onProjectSaved(result.project);
+      setMessage(owner ? 'Spectacle renommé.' : 'Votre spectacle privé a été créé.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Impossible de créer ou renommer le spectacle.'); }
+    finally { setBusy(false); }
+  }
+
   return <section className="settings-section project-sharing-panel">
     <div className="settings-section-title"><div><strong>Partage du spectacle</strong><span>{project.name}</span></div></div>
     {!owner ? <p>Ce spectacle est partagé avec vous. Vous pouvez le lire et le modifier. Son propriétaire conserve la gestion du partage et sa suppression.</p> : <>
@@ -41,6 +52,11 @@ export function ProjectSharingPanel({ project, user, enabled }: { project: Proje
       </label>)}{!members.length && <p>Aucun autre utilisateur dans ce compte.</p>}</div>}
       <button type="button" className="button primary" disabled={loading || busy || (!enabled && selected.length > 0)} onClick={() => void save()}>Enregistrer le partage</button>
     </>}
+    <form onSubmit={(event) => { event.preventDefault(); void savePersonalProject(); }} className="project-personal-copy">
+      {!owner && <><strong>S’approprier ce spectacle</strong><p>Crée votre propre spectacle privé avec ses sons, catégories, playlists et réglages. L’original reste inchangé. Les fichiers audio et vidéo sont réutilisés.</p></>}
+      <label>{owner ? 'Nom du spectacle' : 'Nom de mon spectacle'}<input value={name} onChange={(event) => setName(event.target.value)} required maxLength={120} disabled={busy} /></label>
+      <button type="submit" className="button primary" disabled={busy || !name.trim() || (!owner && !enabled) || (owner && name.trim() === project.name)}>{owner ? 'Renommer mon spectacle' : 'S’approprier le spectacle'}</button>
+    </form>
     {error && <p role="alert" className="billing-error">{error}</p>}
     {message && <p role="status">{message}</p>}
   </section>;
