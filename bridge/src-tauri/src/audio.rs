@@ -142,7 +142,7 @@ impl AudioEngine {
         let is_in_use = self.active.values().any(|playback| {
             playback.output_id == output_id
                 && ignored_playback_id != Some(playback.id.as_str())
-                && (playback.loop_playback || !playback.player.empty())
+                && !playback.player.empty()
         });
         if !is_in_use {
             self.remove_output(output_id);
@@ -231,8 +231,7 @@ impl AudioEngine {
         for output_id in failed_outputs {
             self.remove_output(&output_id);
         }
-        self.active
-            .retain(|_, playback| playback.loop_playback || !playback.player.empty());
+        self.active.retain(|_, playback| !playback.player.empty());
         self.release_unused_outputs();
         let mut snapshots = self
             .active
@@ -393,7 +392,12 @@ impl AudioEngine {
     }
 
     pub fn stop(&mut self, id: &str, fade_out_ms: u64) {
-        if fade_out_ms == 0 {
+        if fade_out_ms == 0
+            || self
+                .active
+                .get(id)
+                .is_some_and(|playback| playback.player.is_paused())
+        {
             if let Some(playback) = self.active.remove(id) {
                 playback.player.stop();
             }
@@ -488,5 +492,65 @@ async fn fade_player(player: Arc<Player>, from: f32, to: f32, duration_ms: u64, 
     }
     if stop_after {
         player.stop();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn looping_playback() -> (AudioEngine, rodio::queue::SourcesQueueOutput) {
+        let (player, output) = Player::new();
+        player.append(rodio::source::SineWave::new(440.0));
+        let track: BridgeTrack = serde_json::from_value(serde_json::json!({
+            "id": "loop", "title": "Loop", "originalFilename": "loop.wav",
+            "mimeType": "audio/wav", "volume": 1.0, "loop": true,
+            "startTimeMs": 0, "durationMs": 1000, "sizeBytes": 1,
+            "fadeInMs": 0, "fadeOutMs": 20
+        }))
+        .unwrap();
+        let mut engine = AudioEngine::new();
+        engine.active.insert(
+            "loop".into(),
+            Playback {
+                id: "loop".into(),
+                track_id: "loop".into(),
+                sequence: 1,
+                duration_ms: 1000,
+                loop_playback: true,
+                volume: 1.0,
+                fading_out: false,
+                player: Arc::new(player),
+                track,
+                path: PathBuf::new(),
+                position_offset_ms: 0,
+                channel: "main".into(),
+                output_id: "default".into(),
+            },
+        );
+        (engine, output)
+    }
+
+    #[tokio::test]
+    async fn loop_disappears_after_stop_all_fade() {
+        let (mut engine, mut output) = looping_playback();
+        assert_eq!(engine.snapshots().len(), 1);
+        engine.stop_all(20);
+        assert!(engine.snapshots()[0].fading_out);
+        tokio::time::sleep(Duration::from_millis(60)).await;
+        // Consume the stopped source as the audio device would do.
+        for _ in 0..10000 {
+            output.next();
+        }
+        assert!(engine.snapshots().is_empty());
+        assert!(engine.snapshots().is_empty());
+    }
+
+    #[tokio::test]
+    async fn paused_loop_stops_without_waiting_for_a_fade() {
+        let (mut engine, _output) = looping_playback();
+        engine.toggle_pause("loop");
+        engine.stop_all(1200);
+        assert!(engine.snapshots().is_empty());
     }
 }

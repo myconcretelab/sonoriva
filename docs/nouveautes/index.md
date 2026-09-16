@@ -2,6 +2,12 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.21.1 — 16 septembre 2026
+
+Ordre stable des lecteurs Bridge et correction de l’arrêt des boucles avec Bridge 1.0.7.
+
+[Détails de la version 1.21.1](./1.21.1.md)
+
 ## Version 1.21.0 — 13 septembre 2026
 
 Appropriation d’un spectacle partagé : copie privée complète, nom indépendant et fichiers communs sans stockage supplémentaire.

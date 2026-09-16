@@ -81,6 +81,7 @@ class AudioEngine {
   private routingListeners = new Set<RoutingListener>();
   private history = readHistory();
   private playbackSequence = 0;
+  private bridgeStartedAt = new Map<string, number>();
   private sessionGeneration = 0;
   private maxActivePlaybacks = 8;
   private pendingMainPlaybacks = 0;
@@ -261,17 +262,26 @@ class AudioEngine {
   }
 
   private getActivePlaybacks(): ActivePlayback[] {
-    return [...this.getAudioPlaybacks(), ...videoEngine.getPlaybacks()].sort((a, b) => a.startedAtMs - b.startedAtMs);
+    return [...this.getAudioPlaybacks(), ...videoEngine.getPlaybacks()].sort((a, b) => a.startedAtMs - b.startedAtMs || a.sequence - b.sequence);
   }
 
   private getAudioPlaybacks(): ActivePlayback[] {
     if (bridgeClient.isEnabled()) {
       const now = performance.now();
-      return bridgeClient.getPlaybacks().filter((playback) => playback.channel === 'main').map((playback) => ({
+      const playbacks = bridgeClient.getPlaybacks().filter((playback) => playback.channel === 'main');
+      const activeIds = new Set(playbacks.map((playback) => playback.id));
+      for (const id of this.bridgeStartedAt.keys()) {
+        if (!activeIds.has(id)) this.bridgeStartedAt.delete(id);
+      }
+      for (const playback of playbacks) {
+        // A loop or seek changes position, never the launch order.
+        if (!this.bridgeStartedAt.has(playback.id)) this.bridgeStartedAt.set(playback.id, now);
+      }
+      return playbacks.map((playback) => ({
         id: playback.id,
         trackId: playback.trackId,
         sequence: playback.sequence,
-        startedAtMs: now - playback.positionMs,
+        startedAtMs: this.bridgeStartedAt.get(playback.id)!,
         resumedAtMs: now,
         elapsedMs: playback.positionMs,
         durationMs: playback.durationMs,
@@ -285,6 +295,7 @@ class AudioEngine {
         outputId: playback.outputId,
       }));
     }
+    this.bridgeStartedAt.clear();
     return [...this.active.values()]
       .flatMap((instances) => [...instances])
       .map(({ id, trackId, sequence, startedAtMs, resumedAtMs, elapsedMs, durationMs, loop, paused, volume, volumeFrom, volumeTransitionStartedAtMs, volumeTransitionDurationMs, fadingOut }) => ({

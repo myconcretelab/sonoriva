@@ -2,6 +2,14 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.21.1] - 2026-09-16
+
+### Corrigé
+
+- ordre des lecteurs Bridge conservé pendant les boucles, pauses et déplacements dans un son ;
+- suppression des lectures en boucle après leur fondu d’arrêt dans Bridge 1.0.7 ;
+- arrêt immédiat des lectures en pause, même lorsqu’un fondu est configuré.
+
 ## [1.21.0] - 2026-09-13
 
 ### Ajouté

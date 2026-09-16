@@ -11,6 +11,19 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.21.1',
+    date: '2026-09-16',
+    title: 'Lecture en boucle avec le Bridge',
+    summary: 'Ordre stable des lecteurs et correction de l’arrêt des boucles dans Bridge 1.0.7.',
+    important: false,
+    changes: [
+      'Les lecteurs conservent leur place au passage des boucles et après un déplacement dans le son.',
+      'Bridge 1.0.7 retire les lectures en boucle à la fin de leur fondu d’arrêt.',
+      'Les lectures en pause sont arrêtées immédiatement.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.21.0',
     date: '2026-09-13',
     title: 'S’approprier un spectacle',
