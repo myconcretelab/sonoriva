@@ -31,7 +31,15 @@
           <button id="clear-cache" type="button">Vider le cache audio</button>
         </section>
       </div>
-      <footer>SonoRiva Bridge <span id="bridge-version">1.0.7</span> · mises à jour automatiques · localhost:43821</footer>
+      <section class="surface update-panel" aria-labelledby="updates-heading">
+        <h2 id="updates-heading">Mises à jour</h2>
+        <p id="update-status" role="status" aria-live="polite">Vérification automatique au démarrage.</p>
+        <div class="update-actions">
+          <button id="check-update" type="button">Vérifier les mises à jour</button>
+          <button id="install-update" type="button" hidden>Installer et redémarrer</button>
+        </div>
+      </section>
+      <footer>SonoRiva Bridge <span id="bridge-version">1.0.8</span> · vérification au démarrage · localhost:43821</footer>
     </main>
     <script src="./app.js"></script>
   </body>

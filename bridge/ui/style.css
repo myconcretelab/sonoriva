@@ -112,3 +112,12 @@ footer span { color: var(--muted); }
   .panel { min-height: 0; }
   button { margin-top: 10px; }
 }
+
+.update-panel { margin-top: 14px; }
+.update-panel h2 { margin-bottom: 8px; }
+.update-actions { margin-top: 12px; display: grid; gap: 8px; }
+.update-actions button { margin: 0; }
+.update-actions [hidden] { display: none; }
+#update-status[data-phase="error"] { color: #fca5a5; }
+#install-update { color: var(--accent-ink); background: var(--accent); }
+button:disabled { opacity: .55; cursor: wait; }

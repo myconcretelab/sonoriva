@@ -50,7 +50,7 @@ SonoRiva Bridge est inclus dans les forfaits payants. Il est accessible pendant 
 
 SonoRiva Bridge est une application de bureau distincte pour macOS et Windows x64. Le bouton **Connecter le bridge** crée un ticket valable cinq minutes, puis ouvre l’application au moyen du protocole `sonoriva-bridge://`. Après validation du ticket, le navigateur et le bridge reçoivent une clé locale commune. Le jeton qui donne accès au compte SonoRiva reste uniquement dans le bridge, dans son fichier privé `credentials.json`.
 
-Le bouton **Télécharger SonoRiva Bridge** est affiché dans les paramètres d’un compte disposant du droit Bridge. Il ouvre, après contrôle du compte, la dernière publication qui contient une image disque `aarch64` pour les Mac Apple Silicon, une image disque `x64` pour les Mac Intel et un installateur NSIS `x64` pour Windows. Les paquets macOS utilisent une signature ad hoc et ne sont pas notariés par Apple. Le fond de l’image disque illustre le glisser-déposer vers Applications et indique en français et en anglais le chemin **Réglages Système → Confidentialité et sécurité → Ouvrir quand même**. L’installateur Windows n’est pas signé et Windows peut afficher un avertissement SmartScreen à son ouverture.
+Le bouton **Télécharger SonoRiva Bridge** est affiché dans les paramètres d’un compte disposant du droit Bridge. Il ouvre, après contrôle du compte, la page des publications GitHub, qui contient une image disque `aarch64` pour les Mac Apple Silicon, une image disque `x64` pour les Mac Intel et un installateur NSIS `x64` pour Windows. Les paquets macOS utilisent une signature ad hoc et ne sont pas notariés par Apple. Le fond de l’image disque illustre le glisser-déposer vers Applications et indique en français et en anglais le chemin **Réglages Système → Confidentialité et sécurité → Ouvrir quand même**. L’installateur Windows n’est pas signé et Windows peut afficher un avertissement SmartScreen à son ouverture.
 
 ### Mise à jour du bridge
 
@@ -58,7 +58,9 @@ SonoRiva Bridge 0.5.0 est la première version qui contient le moteur de mise à
 
 Les jetons d’association sont enregistrés dans le fichier `credentials.json` du dossier local de données du Bridge. Sous macOS et Linux, ses permissions sont `0600`. Lors du premier démarrage de la version 1.0.1, le Bridge importe les jetons déjà présents dans le gestionnaire d’identifiants du système lorsque ce fichier n’existe pas encore. Les démarrages suivants utilisent directement ce fichier.
 
-L’installation et le redémarrage automatiques ont lieu uniquement si aucune lecture audio n’est active à la fin du téléchargement. Lorsqu’une lecture est active, le paquet n’est pas installé et la vérification reprend au prochain démarrage du Bridge.
+L’installation et le redémarrage automatiques ont lieu uniquement si aucune lecture audio n’est active à la fin du téléchargement. Lorsqu’une lecture est active, le paquet n’est pas installé.
+
+À partir de la version 1.0.8, le panneau **Mises à jour** affiche la recherche, la version disponible, le téléchargement, l’installation différée ou une erreur. Le bouton **Vérifier les mises à jour** permet une recherche sans fermer le Bridge. Si une version est disponible, **Installer la version … et redémarrer** lance son installation. Après une installation différée, ce bouton permet de réessayer une fois les lectures arrêtées. La vérification automatique reste effectuée uniquement au démarrage.
 
 Le bridge écoute sur `127.0.0.1:43821`. Les commandes de lecture sont envoyées à cette adresse avec la clé locale. Un WebSocket transmet l’état des lectures ; l’application utilise des requêtes HTTP périodiques si le navigateur bloque ce WebSocket. L’application web demande l’autorisation d’accès au réseau local lorsque le navigateur impose cette autorisation.
 

@@ -3,13 +3,13 @@ mod config;
 mod local_api;
 mod models;
 mod runtime;
+mod updates;
 
 use std::sync::Arc;
 
 use runtime::Runtime;
 use tauri::{Manager, Runtime as TauriRuntime};
 use tauri_plugin_deep_link::DeepLinkExt;
-use tauri_plugin_updater::UpdaterExt;
 use url::Url;
 
 pub fn run() {
@@ -27,6 +27,11 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_deep_link::init())
         .manage(runtime.clone())
+        .manage(updates::Updates::default())
+        .invoke_handler(tauri::generate_handler![
+            updates::bridge_update_status,
+            updates::check_bridge_update
+        ])
         .setup(move |app| {
             let local_runtime = runtime.clone();
             tauri::async_runtime::spawn(async move {
@@ -46,7 +51,7 @@ pub fn run() {
             let update_handle = app.handle().clone();
             let update_runtime = runtime.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = install_available_update(update_handle, update_runtime).await {
+                if let Err(error) = updates::run_update(update_handle, update_runtime, true).await {
                     eprintln!("Mise à jour automatique de SonoRiva Bridge impossible: {error}");
                 }
             });
@@ -70,39 +75,6 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("exécution de SonoRiva Bridge impossible");
-}
-
-async fn install_available_update<R: TauriRuntime>(
-    app: tauri::AppHandle<R>,
-    runtime: Arc<Runtime>,
-) -> Result<(), String> {
-    let Some(update) = app
-        .updater()
-        .map_err(|error| error.to_string())?
-        .check()
-        .await
-        .map_err(|error| error.to_string())?
-    else {
-        return Ok(());
-    };
-    let version = update.version.clone();
-    let bytes = update
-        .download(|_, _| {}, || {})
-        .await
-        .map_err(|error| error.to_string())?;
-    let mut audio = runtime
-        .audio
-        .lock()
-        .map_err(|_| "Moteur audio inaccessible pendant la mise à jour.".to_string())?;
-    if !audio.snapshots().is_empty() {
-        eprintln!(
-            "Mise à jour SonoRiva Bridge {version} téléchargée mais différée: une lecture audio est active."
-        );
-        return Ok(());
-    }
-    update.install(bytes).map_err(|error| error.to_string())?;
-    drop(audio);
-    app.restart();
 }
 
 fn handle_pairing_url<R: TauriRuntime>(app: &tauri::AppHandle<R>, runtime: Arc<Runtime>, url: Url) {

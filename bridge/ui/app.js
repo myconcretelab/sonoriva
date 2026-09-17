@@ -81,3 +81,45 @@ function formatBytes(bytes) {
   const value = bytes / (1024 ** unitIndex);
   return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: value >= 10 ? 1 : 2 }).format(value)} ${units[unitIndex]}`;
 }
+
+const updateStatus = document.querySelector('#update-status');
+const checkUpdate = document.querySelector('#check-update');
+const installUpdate = document.querySelector('#install-update');
+let updateRequestPending = false;
+
+function renderUpdateStatus(status) {
+  updateStatus.textContent = status.message;
+  updateStatus.dataset.phase = status.phase;
+  const busy = updateRequestPending || ['checking', 'downloading', 'installing'].includes(status.phase);
+  checkUpdate.disabled = busy;
+  installUpdate.disabled = busy;
+  installUpdate.hidden = !['available', 'deferred'].includes(status.phase);
+  installUpdate.textContent = status.version ? `Installer la version ${status.version} et redémarrer` : 'Installer et redémarrer';
+}
+
+async function refreshUpdateStatus() {
+  try {
+    renderUpdateStatus(await window.__TAURI__.core.invoke('bridge_update_status'));
+  } catch {
+    if (!updateRequestPending) renderUpdateStatus({ phase: 'error', message: 'État des mises à jour inaccessible. Cliquez sur Vérifier pour réessayer.' });
+  }
+}
+
+async function runUpdate(install) {
+  if (updateRequestPending) return;
+  updateRequestPending = true;
+  renderUpdateStatus({ phase: 'checking', message: 'Recherche d’une nouvelle version…' });
+  try {
+    const status = await window.__TAURI__.core.invoke('check_bridge_update', { install });
+    updateRequestPending = false;
+    renderUpdateStatus(status);
+  } catch (error) {
+    updateRequestPending = false;
+    renderUpdateStatus({ phase: 'error', message: `Mise à jour impossible : ${error instanceof Error ? error.message : String(error)}` });
+  }
+}
+
+checkUpdate.addEventListener('click', () => runUpdate(false));
+installUpdate.addEventListener('click', () => runUpdate(true));
+refreshUpdateStatus();
+setInterval(refreshUpdateStatus, 1000);
