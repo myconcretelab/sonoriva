@@ -260,6 +260,13 @@
       "when": 1789317924836,
       "tag": "0036_yellow_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789642503858,
+      "tag": "0037_remarkable_abomination",
+      "breakpoints": true
     }
   ]
 }

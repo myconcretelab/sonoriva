@@ -17,6 +17,11 @@ describe('soundboard view', () => {
     expect(readSoundboardViewSettings('{')).toEqual(defaultSoundboardViewSettings);
   });
 
+  it('restores eight list columns and clamps larger values', () => {
+    expect(readSoundboardViewSettings(JSON.stringify({ desktopListColumns: 8 })).desktopListColumns).toBe(8);
+    expect(readSoundboardViewSettings(JSON.stringify({ desktopListColumns: 12 })).desktopListColumns).toBe(8);
+  });
+
   it('uses a category display mode before the project-wide mode', () => {
     const settings = { ...defaultSoundboardViewSettings, mode: 'cards' as const, categoryModes: { category: 'list' as const } };
     expect(soundboardViewModeForCategory(settings, 'category')).toBe('list');

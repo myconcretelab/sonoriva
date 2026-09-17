@@ -40,7 +40,7 @@ export function readSoundboardViewSettings(serialized: string | null): Soundboar
       mode: value.mode === 'list' || value.mode === 'auto' || value.mode === 'cards' ? value.mode : defaultSoundboardViewSettings.mode,
       categoryModes: readCategoryModes(value.categoryModes),
       automaticListThreshold: clamp(value.automaticListThreshold, 5, 200, defaultSoundboardViewSettings.automaticListThreshold),
-      desktopListColumns: clamp(value.desktopListColumns, 1, 4, defaultSoundboardViewSettings.desktopListColumns),
+      desktopListColumns: clamp(value.desktopListColumns, 1, 8, defaultSoundboardViewSettings.desktopListColumns),
       mobileListColumns: clamp(value.mobileListColumns, 1, 2, defaultSoundboardViewSettings.mobileListColumns),
     };
   } catch {

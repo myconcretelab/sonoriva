@@ -261,6 +261,7 @@ export interface AdminSupportTicket extends SupportTicket {
 }
 
 export interface Category {
+  backgroundImage?: string | null;
   id: string;
   projectId: string;
   name: string;
@@ -306,6 +307,7 @@ export interface Playlist {
 }
 
 export interface Track {
+  backgroundImage?: string | null;
   id: string;
   projectId: string;
   categoryId: string | null;

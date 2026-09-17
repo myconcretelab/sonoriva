@@ -37,11 +37,15 @@ Une catégorie regroupe des pistes. La catégorie sélectionnée filtre la grill
 
 Les catégories possèdent un nom, une couleur et un ordre. Leur ordre est modifiable par glisser-déposer.
 
+Le bouton crayon en haut à gauche d’une catégorie ouvre son réglage **Image de fond**. Dans les réglages d’un son, le champ **Image de fond** permet également d’importer, de remplacer ou de supprimer une image. Les modifications sont appliquées avec **Enregistrer** et conservées dans le spectacle.
+
+Les fichiers JPEG, PNG et WebP de 10 Mo maximum sont acceptés. L’image est redimensionnée à 640 pixels maximum et compressée en JPEG. Elle remplit le fond de la carte ou de la ligne, avec un recadrage centré. Un voile sombre et un fond sombre derrière le titre blanc maintiennent sa lisibilité dans tous les thèmes.
+
 ## Affichage du soundboard
 
 La commande **Affichage du soundboard** propose les modes **Cartes**, **Liste** et **Automatique**. Lorsque la vue correspond à une catégorie, la portée **Cette catégorie** enregistre le mode uniquement pour celle-ci. La portée **Toutes** applique le mode affiché à toutes les catégories et supprime les exceptions par catégorie. Le mode automatique utilise la liste lorsque le nombre de morceaux de la vue atteint le seuil configuré, compris entre 5 et 200 morceaux.
 
-Le nombre de colonnes est réglé séparément pour les cartes et pour la liste. La liste accepte de une à quatre colonnes sur ordinateur et de une à deux colonnes sur mobile. Chaque ligne de morceau affiche sa couleur, son bouton de lecture principal, les boutons de sorties supplémentaires disponibles, son nom, sa durée et son raccourci clavier. Ces réglages sont conservés localement pour chaque spectacle.
+Le nombre de colonnes est réglé séparément pour les cartes et pour la liste. La liste accepte de une à huit colonnes sur ordinateur et de une à deux colonnes sur mobile. Chaque ligne de morceau affiche sa couleur, son bouton de lecture principal, les boutons de sorties supplémentaires disponibles, son nom, sa durée et son raccourci clavier. Ces réglages sont conservés localement pour chaque spectacle.
 
 ## Sous-catégories
 

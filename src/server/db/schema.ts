@@ -241,6 +241,7 @@ export const projectShares = pgTable('project_shares', {
 }, (table) => [primaryKey({ columns: [table.projectId, table.userId] }), index('project_shares_user_id_idx').on(table.userId)]);
 
 export const categories = pgTable('categories', {
+  backgroundImage: text('background_image'),
   id: uuid('id').primaryKey().defaultRandom(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
@@ -287,6 +288,7 @@ export const playlists = pgTable('playlists', {
 }, (table) => [index('playlists_project_id_idx').on(table.projectId), index('playlists_category_id_idx').on(table.categoryId)]);
 
 export const tracks = pgTable('tracks', {
+  backgroundImage: text('background_image'),
   id: uuid('id').primaryKey().defaultRandom(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),

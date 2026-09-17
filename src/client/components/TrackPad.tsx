@@ -82,8 +82,8 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
     window.setTimeout(() => { suppressClick.current = false; }, 0);
   }
 
-  return <article className={`track-pad ${active ? 'is-active' : ''} ${reorderEnabled ? 'reorder-enabled' : ''} ${playlistDropEnabled ? 'playlist-drag-enabled' : ''} ${selectionMode ? 'selection-enabled' : ''} ${selected ? 'is-selected' : ''} ${mobileDragEnabled ? 'mobile-drag-enabled' : ''} ${mobileDragSource ? 'mobile-drag-source' : ''} ${dropTarget ? 'is-drop-target group-drop-target' : ''} ${reorderPositionTarget ? `reorder-position-target drop-${reorderPositionTarget}` : ''} ${playlistPositionTarget ? `playlist-position-target drop-${playlistPositionTarget}` : ''}`}
-    style={{ '--track-color': color, '--track-contrast': contrastColor(color) } as React.CSSProperties} draggable={selectionMode ? selected : reorderEnabled || playlistDropEnabled} data-track-id={track.id} data-drop-label={dropTarget ? dropLabel : undefined} onClick={() => selectionMode && onSelect()}
+  return <article className={`track-pad ${track.backgroundImage ? 'has-background-image' : ''} ${active ? 'is-active' : ''} ${reorderEnabled ? 'reorder-enabled' : ''} ${playlistDropEnabled ? 'playlist-drag-enabled' : ''} ${selectionMode ? 'selection-enabled' : ''} ${selected ? 'is-selected' : ''} ${mobileDragEnabled ? 'mobile-drag-enabled' : ''} ${mobileDragSource ? 'mobile-drag-source' : ''} ${dropTarget ? 'is-drop-target group-drop-target' : ''} ${reorderPositionTarget ? `reorder-position-target drop-${reorderPositionTarget}` : ''} ${playlistPositionTarget ? `playlist-position-target drop-${playlistPositionTarget}` : ''}`}
+    style={{ backgroundImage: track.backgroundImage ? `linear-gradient(#0009, #0009), url("${track.backgroundImage}")` : undefined, '--track-color': color, '--track-contrast': contrastColor(color) } as React.CSSProperties} draggable={selectionMode ? selected : reorderEnabled || playlistDropEnabled} data-track-id={track.id} data-drop-label={dropTarget ? dropLabel : undefined} onClick={() => selectionMode && onSelect()}
     onClickCapture={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}
     onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd}
     onPointerDown={beginMobileDrag} onPointerMove={moveMobileDrag} onPointerUp={(event) => finishMobileDrag(event, false)} onPointerCancel={(event) => finishMobileDrag(event, true)}>
@@ -93,7 +93,7 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
     <button className="track-trigger" onClick={() => !selectionMode && onPrimary()} onContextMenu={(event) => { event.preventDefault(); if (!selectionMode) onSecondary(); }} aria-pressed={selectionMode ? selected : undefined}>
       <span className={`play-disc ${mainOutput ? 'has-output-route' : ''}`} style={mainOutput ? { '--main-output-color': mainOutput.color } as React.CSSProperties : undefined}>{isVideoTrack(track) ? <Video size={18} /> : active ? <AudioWaveform size={18} /> : <Play size={18} fill="currentColor" />}</span>
       {isVideoTrack(track) && <VideoThumbnail trackId={track.id} />}
-      <span className="track-title">{track.title}</span>
+      <span className="track-title" title={track.title}>{track.title}</span>
     </button>
     {alternateOutputs.length > 0 && <div className="track-output-plays" aria-label="Jouer sur une autre sortie">
       {alternateOutputs.map((output) => <button type="button" key={output.id} style={{ '--output-color': output.color } as React.CSSProperties} onClick={() => onOutputPlay(output.id)} aria-label={`Jouer ${track.title} sur ${output.name}`} title={output.name}><Play size={11} fill="currentColor" /></button>)}

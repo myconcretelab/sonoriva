@@ -1,3 +1,4 @@
+import { backgroundImageSchema } from '../services/background-image.js';
 import { removeUnreferencedFiles } from '../services/shared-files.js';
 import type { FastifyInstance } from 'fastify';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
@@ -450,6 +451,18 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     });
     const reordered = await db.select().from(categories).where(eq(categories.projectId, id)).orderBy(asc(categories.position));
     return { categories: reordered };
+  });
+
+  app.patch('/api/projects/:id/categories/:categoryId', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return;
+    const { id, categoryId } = z.object({ id: z.string().uuid(), categoryId: z.string().uuid() }).parse(request.params);
+    if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
+    const input = z.object({ backgroundImage: backgroundImageSchema }).parse(request.body);
+    const [category] = await db.update(categories).set(input)
+      .where(and(eq(categories.id, categoryId), eq(categories.projectId, id))).returning();
+    if (!category) return reply.code(404).send({ error: 'Catégorie introuvable.' });
+    return { category };
   });
 
   app.delete('/api/projects/:id/categories/:categoryId', async (request, reply) => {

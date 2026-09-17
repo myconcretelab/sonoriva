@@ -1437,3 +1437,35 @@ html[data-skin='studio'] .statusbar { border-top: 3px double #594631; color: #8f
 .project-sharing-members small { display: block; opacity: .7; }
 
 .project-personal-copy { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; }
+
+/* Image-backed pads retain a dark title surface across all skins. */
+html:root .track-pad.has-background-image, html:root .category-tab.has-background-image {
+  background-size: cover;
+  background-position: center;
+}
+html:root .track-pad.has-background-image .track-title,
+html:root .category-tab.has-background-image > span,
+.background-image-preview > span {
+  color: #fff;
+  background: rgba(0, 0, 0, .78);
+  border-radius: 4px;
+  padding: 3px 5px;
+  text-shadow: 0 1px 2px #000;
+}
+html:root .track-pad.has-background-image .track-meta,
+html:root .track-pad.has-background-image .track-edit,
+html:root .category-tab.has-background-image .category-tab-count {
+  color: #fff;
+  background: rgba(0, 0, 0, .78);
+}
+html:root .category-tab.has-background-image.active { outline: 2px solid var(--category-color); outline-offset: -2px; }
+.category-image-edit { position: absolute; z-index: 2; top: 3px; left: 3px; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; color: #fff; background: #18181bcc; cursor: pointer; }
+.background-image-field { display: grid; gap: 8px; }
+.background-image-field small { color: var(--ui-muted, #a1a1aa); }
+.background-image-preview { height: 100px; display: grid; place-items: center; background-size: cover; background-position: center; border-radius: 8px; }
+html:root .is-dense-list .track-pad:not(.subcategory-pad) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
+html:root .is-dense-list .track-pad:not(.subcategory-pad) .track-trigger { padding-right: 30px; }
+html:root .is-dense-list .track-pad:not(.subcategory-pad) .track-title { white-space: normal; overflow-wrap: anywhere; }
+html:root .is-dense-list .track-pad .track-meta { grid-column: 1; grid-row: 2; min-height: 24px; padding: 2px 7px; border-left: 0; }
+html:root .is-dense-list .track-pad .track-output-plays { grid-column: 1; grid-row: 3; flex-wrap: wrap; }
+html:root .is-dense-list .track-pad .track-loaded { top: auto; bottom: 5px; right: 6px; }

@@ -130,9 +130,10 @@ export const api = {
   reorderCategories: (projectId: string, categoryIds: string[]) => request<{ categories: Category[] }>(`/api/projects/${projectId}/categories/reorder`, {
     method: 'PATCH', body: JSON.stringify({ categoryIds }),
   }),
+  updateCategoryBackground: (projectId: string, categoryId: string, backgroundImage: string | null) => request<{ category: Category }>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'PATCH', body: JSON.stringify({ backgroundImage }) }),
   deleteCategory: (projectId: string, categoryId: string) => request<void>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'DELETE' }),
   uploadTrack: (form: FormData) => request<{ track: Track }>('/api/tracks/upload', { method: 'POST', body: form }),
-  updateTrack: (id: string, input: Partial<Pick<Track, 'title' | 'categoryId' | 'volume' | 'loop' | 'fadeInMs' | 'fadeOutMs' | 'startTimeMs' | 'endTimeMs' | 'color' | 'tags'>>) =>
+  updateTrack: (id: string, input: Partial<Pick<Track, 'title' | 'categoryId' | 'volume' | 'loop' | 'fadeInMs' | 'fadeOutMs' | 'startTimeMs' | 'endTimeMs' | 'color' | 'tags' | 'backgroundImage'>>) =>
     request<{ track: Track }>(`/api/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
   batchUpdateTracks: (input: BatchTrackUpdateInput) => request<{ tracks: Track[] }>('/api/tracks/batch', {
     method: 'PATCH', body: JSON.stringify(input),

@@ -1,3 +1,4 @@
+import { backgroundImageSchema } from '../services/background-image.js';
 import { removeUnreferencedFiles } from '../services/shared-files.js';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, stat, unlink } from 'node:fs/promises';
@@ -354,6 +355,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
     if (!existingTrack) return reply.code(404).send({ error: 'Son introuvable.' });
     const input = z.object({
       title: z.string().trim().min(1).max(160).optional(),
+      backgroundImage: backgroundImageSchema.optional(),
       categoryId: z.string().uuid().nullable().optional(),
       volume: z.number().min(0).max(1).optional(),
       loop: z.boolean().optional(),

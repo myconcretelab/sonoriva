@@ -1,3 +1,4 @@
+import { BackgroundImageField } from './BackgroundImageField';
 import { isVideoTrack } from '../lib/video-engine';
 import { VideoEditor } from './VideoEditor';
 import { useState, type FormEvent } from 'react';
@@ -10,6 +11,8 @@ import { WaveformEditor } from './WaveformEditor';
 interface Props { track: Track; categories: Category[]; projectColors: ProjectColor[]; onAddProjectColor: (color: string) => Promise<void>; onClose: () => void; onChanged: () => void }
 
 export function TrackDialog({ track, categories, projectColors, onAddProjectColor, onClose, onChanged }: Props) {
+  const [backgroundImage, setBackgroundImage] = useState(track.backgroundImage ?? null);
+  const [preparingImage, setPreparingImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [savingColor, setSavingColor] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +24,7 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
   const colorIsPreset = projectColors.some((item) => item.color.toLowerCase() === color.toLowerCase());
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setLoading(true); setError('');
+    event.preventDefault(); if (preparingImage || loading) return; setLoading(true); setError('');
     const data = new FormData(event.currentTarget);
     try {
       await api.updateTrack(track.id, {
@@ -36,6 +39,7 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
         endTimeMs,
         color,
         tags,
+        backgroundImage,
       });
       onChanged();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Modification impossible.'); setLoading(false); }
@@ -57,7 +61,7 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
 
   return <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <form className="dialog track-dialog" onSubmit={submit}>
-      <header><div><p className="eyebrow">{isVideoTrack(track) ? 'Réglages de la vidéo' : 'Réglages du son'}</p><h2>{track.title}</h2></div><div className="track-dialog-header-actions"><button type="submit" className="button primary" disabled={loading} aria-label="Enregistrer">{loading ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}<span>Enregistrer</span></button><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer les réglages"><X /></button></div></header>
+      <header><div><p className="eyebrow">{isVideoTrack(track) ? 'Réglages de la vidéo' : 'Réglages du son'}</p><h2>{track.title}</h2></div><div className="track-dialog-header-actions"><button type="submit" className="button primary" disabled={loading || preparingImage} aria-label="Enregistrer">{loading ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}<span>Enregistrer</span></button><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer les réglages"><X /></button></div></header>
       <div className="track-title-color-row">
         <label>Titre<input name="title" defaultValue={track.title} required /></label>
         <label className="track-color-field">Couleur<input name="color" type="color" value={color} onChange={(event) => setColor(event.target.value)} aria-label="Couleur personnalisée du morceau" /></label>
@@ -71,13 +75,14 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
         {!colorIsPreset && <button type="button" className="button ghost track-color-save" disabled={savingColor} onClick={saveColorToProject}>{savingColor ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />}Enregistrer cette couleur dans le spectacle</button>}
       </section>
       <label>Catégorie<select name="categoryId" defaultValue={track.categoryId ?? ''}><option value="">Sans catégorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+      <BackgroundImageField value={backgroundImage} onChange={setBackgroundImage} onBusyChange={setPreparingImage} />
       <TrackTagsInput tags={tags} onChange={setTags} />
       {isVideoTrack(track) ? <VideoEditor track={track} startMs={startTimeMs} endMs={endTimeMs} onStartChange={setStartTimeMs} onEndChange={setEndTimeMs} /> : <WaveformEditor track={track} startMs={startTimeMs} endMs={endTimeMs} onStartChange={setStartTimeMs} onEndChange={setEndTimeMs} />}
       <label>Volume · {Math.min(100, Math.round(track.volume * 100))} %<input name="volume" type="range" min="0" max="100" defaultValue={Math.min(100, track.volume * 100)} /></label>
       <div className="field-row"><label>Fondu d’entrée (ms)<input name="fadeInMs" type="number" min="0" max="60000" defaultValue={track.fadeInMs} /></label><label>Fondu de sortie (ms)<input name="fadeOutMs" type="number" min="0" max="60000" defaultValue={track.fadeOutMs} /></label></div>
       <label className="check"><input name="loop" type="checkbox" defaultChecked={track.loop} /> Jouer en boucle</label>
       {error && <p className="form-error">{error}</p>}
-      <footer className="spread"><button type="button" className="button danger" onClick={remove}><Trash2 size={17} />Supprimer</button><span><button type="button" className="button ghost" onClick={onClose}>Annuler</button><button className="button primary" disabled={loading}>{loading && <LoaderCircle className="spin" size={18} />}Enregistrer</button></span></footer>
+      <footer className="spread"><button type="button" className="button danger" onClick={remove}><Trash2 size={17} />Supprimer</button><span><button type="button" className="button ghost" onClick={onClose}>Annuler</button><button className="button primary" disabled={loading || preparingImage}>{loading && <LoaderCircle className="spin" size={18} />}Enregistrer</button></span></footer>
     </form>
   </div>;
 }
