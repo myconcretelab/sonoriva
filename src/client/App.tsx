@@ -54,7 +54,7 @@ import { applyGreyPlayed, greyPlayedForCategory, applySoundboardViewMode, defaul
 import { intersectsSelection, type SelectionRectangle } from './lib/track-selection';
 import { normalizeTrackTags, toggleSearchScopeSelection, trackMatchesEnabledSearch, type TrackSearchScope } from './lib/track-tags';
 import { canDropTrackInSubcategoryDrawer, subcategoryDrawerEdgeClasses, subcategoryMatchesSearch, trackDropPlacement, trackIdAfterTarget } from './lib/track-subcategories';
-import { createWorkspaceLayout, dockWorkspaceItem, moveWorkspaceItem, placeWorkspaceItemOnGrid, readSavedWorkspaceLayouts, readWorkspaceLayout, resizeWorkspaceItem, setWorkspaceItemCollapsed, swapWorkspaceItems, workspaceBlockLabels, workspaceDockableBlockIds, workspaceDockItems, workspaceItemIsCollapsed, workspaceItemIsDocked, workspaceLayoutItem, workspaceLayoutsMatch, workspaceLayoutSnapshot, workspaceLayoutStorageKey, workspaceSavedLayoutsStorageKey, type SavedWorkspaceLayout, type WorkspaceBlockId } from './lib/workspace-layout';
+import { categorySizedWorkspaceRows, createWorkspaceLayout, dockWorkspaceItem, moveWorkspaceItem, placeWorkspaceItemOnGrid, readSavedWorkspaceLayouts, readWorkspaceLayout, resizeWorkspaceItem, setWorkspaceItemCollapsed, swapWorkspaceItems, workspaceBlockLabels, workspaceDockableBlockIds, workspaceDockItems, workspaceItemIsCollapsed, workspaceItemIsDocked, workspaceLayoutItem, workspaceLayoutsMatch, workspaceLayoutSnapshot, workspaceLayoutStorageKey, workspaceSavedLayoutsStorageKey, type SavedWorkspaceLayout, type WorkspaceBlockId } from './lib/workspace-layout';
 import type { AccountSummary, Category, KeyAction, MouseAction, Playlist, Project, ProjectColor, ProjectDetail, ProjectKeyboardShortcutKey, ReleaseInfo, RemoteCommand, Track, TrackSubcategory, User } from './types';
 
 const colors = ['#DBEDF7', '#8b5cf6', '#06b6d4', '#ec4899', '#22c55e', '#eab308'];
@@ -2490,7 +2490,7 @@ export default function App() {
         onReset={() => setWorkspaceLayout(createWorkspaceLayout('classic'))}
         onClose={() => setLayoutEditing(false)} />}
       <div className="workspace-with-projection">
-      <div className={`workspace-layout-grid ${layoutEditing ? 'is-editing' : ''}`} style={{ '--workspace-columns': workspaceLayout.columns } as React.CSSProperties}
+      <div className={`workspace-layout-grid ${layoutEditing ? 'is-editing' : ''}`} style={{ '--workspace-columns': workspaceLayout.columns, '--category-zone-height': `${categoryWidth + 18}px`, gridTemplateRows: layoutEditing ? undefined : categorySizedWorkspaceRows(workspaceLayout) } as React.CSSProperties}
         onDragOver={(event) => { if (!layoutEditing || !event.dataTransfer.types.includes(workspaceBlockMime)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
         onDrop={(event) => {
           if (!layoutEditing || (event.target instanceof Element && event.target.closest('[data-workspace-block]'))) return;

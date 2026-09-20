@@ -311,3 +311,21 @@ function itemsOverlap(first: WorkspaceLayoutItem, second: WorkspaceLayoutItem): 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, Math.round(value)));
 }
+
+/** Fit the category band to its square pads while the other rows share the space left. */
+export function categorySizedWorkspaceRows(layout: WorkspaceLayout): string | undefined {
+  const category = workspaceLayoutItem(layout, 'categories');
+  const bottom = category.y + category.h;
+  if (category.h >= workspaceLayoutRows || workspaceItemIsDocked(layout, 'categories')) return undefined;
+  const conflicts = layout.items.some((item) => {
+    if (item.id === 'categories' || workspaceItemIsDocked(layout, item.id) || (item.id === 'quickLaunch' && layout.quickLaunchAttached)) return false;
+    const itemBottom = item.y + item.h;
+    if (item.y >= bottom || itemBottom <= category.y) return false;
+    // A tall neighbouring panel can span the category band; independent panels
+    // confined to it must retain their manually allocated height.
+    return !(item.y <= category.y && itemBottom >= bottom && item.h > category.h);
+  });
+  if (conflicts) return undefined;
+  const categoryRow = `minmax(0, calc((var(--category-zone-height) - ${category.h - 1} * var(--workspace-gap)) / ${category.h}))`;
+  return Array.from({ length: workspaceLayoutRows }, (_, row) => row >= category.y && row < bottom ? categoryRow : 'minmax(0, 1fr)').join(' ');
+}

@@ -1,3 +1,4 @@
+import { categorySizedWorkspaceRows } from '../src/client/lib/workspace-layout';
 import { describe, expect, it } from 'vitest';
 import {
   createWorkspaceLayout,
@@ -143,5 +144,29 @@ describe('workspace layout', () => {
     expect(saved[0]).toMatchObject({ id: 'layout-1', name: 'Ma régie', layout: { columns: 12, preset: 'custom' } });
     expect(workspaceLayoutsMatch(saved[0]!.layout, layout)).toBe(true);
     expect(workspaceLayoutSnapshot(layout)).not.toBe(layout);
+  });
+});
+
+describe('category pad height follows the category band', () => {
+  it('fits categories and gives the remaining rows to the soundboard in standard layouts', () => {
+    for (const preset of ['classic', 'playlist-vertical', 'playlist-focus'] as const) {
+      const rows = categorySizedWorkspaceRows(createWorkspaceLayout(preset))!;
+      expect(rows.match(/var\(--category-zone-height\)/g)).toHaveLength(2);
+      expect(rows.match(/minmax\(0, 1fr\)/g)).toHaveLength(10);
+      expect(rows).toContain('var(--workspace-gap)');
+    }
+  });
+  it('preserves the grid when another independent panel shares the category rows', () => {
+    const layout = createWorkspaceLayout();
+    layout.dock = layout.dock.filter(id => id !== 'players');
+    layout.items = layout.items.map(item => item.id === 'players' ? { ...item, y: 0, h: 2 } : item);
+    expect(categorySizedWorkspaceRows(layout)).toBeUndefined();
+  });
+  it('supports a category band moved further down the grid', () => {
+    const layout = createWorkspaceLayout();
+    layout.items = layout.items.map(item => item.id === 'categories' ? { ...item, y: 4 } : item.id === 'soundboard' ? { ...item, y: 6, h: 6 } : item);
+    const rows = categorySizedWorkspaceRows(layout)!;
+    expect(rows.startsWith('minmax(0, 1fr) '.repeat(4))).toBe(true);
+    expect(rows.match(/var\(--category-zone-height\)/g)).toHaveLength(2);
   });
 });
