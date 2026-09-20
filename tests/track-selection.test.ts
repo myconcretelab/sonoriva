@@ -26,7 +26,7 @@ describe('rectangle de sélection des morceaux', () => {
     } satisfies Track;
     const ignore = () => undefined;
     const markup = renderToStaticMarkup(createElement(TrackPad, {
-      track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, reorderEnabled: false, playlistDropEnabled: false,
+      track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, dragEnabled: true,
       selectionMode: true, selected: true, dropTarget: false, bridgeOutputs: [], onPrimary: ignore, onOutputPlay: ignore, onSecondary: ignore, onEdit: ignore,
       onSelect: ignore, onDragStart: ignore, onDragOver: ignore, onDrop: ignore, onDragEnd: ignore,
     }));

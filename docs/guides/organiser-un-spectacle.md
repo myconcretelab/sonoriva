@@ -53,7 +53,7 @@ Une sous-catégorie regroupe des morceaux à l’intérieur d’une catégorie p
 
 Un clic n’importe où sur la tuile ouvre ou ferme un tiroir pleine largeur sous sa ligne. L’icône d’édition de la tuile est placée dans son angle supérieur droit et n’ouvre pas le tiroir. Les morceaux du tiroir conservent les commandes de lecture, d’édition, de sélection et de glisser-déposer des autres morceaux. Les commandes **Modifier** et **Supprimer** sont placées à gauche du titre du tiroir. La commande de fermeture du tiroir le referme également.
 
-En mode **Réorganiser** :
+Le déplacement est disponible directement depuis le pied de la carte, qui affiche la durée et le raccourci. Aucun mode de réorganisation à activer :
 
 - déposer un morceau au centre d’un morceau non groupé crée une sous-catégorie contenant les deux morceaux ;
 - déposer un morceau sur une tuile de sous-catégorie ou au centre d’un morceau de son tiroir l’ajoute à ce groupe ;
@@ -66,7 +66,7 @@ Le bouton **Nouvelle sous-catégorie** du tableau de bord crée un groupe vide. 
 
 Pendant une recherche, les sous-catégories ne sont pas affichées : chaque morceau correspondant apparaît directement dans les résultats.
 
-Les boutons de lecture restent actifs en mode **Réorganiser**. Un clic bref déclenche le morceau ; un glisser déplace sa carte.
+Les boutons de lecture, d’édition et de choix de sortie restent actifs. À la souris comme au toucher, le pied de carte sert de poignée de déplacement ; le reste de la carte conserve ses commandes habituelles. Cette poignée permet aussi d’ajouter un son à la Playlist ou au Départ rapide par glisser-déposer à la souris.
 
 ## Colonne de lecture
 
@@ -93,7 +93,8 @@ Les tags fournis par Freesound sont enregistrés automatiquement avec les morcea
 Le bouton **Sélection multiple** du tableau de bord active la sélection des morceaux. Dans ce mode :
 
 - un clic ou un toucher sur une carte ajoute ou retire le morceau de la sélection ;
-- un glisser à la souris trace un rectangle et sélectionne les cartes qu’il touche ;
+- un glisser à la souris depuis le fond ou une carte non sélectionnée trace un rectangle et sélectionne les cartes qu’il touche ;
+- glisser directement une carte sélectionnée déplace le lot vers une catégorie ou une sous-catégorie ; un dépôt sur un morceau non sélectionné crée un groupe, ou ajoute la sélection à son groupe existant ;
 - les touches Maj, Ctrl ou Cmd maintenues pendant le tracé ajoutent le rectangle à la sélection existante ;
 - **Tout sélectionner** sélectionne les morceaux visibles et **Effacer** vide la sélection.
 

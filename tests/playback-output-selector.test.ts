@@ -27,7 +27,7 @@ describe('sélecteur de sortie d’une lecture', () => {
   it('entoure le Play principal et ajoute seulement les Plays des autres sorties', () => {
     const track = { id: 'track-1', title: 'Ouverture', durationMs: 60_000, startTimeMs: 0, endTimeMs: null, volume: 1, loop: false } as Track;
     const ignore = () => undefined;
-    const markup = renderToStaticMarkup(createElement(TrackPad, { track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, reorderEnabled: false, playlistDropEnabled: false, dropTarget: false, bridgeOutputs: outputs, mainBridgeOutputId: 'speakers', onPrimary: ignore, onOutputPlay: ignore, onSecondary: ignore, onEdit: ignore, onDragStart: ignore, onDragOver: ignore, onDrop: ignore, onDragEnd: ignore }));
+    const markup = renderToStaticMarkup(createElement(TrackPad, { track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, dragEnabled: true, dropTarget: false, bridgeOutputs: outputs, mainBridgeOutputId: 'speakers', onPrimary: ignore, onOutputPlay: ignore, onSecondary: ignore, onEdit: ignore, onDragStart: ignore, onDragOver: ignore, onDrop: ignore, onDragEnd: ignore }));
     expect(markup).toContain('play-disc has-output-route');
     expect(markup).toContain('--main-output-color:#22c55e');
     expect(markup).not.toContain('aria-label="Jouer Ouverture sur Haut-parleurs"');
@@ -42,7 +42,7 @@ describe('sélecteur de sortie d’une lecture', () => {
       { id: 'stage-left', name: 'Scène gauche', isDefault: false, color: '#f59e0b' },
       { id: 'stage-right', name: 'Scène droite', isDefault: false, color: '#ec4899' },
     ];
-    const markup = renderToStaticMarkup(createElement(TrackPad, { track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, reorderEnabled: false, playlistDropEnabled: false, dropTarget: false, bridgeOutputs: extendedOutputs, mainBridgeOutputId: 'speakers', onPrimary: ignore, onOutputPlay: ignore, onSecondary: ignore, onEdit: ignore, onDragStart: ignore, onDragOver: ignore, onDrop: ignore, onDragEnd: ignore }));
+    const markup = renderToStaticMarkup(createElement(TrackPad, { track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, dragEnabled: true, dropTarget: false, bridgeOutputs: extendedOutputs, mainBridgeOutputId: 'speakers', onPrimary: ignore, onOutputPlay: ignore, onSecondary: ignore, onEdit: ignore, onDragStart: ignore, onDragOver: ignore, onDrop: ignore, onDragEnd: ignore }));
     expect(markup.match(/aria-label="Jouer Ouverture sur/g)).toHaveLength(3);
     expect(markup).toContain('aria-label="Jouer Ouverture sur Jean Luc"');
     expect(markup).toContain('aria-label="Jouer Ouverture sur Scène gauche"');

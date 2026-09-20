@@ -52,14 +52,15 @@ describe('réorganisation tactile des morceaux', () => {
     HTMLElement.prototype.releasePointerCapture = (pointerId) => { captures.delete(pointerId); };
 
     act(() => root.render(createElement(TrackPad, {
-      track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, reorderEnabled: true, playlistDropEnabled: false,
+      track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, dragEnabled: true,
       selectionMode: false, selected: false, dropTarget: false, bridgeOutputs: [], onPrimary: ignore, onOutputPlay: ignore, onSecondary: ignore, onEdit: ignore,
       onSelect: ignore, onDragStart: ignore, onDragOver: ignore, onDrop: ignore, onDragEnd: ignore, mobileDragEnabled: true,
       onMobileDragStart: start, onMobileDragMove: move, onMobileDragEnd: end,
     })));
     const pad = container.querySelector<HTMLElement>('[data-track-id]')!;
+    const handle = container.querySelector<HTMLElement>('[data-track-drag-handle]')!;
 
-    act(() => pad.dispatchEvent(pointerEvent('pointerdown', 20, 20)));
+    act(() => handle.dispatchEvent(pointerEvent('pointerdown', 20, 20)));
     expect(pad.style.getPropertyValue('-webkit-user-drag')).toBe('none');
     act(() => pad.dispatchEvent(pointerEvent('pointermove', 25, 24)));
     expect(start).not.toHaveBeenCalled();
@@ -81,7 +82,7 @@ describe('réorganisation tactile des morceaux', () => {
     const ignore = () => undefined;
 
     act(() => root.render(createElement(TrackPad, {
-      track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, reorderEnabled: false, playlistDropEnabled: false,
+      track, color: '#22d3b6', active: false, playbacks: [], historyProgress: 0, loaded: false, dragEnabled: true,
       selectionMode: true, selected: true, dropTarget: false, bridgeOutputs: [], onPrimary: ignore, onOutputPlay: ignore, onSecondary: ignore, onEdit: ignore,
       onSelect: ignore, onDragStart: ignore, onDragOver: ignore, onDrop: ignore, onDragEnd: ignore, mobileDragEnabled: true,
     })));
@@ -106,7 +107,7 @@ describe('réorganisation tactile des morceaux', () => {
     expect(app).toContain("target.kind === 'subcategory'");
     expect(app).toContain("target.kind === 'category'");
     expect(app).toContain('mobile-track-drag-preview');
-    expect(styles).toContain('.track-pad.mobile-drag-enabled { touch-action: none; }');
+    expect(styles).toContain('.track-pad.mobile-drag-enabled .track-meta, .track-pad.mobile-drag-enabled.selection-enabled.is-selected { touch-action: none; }');
     expect(styles).not.toContain('.track-pad.mobile-drag-enabled { touch-action: none; -webkit-user-drag: none; }');
   });
 });

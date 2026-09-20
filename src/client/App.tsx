@@ -9,7 +9,7 @@ import { RotaryVolume } from './components/RotaryVolume';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   Rocket, ArrowUpDown, AudioLines, AudioWaveform, CircleCheck, Clock3, Columns3, Download, FolderInput, FolderPlus, GripVertical, History, LayoutDashboard, LifeBuoy, ListMusic, ListPlus, LoaderCircle, Menu, MonitorPlay, MoreHorizontal, Move, Pause, Pencil, Play, Plus, Radio,
-  LockKeyhole, LogIn, RefreshCcw, Repeat2, RotateCcw, Scan, Search, Settings, Settings2, SlidersHorizontal, Square, SquareDashed, Timer, Trash2, Upload, Volume2, VolumeX, Waves, Wifi, WifiOff, X,
+  LockKeyhole, LogIn, RefreshCcw, Repeat2, RotateCcw, Scan, Search, Settings, Settings2, SlidersHorizontal, Square, Timer, Trash2, Upload, Volume2, VolumeX, Waves, Wifi, WifiOff, X,
 } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
 import { AuthScreen } from './components/AuthScreen';
@@ -143,7 +143,6 @@ export default function App() {
   const [dropUploadProgress, setDropUploadProgress] = useState<{ done: number; total: number; filename: string }>();
   const [folderImportFiles, setFolderImportFiles] = useState<DroppedAudioFile[]>();
   const [categoryWidth, setCategoryWidth] = useState(() => readNumber('sonoriva-category-width', 112));
-  const [reorderMode, setReorderMode] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(new Set());
   const [selectionRectangle, setSelectionRectangle] = useState<SelectionRectangle>();
@@ -245,6 +244,7 @@ export default function App() {
   const playlistsEnabled = accountSummary?.features.playlists ?? true;
   const remoteControlEnabled = accountSummary?.features.remoteControl ?? true;
   const remote = remoteRequested && remoteControlEnabled;
+  const reorderAllowed = !remote && !layoutEditing && !categoryManageMode && !reordering;
   const workspaceUserId = user?.id;
   const unseenReleases = useMemo(() => releaseInfo?.releases.filter((release) => releaseInfo.unseenVersions.includes(release.version)) ?? [], [releaseInfo]);
   const releasesForDialog = unseenReleases.length > 0 ? unseenReleases : releaseInfo?.releases ?? [];
@@ -1838,7 +1838,6 @@ export default function App() {
     resetPlaylistEditor();
     setSelectedProjectId(id);
     setSelectedCategoryId('all');
-    setReorderMode(false);
     setSidebarOpen(false);
     localStorage.setItem('sonoriva-project', id);
   }
@@ -1846,7 +1845,6 @@ export default function App() {
   function toggleSelectionMode() {
     const next = !selectionMode;
     setSelectionMode(next);
-    setReorderMode(false);
     setCategoryManageMode(false);
     setColumnsOpen(false);
     setHistoryOpen(false);
@@ -2008,7 +2006,6 @@ export default function App() {
     setKeepNextTrackVolume(false);
     localStorage.removeItem('sonoriva-next-volume');
     localStorage.removeItem('sonoriva-keep-next-volume');
-    setReorderMode(false);
     setCategoryManageMode(false);
     setDraggedTrackId(undefined);
     setDropTrackId(undefined);
@@ -2137,7 +2134,7 @@ export default function App() {
 
   function beginMobileTrackDrag(track: Track, color: string, point: ClientPoint) {
     const selection = selectionMode && selectedTrackIds.has(track.id);
-    if (!reorderMode && !selection) return;
+    if (!reorderAllowed || (selectionMode && !selection)) return;
     mobileTrackDragRef.current = { trackId: track.id, selection };
     setDraggedTrackId(track.id);
     setMobileTrackDragPreview({
@@ -2240,15 +2237,15 @@ export default function App() {
     const color = track.color ?? category?.color ?? '#71717a';
     const shortcutIndex = visibleTracks.findIndex((candidate) => candidate.id === track.id);
     const reorderPositionTarget = dropTrackId === track.id && dropTrackPlacement !== 'group' ? dropTrackPlacement : undefined;
-    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} download={downloads.get(track.id)} reorderEnabled={reorderMode} playlistDropEnabled={(playlistsEnabled || quickLaunch.state.enabled) && !selectionMode && (!remote || quickLaunch.state.enabled) && !isVideoTrack(track)} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || reorderMode || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
+    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} download={downloads.get(track.id)} dragEnabled={reorderAllowed || (remote && quickLaunch.state.enabled && !isVideoTrack(track))} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
       onPrimary={() => detail && runTrackAction(detail.project.leftClickAction ?? 'start', track)}
       onOutputPlay={(outputId) => playTrackOnOutput(track, outputId)}
       onSecondary={() => detail && runTrackAction(detail.project.rightClickAction ?? 'crossfade', track)}
-      onEdit={() => { if (!reorderMode) setEditingTrack(track); }}
+      onEdit={() => setEditingTrack(track)}
       onSelect={() => toggleTrackSelection(track.id)}
-      onDragStart={(event) => { if (selectionMode && selectedTrackIds.has(track.id)) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-sonoriva-track-selection', [...selectedTrackIds].join(',')); setSelectionDragImage(event, selectedTracks); setDraggedTrackId(track.id); } else if (reorderMode) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', track.id); setDraggedTrackId(track.id); } else if (!remote || quickLaunch.state.enabled) { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-sonoriva-track', track.id); } }}
+      onDragStart={(event) => { if (selectionMode && selectedTrackIds.has(track.id)) { event.dataTransfer.effectAllowed = 'copyMove'; event.dataTransfer.setData('application/x-sonoriva-track-selection', [...selectedTrackIds].join(',')); setSelectionDragImage(event, selectedTracks); setDraggedTrackId(track.id); } else if (reorderAllowed) { event.dataTransfer.effectAllowed = 'copyMove'; event.dataTransfer.setData('text/plain', track.id); if (!isVideoTrack(track)) event.dataTransfer.setData('application/x-sonoriva-track', track.id); setDraggedTrackId(track.id); } else if (!remote || quickLaunch.state.enabled) { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-sonoriva-track', track.id); } }}
       onDragOver={(event) => {
-        if (!reorderMode && !draggingSelectedTracks) return;
+        if (!reorderAllowed && !draggingSelectedTracks) return;
         if (draggedPlaylistId || draggedTrackSubcategoryId) {
           event.preventDefault();
           event.dataTransfer.dropEffect = 'move';
@@ -2295,7 +2292,7 @@ export default function App() {
         const beforeTrackId = placement === 'after' ? trackIdAfterTarget(detail?.tracks ?? [], track) : track.id;
         reorderTrack(sourceTrack.id, track.categoryId, beforeTrackId, track.subcategoryId).catch(() => undefined);
       }}
-      mobileDragEnabled={reorderMode || (selectionMode && selectedTrackIds.has(track.id))}
+      mobileDragEnabled={reorderAllowed && (!selectionMode || selectedTrackIds.has(track.id))}
       mobileDragSource={mobileTrackDragPreview?.trackId === track.id}
       onMobileDragStart={(point) => beginMobileTrackDrag(track, color, point)}
       onMobileDragMove={moveMobileTrackDrag}
@@ -2464,7 +2461,7 @@ export default function App() {
           <section className="console-module wall-clock"><span><Clock3 size={14} />Horloge</span><strong>{formatClock(now)}</strong></section>
         </div>
         <div className="top-actions">
-          {!remote && <button className={`icon-button layout-button ${layoutEditing ? 'active' : ''}`} disabled={!customLayoutsEnabled} onClick={() => { setLayoutEditing((current) => !current); setCategoryManageMode(false); setReorderMode(false); setSelectionMode(false); setSelectedTrackIds(new Set()); }} aria-label={layoutEditing ? 'Terminer la modification de la disposition' : 'Modifier la disposition de l’interface'} title={customLayoutsEnabled ? 'Disposition de l’interface' : 'Disposition personnalisée non incluse dans votre forfait'}><LayoutDashboard size={19} /></button>}
+          {!remote && <button className={`icon-button layout-button ${layoutEditing ? 'active' : ''}`} disabled={!customLayoutsEnabled} onClick={() => { setLayoutEditing((current) => !current); setCategoryManageMode(false); setSelectionMode(false); setSelectedTrackIds(new Set()); }} aria-label={layoutEditing ? 'Terminer la modification de la disposition' : 'Modifier la disposition de l’interface'} title={customLayoutsEnabled ? 'Disposition de l’interface' : 'Disposition personnalisée non incluse dans votre forfait'}><LayoutDashboard size={19} /></button>}
           <button className="icon-button support-button" onClick={() => setSupportOpen(true)} aria-label="Ouvrir le support" title="Support"><LifeBuoy size={19} />{supportUnreadCount > 0 && <i aria-label={`${supportUnreadCount} réponse${supportUnreadCount > 1 ? 's' : ''} non lue${supportUnreadCount > 1 ? 's' : ''}`}>{Math.min(supportUnreadCount, 9)}</i>}</button>
           <button className={`icon-button settings-button ${unseenReleases.length > 0 ? 'has-update' : ''}`} onClick={() => { setSettingsInitialSection(undefined); setSettingsOpen(true); }} aria-label="Ouvrir les paramètres" title="Paramètres"><Settings size={19} />{unseenReleases.length > 0 && <i aria-hidden="true" />}</button>
           {!remote && <button className="icon-button reset-show-button" onClick={resetCurrentProject} disabled={!detail} aria-label="Réinitialiser le spectacle en cours" title="Réinitialiser le spectacle"><RefreshCcw size={18} /></button>}
@@ -2518,7 +2515,7 @@ export default function App() {
           onSwap={swapWorkspacePlacement}
           onResize={(id, width, height) => setWorkspaceLayout((current) => resizeWorkspaceItem(current, id, width, height))}>
       {detail && <section className="category-strip">
-        <div className="category-strip-heading"><span>{categoryManageMode ? 'Glissez les catégories pour les réordonner' : 'Catégories'}</span><div><button className={`icon-button subtle category-manage-toggle ${categoryManageMode ? 'active' : ''}`} onClick={() => { setCategoryManageMode((current) => !current); setReorderMode(false); setSelectionMode(false); setSelectedTrackIds(new Set()); setDraggedCategoryId(undefined); setDropCategoryOrderId(undefined); setDropCategoryAfter(false); }} aria-label={categoryManageMode ? 'Terminer la gestion des catégories' : 'Gérer les catégories'} title={categoryManageMode ? 'Terminer' : 'Réordonner ou supprimer'}><ArrowUpDown size={16} /></button><button className="icon-button subtle" onClick={createCategory} aria-label="Nouvelle catégorie"><Plus size={17} /></button></div></div>
+        <div className="category-strip-heading"><span>{categoryManageMode ? 'Glissez les catégories pour les réordonner' : 'Catégories'}</span><div><button className={`icon-button subtle category-manage-toggle ${categoryManageMode ? 'active' : ''}`} onClick={() => { setCategoryManageMode((current) => !current); setSelectionMode(false); setSelectedTrackIds(new Set()); setDraggedCategoryId(undefined); setDropCategoryOrderId(undefined); setDropCategoryAfter(false); }} aria-label={categoryManageMode ? 'Terminer la gestion des catégories' : 'Gérer les catégories'} title={categoryManageMode ? 'Terminer' : 'Réordonner ou supprimer'}><ArrowUpDown size={16} /></button><button className="icon-button subtle" onClick={createCategory} aria-label="Nouvelle catégorie"><Plus size={17} /></button></div></div>
         <div className="category-tabs-row" style={{ '--category-tab-width': `${categoryWidth}px` } as React.CSSProperties}>
           <nav className="category-tabs" aria-label="Catégories de sons" onDragOver={(event) => { if (!categoryManageMode || !draggedCategoryId) return; event.preventDefault(); }} onDrop={(event) => { if (!categoryManageMode || !draggedCategoryId || event.target !== event.currentTarget) return; event.preventDefault(); reorderCategories(draggedCategoryId).catch(() => undefined); }}>
             <button className={`category-tab category-tab-all ${selectedCategoryId === 'all' || isSearching ? 'active' : ''}`} onClick={() => selectCategory('all')} style={{ '--category-color': '#a1a1aa', '--category-contrast': contrastColor('#a1a1aa') } as React.CSSProperties}><span>Tous les sons</span><em className="category-tab-count">{detail.tracks.length}</em></button>
@@ -2529,9 +2526,9 @@ export default function App() {
               onDrop={(event) => { if (!categoryManageMode || !draggedCategoryId) return; event.preventDefault(); event.stopPropagation(); const bounds = event.currentTarget.getBoundingClientRect(); reorderCategories(draggedCategoryId, category.id, event.clientX > bounds.left + bounds.width / 2).catch(() => undefined); }}
               onDragEnd={() => { setDraggedCategoryId(undefined); setDropCategoryOrderId(undefined); setDropCategoryAfter(false); }}>
               <button style={{ backgroundImage: category.backgroundImage ? `linear-gradient(#0009, #0009), url("${category.backgroundImage}")` : undefined }} className={`category-tab ${category.backgroundImage ? 'has-background-image' : ''} ${!isSearching && category.id === selectedCategoryId ? 'active' : ''} ${dropCategoryId === category.id ? 'is-drop-target' : ''}`} data-category-id={category.id} onClick={() => selectCategory(category.id)}
-                onDragOver={(event) => { if ((!reorderMode && !draggingSelectedTracks) || (!draggedTrackId && !draggedPlaylistId && !draggedTrackSubcategoryId)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropCategoryId(category.id); setDropTrackId(undefined); setDropPlaylistId(undefined); setDropPlaylistTrackId(undefined); setDropSubcategoryPositionId(undefined); }}
+                onDragOver={(event) => { if ((!reorderAllowed && !draggingSelectedTracks) || (!draggedTrackId && !draggedPlaylistId && !draggedTrackSubcategoryId)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropCategoryId(category.id); setDropTrackId(undefined); setDropPlaylistId(undefined); setDropPlaylistTrackId(undefined); setDropSubcategoryPositionId(undefined); }}
                 onDragLeave={() => setDropCategoryId((current) => current === category.id ? undefined : current)}
-                onDrop={(event) => { if ((!reorderMode && !draggingSelectedTracks) || (!draggedTrackId && !draggedPlaylistId && !draggedTrackSubcategoryId)) return; event.preventDefault(); event.stopPropagation(); if (draggingSelectedTracks) moveSelectedTracks(category.id, null).catch(() => undefined); else if (draggedPlaylistId) movePlaylistToCategory(draggedPlaylistId, category.id).catch(() => undefined); else if (draggedTrackSubcategoryId) moveSubcategoryToCategory(draggedTrackSubcategoryId, category.id).catch(() => undefined); else if (draggedTrackId) reorderTrack(draggedTrackId, category.id).catch(() => undefined); }}>
+                onDrop={(event) => { if ((!reorderAllowed && !draggingSelectedTracks) || (!draggedTrackId && !draggedPlaylistId && !draggedTrackSubcategoryId)) return; event.preventDefault(); event.stopPropagation(); if (draggingSelectedTracks) moveSelectedTracks(category.id, null).catch(() => undefined); else if (draggedPlaylistId) movePlaylistToCategory(draggedPlaylistId, category.id).catch(() => undefined); else if (draggedTrackSubcategoryId) moveSubcategoryToCategory(draggedTrackSubcategoryId, category.id).catch(() => undefined); else if (draggedTrackId) reorderTrack(draggedTrackId, category.id).catch(() => undefined); }}>
                 <span>{category.name}</span><em className="category-tab-count">{detail.tracks.filter((track) => track.categoryId === category.id).length}</em>
               </button>
               {!remote && <button className="category-image-edit" onClick={() => setEditingCategoryBackground(category)} aria-label={`Image de fond de ${category.name}`} title="Image de fond"><Pencil size={12} /></button>}
@@ -2572,8 +2569,7 @@ export default function App() {
             {preloadProgress ? <LoaderCircle className="spin" size={18} /> : preloadedInCategory === tracksToPreload.length && tracksToPreload.length ? <CircleCheck size={18} /> : <Download size={18} />}
           </button>}
           {!remote && <button className={`dashboard-button selection-mode-button ${selectionMode ? 'active' : ''}`} onClick={toggleSelectionMode} aria-label={selectionMode ? 'Terminer la sélection multiple' : 'Sélectionner plusieurs morceaux'} title={selectionMode ? 'Terminer la sélection' : 'Sélection multiple'}><Scan size={18} />{selectedTrackIds.size > 0 && <em>{selectedTrackIds.size}</em>}</button>}
-          {!remote && <button className={`dashboard-button ${reorderMode ? 'active' : ''}`} onClick={() => { setReorderMode((current) => !current); setSelectionMode(false); setSelectedTrackIds(new Set()); setCategoryManageMode(false); setDraggedTrackId(undefined); setDraggedTrackSubcategoryId(undefined); setDropTrackId(undefined); setDropTrackPlacement(undefined); setDropSubcategoryId(undefined); setDropSubcategoryPositionId(undefined); setDropCategoryId(undefined); setDraggedPlaylistId(undefined); setDropPlaylistId(undefined); setDropPlaylistTrackId(undefined); setDropPlaylistAfter(false); }} disabled={reordering}
-            aria-label={reordering ? 'Enregistrement de la réorganisation' : reorderMode ? 'Terminer la réorganisation' : 'Réorganiser les morceaux'} title={reorderMode ? 'Terminer la réorganisation' : 'Réorganiser les morceaux'}><span className="reorder-mode-icon" aria-hidden="true"><SquareDashed size={20} /><Move size={12} /></span></button>}
+
           <div className="dashboard-control">
             <button className={`dashboard-button ${columnsOpen ? 'active' : ''}`} onClick={() => { setColumnsOpen((current) => !current); setHistoryOpen(false); }} aria-label="Régler l’affichage du soundboard" title="Affichage du soundboard"><Columns3 size={18} /></button>
             {columnsOpen && <div className="dashboard-popover columns-popover">
@@ -2612,19 +2608,19 @@ export default function App() {
             let tile: React.ReactNode;
             if (boardItem.kind === 'playlist') {
               const playlist = boardItem.playlist;
-              tile = <PlaylistPad playlist={playlist} reorderEnabled={reorderMode} selectionDisabled={selectionMode} dropTarget={dropPlaylistId === playlist.id} dropAfter={dropPlaylistAfter} onLoad={() => loadPlaylist(playlist)}
-                onDragStart={(event) => { if (!reorderMode) return; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-sonoriva-playlist', playlist.id); setDraggedPlaylistId(playlist.id); }}
-                onDragOver={(event) => { if (!reorderMode || (!draggedPlaylistId && !draggedTrackSubcategoryId) || draggedPlaylistId === playlist.id) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; const bounds = event.currentTarget.getBoundingClientRect(); setDropPlaylistId(playlist.id); setDropPlaylistTrackId(undefined); setDropSubcategoryPositionId(undefined); setDropPlaylistAfter(event.clientX > bounds.left + bounds.width / 2); }}
+              tile = <PlaylistPad playlist={playlist} reorderEnabled={reorderAllowed} selectionDisabled={selectionMode} dropTarget={dropPlaylistId === playlist.id} dropAfter={dropPlaylistAfter} onLoad={() => loadPlaylist(playlist)}
+                onDragStart={(event) => { if (!reorderAllowed) return; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-sonoriva-playlist', playlist.id); setDraggedPlaylistId(playlist.id); }}
+                onDragOver={(event) => { if (!reorderAllowed || (!draggedPlaylistId && !draggedTrackSubcategoryId) || draggedPlaylistId === playlist.id) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; const bounds = event.currentTarget.getBoundingClientRect(); setDropPlaylistId(playlist.id); setDropPlaylistTrackId(undefined); setDropSubcategoryPositionId(undefined); setDropPlaylistAfter(event.clientX > bounds.left + bounds.width / 2); }}
                 onDrop={(event) => { event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); if (draggedPlaylistId && draggedPlaylistId !== playlist.id) reorderPlaylist(draggedPlaylistId, 'playlist', playlist.id, event.clientX > bounds.left + bounds.width / 2).catch(() => undefined); else if (draggedTrackSubcategoryId) reorderSubcategory(draggedTrackSubcategoryId, 'playlist', playlist.id, event.clientX > bounds.left + bounds.width / 2).catch(() => undefined); }}
                 onDragEnd={() => { setDraggedPlaylistId(undefined); setDropPlaylistId(undefined); setDropPlaylistTrackId(undefined); setDropSubcategoryPositionId(undefined); setDropCategoryId(undefined); setDropPlaylistAfter(false); }} />;
             } else if (boardItem.kind === 'subcategory') {
               const subcategory = boardItem.subcategory;
               const memberTracks = detail.tracks.filter((track) => track.subcategoryId === subcategory.id).sort((first, second) => first.position - second.position);
-              tile = <TrackSubcategoryPad subcategory={subcategory} tracks={memberTracks} open={openSubcategoryId === subcategory.id} reorderEnabled={reorderMode} dropTarget={dropSubcategoryId === subcategory.id} positionTarget={dropSubcategoryPositionId === subcategory.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined}
+              tile = <TrackSubcategoryPad subcategory={subcategory} tracks={memberTracks} open={openSubcategoryId === subcategory.id} reorderEnabled={reorderAllowed} dropTarget={dropSubcategoryId === subcategory.id} positionTarget={dropSubcategoryPositionId === subcategory.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined}
                 onToggle={() => setOpenSubcategoryId((current) => current === subcategory.id ? undefined : subcategory.id)}
                 onEdit={() => setSubcategoryDialog(subcategory)}
-                onDragStart={(event) => { if (!reorderMode) return; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-sonoriva-track-subcategory', subcategory.id); setDraggedTrackSubcategoryId(subcategory.id); }}
-                onDragOver={(event) => { if (!reorderMode && !draggingSelectedTracks) return; if (draggedTrackId) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; scheduleSubcategoryOpen(subcategory.id); setDropSubcategoryId(subcategory.id); setDropSubcategoryPositionId(undefined); setDropTrackId(undefined); setDropTrackPlacement(undefined); return; } if ((draggedTrackSubcategoryId && draggedTrackSubcategoryId !== subcategory.id) || draggedPlaylistId) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; const bounds = event.currentTarget.getBoundingClientRect(); setDropSubcategoryPositionId(subcategory.id); setDropSubcategoryId(undefined); setDropPlaylistId(undefined); setDropPlaylistTrackId(undefined); setDropPlaylistAfter(event.clientX > bounds.left + bounds.width / 2); } }}
+                onDragStart={(event) => { if (!reorderAllowed) return; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-sonoriva-track-subcategory', subcategory.id); setDraggedTrackSubcategoryId(subcategory.id); }}
+                onDragOver={(event) => { if (!reorderAllowed && !draggingSelectedTracks) return; if (draggedTrackId) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; scheduleSubcategoryOpen(subcategory.id); setDropSubcategoryId(subcategory.id); setDropSubcategoryPositionId(undefined); setDropTrackId(undefined); setDropTrackPlacement(undefined); return; } if ((draggedTrackSubcategoryId && draggedTrackSubcategoryId !== subcategory.id) || draggedPlaylistId) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; const bounds = event.currentTarget.getBoundingClientRect(); setDropSubcategoryPositionId(subcategory.id); setDropSubcategoryId(undefined); setDropPlaylistId(undefined); setDropPlaylistTrackId(undefined); setDropPlaylistAfter(event.clientX > bounds.left + bounds.width / 2); } }}
                 onDragLeave={(event) => { const nextTarget = event.relatedTarget as Node | null; if (nextTarget && event.currentTarget.contains(nextTarget)) return; cancelScheduledSubcategoryOpen(subcategory.id); }}
                 onDrop={(event) => { event.preventDefault(); cancelScheduledSubcategoryOpen(subcategory.id); if (draggingSelectedTracks) { moveSelectedTracks(subcategory.categoryId, subcategory.id).catch(() => undefined); return; } if (draggedTrackId) { moveTrackIntoSubcategory(draggedTrackId, subcategory.id).catch(() => undefined); return; } const bounds = event.currentTarget.getBoundingClientRect(); const after = event.clientX > bounds.left + bounds.width / 2; if (draggedTrackSubcategoryId && draggedTrackSubcategoryId !== subcategory.id) reorderSubcategory(draggedTrackSubcategoryId, 'subcategory', subcategory.id, after).catch(() => undefined); else if (draggedPlaylistId) reorderPlaylist(draggedPlaylistId, 'subcategory', subcategory.id, after).catch(() => undefined); }}
                 onDragEnd={() => { cancelScheduledSubcategoryOpen(); setDraggedTrackSubcategoryId(undefined); setDropSubcategoryId(undefined); setDropSubcategoryPositionId(undefined); setDropPlaylistId(undefined); setDropPlaylistTrackId(undefined); setDropCategoryId(undefined); setDropPlaylistAfter(false); }} />;
@@ -2642,9 +2638,9 @@ export default function App() {
             const joinWidth = `calc(${100 / trackColumns}% - ${(trackColumns - 1) * boardGap / trackColumns}px + ${drawerBorderCompensation}px)`;
             const drawerEdgeClasses = subcategoryDrawerEdgeClasses(subcategoryColumn, trackColumns);
             return <Fragment key={`${boardItem.kind}:${boardItem.id}`}>{tile}{showDrawer && openSubcategory && <section className={`subcategory-drawer ${drawerEdgeClasses} ${dropSubcategoryId === openSubcategory.id ? 'is-track-drop-target' : ''}`} data-subcategory-drawer-id={openSubcategory.id} style={{ '--subcategory-color': openSubcategory.color, '--subcategory-join-left': joinLeft, '--subcategory-join-width': joinWidth } as React.CSSProperties}
-              onDragOver={(event) => { const overTrack = event.target instanceof Element && Boolean(event.target.closest('[data-track-id]')); if (!canDropTrackInSubcategoryDrawer(reorderMode || draggingSelectedTracks, draggedTrackId, overTrack)) return; event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; setDropSubcategoryId(openSubcategory.id); setDropTrackId(undefined); setDropTrackPlacement(undefined); }}
+              onDragOver={(event) => { const overTrack = event.target instanceof Element && Boolean(event.target.closest('[data-track-id]')); if (!canDropTrackInSubcategoryDrawer(reorderAllowed || draggingSelectedTracks, draggedTrackId, overTrack)) return; event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; setDropSubcategoryId(openSubcategory.id); setDropTrackId(undefined); setDropTrackPlacement(undefined); }}
               onDragLeave={(event) => { const nextTarget = event.relatedTarget as Node | null; if (nextTarget && event.currentTarget.contains(nextTarget)) return; setDropSubcategoryId((current) => current === openSubcategory.id ? undefined : current); }}
-              onDrop={(event) => { const overTrack = event.target instanceof Element && Boolean(event.target.closest('[data-track-id]')); if (!canDropTrackInSubcategoryDrawer(reorderMode || draggingSelectedTracks, draggedTrackId, overTrack) || !draggedTrackId) return; event.preventDefault(); event.stopPropagation(); if (draggingSelectedTracks) moveSelectedTracks(openSubcategory.categoryId, openSubcategory.id).catch(() => undefined); else moveTrackIntoSubcategory(draggedTrackId, openSubcategory.id).catch(() => undefined); }}>
+              onDrop={(event) => { const overTrack = event.target instanceof Element && Boolean(event.target.closest('[data-track-id]')); if (!canDropTrackInSubcategoryDrawer(reorderAllowed || draggingSelectedTracks, draggedTrackId, overTrack) || !draggedTrackId) return; event.preventDefault(); event.stopPropagation(); if (draggingSelectedTracks) moveSelectedTracks(openSubcategory.categoryId, openSubcategory.id).catch(() => undefined); else moveTrackIntoSubcategory(draggedTrackId, openSubcategory.id).catch(() => undefined); }}>
               <span className="subcategory-drawer-join" aria-hidden="true" />
               <header><span className="subcategory-drawer-actions"><button type="button" className="icon-button" onClick={() => setSubcategoryDialog(openSubcategory)} aria-label={`Modifier ${openSubcategory.name}`} title="Modifier"><Pencil size={15} /></button><button type="button" className="icon-button danger" onClick={() => { if (window.confirm(`Supprimer la sous-catégorie « ${openSubcategory.name} » ? Les morceaux resteront dans sa catégorie parente.`)) deleteSubcategory(openSubcategory).catch((cause) => setError(cause instanceof Error ? cause.message : 'Suppression impossible.')); }} aria-label={`Supprimer ${openSubcategory.name}`} title="Supprimer"><Trash2 size={15} /></button><button type="button" className="icon-button" onClick={() => { setEditingSubcategoryName(false); setOpenSubcategoryId(undefined); }} aria-label="Fermer la sous-catégorie"><X size={16} /></button></span><span className="subcategory-drawer-heading"><em>{openSubcategoryTracks.length}</em>{editingSubcategoryName ? <input className="subcategory-inline-name" value={subcategoryNameDraft} maxLength={80} autoFocus aria-label="Nom de la sous-catégorie" onChange={(event) => setSubcategoryNameDraft(event.target.value)} onBlur={() => renameSubcategory(openSubcategory, subcategoryNameDraft).catch(() => undefined)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); } else if (event.key === 'Escape') { event.preventDefault(); setSubcategoryNameDraft(openSubcategory.name); setEditingSubcategoryName(false); } }} /> : <button type="button" className="subcategory-inline-title" onClick={() => { setSubcategoryNameDraft(openSubcategory.name); setEditingSubcategoryName(true); }} title="Cliquer pour renommer"><strong>{openSubcategory.name}</strong></button>}</span></header>
               {openSubcategoryTracks.length > 0 ? <div className={`subcategory-drawer-grid ${soundboardView === 'list' ? 'is-list' : ''} ${soundboardView === 'list' && trackColumns > 4 ? 'is-dense-list' : ''}`}>{openSubcategoryTracks.map((track) => renderBoardTrack(track))}</div> : <div className="subcategory-drawer-empty"><FolderPlus size={22} /><span>Glissez des morceaux dans le tiroir pour les ajouter.</span></div>}

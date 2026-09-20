@@ -17,8 +17,7 @@ interface Props {
   historyProgress: number;
   loaded: boolean;
   download?: DownloadProgress;
-  reorderEnabled: boolean;
-  playlistDropEnabled: boolean;
+  dragEnabled: boolean;
   selectionMode: boolean;
   selected: boolean;
   dropTarget: boolean;
@@ -44,14 +43,16 @@ interface Props {
   onMobileDragEnd?: (point: ClientPoint, cancelled: boolean) => void;
 }
 
-export function TrackPad({ track, color, active, playbacks, historyProgress, loaded, download, reorderEnabled, playlistDropEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
+export function TrackPad({ track, color, active, playbacks, historyProgress, loaded, download, dragEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
   const mainOutput = (isVideoTrack(track) ? [] : bridgeOutputs).find((output) => output.id === mainBridgeOutputId);
   const alternateOutputs = mainOutput ? bridgeOutputs.filter((output) => output.id !== mainOutput.id) : [];
   const pointerDrag = useRef<{ pointerId: number; start: ClientPoint; started: boolean } | undefined>(undefined);
   const suppressClick = useRef(false);
+  const canDrag = dragEnabled && (!selectionMode || selected);
 
   function beginMobileDrag(event: ReactPointerEvent<HTMLElement>) {
-    if (!mobileDragEnabled || event.pointerType === 'mouse' || event.button !== 0) return;
+    if (!canDrag || !mobileDragEnabled || (!(selectionMode && selected) && !(event.target instanceof Element && event.target.closest('[data-track-drag-handle]')))) return;
+    if (event.pointerType === 'mouse' || event.button !== 0) return;
     event.currentTarget.style.setProperty('-webkit-user-drag', 'none');
     pointerDrag.current = { pointerId: event.pointerId, start: { clientX: event.clientX, clientY: event.clientY }, started: false };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -84,10 +85,15 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
     window.setTimeout(() => { suppressClick.current = false; }, 0);
   }
 
-  return <article className={`track-pad ${track.backgroundImage ? 'has-background-image' : ''} ${active ? 'is-active' : ''} ${reorderEnabled ? 'reorder-enabled' : ''} ${playlistDropEnabled ? 'playlist-drag-enabled' : ''} ${selectionMode ? 'selection-enabled' : ''} ${selected ? 'is-selected' : ''} ${mobileDragEnabled ? 'mobile-drag-enabled' : ''} ${mobileDragSource ? 'mobile-drag-source' : ''} ${dropTarget ? 'is-drop-target group-drop-target' : ''} ${reorderPositionTarget ? `reorder-position-target drop-${reorderPositionTarget}` : ''} ${playlistPositionTarget ? `playlist-position-target drop-${playlistPositionTarget}` : ''}`}
-    style={{ backgroundImage: track.backgroundImage ? `linear-gradient(#0009, #0009), url("${track.backgroundImage}")` : undefined, '--track-color': color, '--track-contrast': contrastColor(color) } as React.CSSProperties} draggable={selectionMode ? selected : reorderEnabled || playlistDropEnabled} data-track-id={track.id} data-drop-label={dropTarget ? dropLabel : undefined} onClick={() => selectionMode && onSelect()}
+  return <article className={`track-pad ${track.backgroundImage ? 'has-background-image' : ''} ${active ? 'is-active' : ''} ${canDrag ? 'drag-enabled' : ''} ${selectionMode ? 'selection-enabled' : ''} ${selected ? 'is-selected' : ''} ${mobileDragEnabled ? 'mobile-drag-enabled' : ''} ${mobileDragSource ? 'mobile-drag-source' : ''} ${dropTarget ? 'is-drop-target group-drop-target' : ''} ${reorderPositionTarget ? `reorder-position-target drop-${reorderPositionTarget}` : ''} ${playlistPositionTarget ? `playlist-position-target drop-${playlistPositionTarget}` : ''}`}
+    style={{ backgroundImage: track.backgroundImage ? `linear-gradient(#0009, #0009), url("${track.backgroundImage}")` : undefined, '--track-color': color, '--track-contrast': contrastColor(color) } as React.CSSProperties} draggable={canDrag && selectionMode && selected} data-track-id={track.id} data-drop-label={dropTarget ? dropLabel : undefined} onClick={() => selectionMode && onSelect()}
     onClickCapture={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}
-    onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd}
+    onDragStart={(event) => {
+      if (!canDrag || (!(selectionMode && selected) && !(event.target instanceof Element && event.target.closest('[data-track-drag-handle]')))) { event.preventDefault(); return; }
+      suppressClick.current = true;
+      if (event.target instanceof HTMLElement) event.dataTransfer.setDragImage(event.currentTarget, event.currentTarget.clientWidth / 2, event.currentTarget.clientHeight / 2);
+      onDragStart(event);
+    }} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={() => { onDragEnd(); window.setTimeout(() => { suppressClick.current = false; }, 0); }}
     onPointerDown={beginMobileDrag} onPointerMove={moveMobileDrag} onPointerUp={(event) => finishMobileDrag(event, false)} onPointerCancel={(event) => finishMobileDrag(event, true)}>
     {selectionMode && <span className="track-selection-indicator" aria-hidden="true">{selected && <CircleCheck size={18} />}</span>}
     {loaded && <span className="track-loaded" title="Disponible hors ligne" aria-label="Disponible hors ligne"><CircleCheck size={15} /></span>}
@@ -113,7 +119,7 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
       <span className="track-download-fill" />
       <span className="track-download-marker"><Download size={12} /><span>{download.total ? `${Math.min(100, Math.round(download.received / download.total * 100))} %` : '…'}</span></span>
     </span>}
-    <div className="track-meta">
+    <div className="track-meta" data-track-drag-handle draggable={canDrag} title={canDrag ? (selectionMode ? 'Glisser pour déplacer les morceaux sélectionnés' : 'Glisser pour déplacer ce morceau') : undefined}>
       <span>{isVideoTrack(track) && 'Vidéo · '}{track.durationMs ? formatDuration((track.endTimeMs ?? track.durationMs) - track.startTimeMs) : '—:—'}</span>
       <span className="track-card-secondary">{track.loop && <InfinityIcon size={15} />}{shortcut ? `Touche ${shortcut}` : `${Math.min(100, Math.round(track.volume * 100))} %`}</span>
       <span className="track-list-shortcut" title={shortcut ? `Raccourci ${shortcut}` : 'Aucun raccourci'}>{track.loop && <InfinityIcon size={15} />}{shortcut ?? '—'}</span>
