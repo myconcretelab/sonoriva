@@ -65,3 +65,21 @@ it('envoie une annulation identifiable si le lancement est abandonné', async ()
   await rejected;
   expect(paths.some((path) => path.endsWith(`/cancel-launch/${requestId}`))).toBe(true);
 });
+
+it('publie l’état de lecture avant de confirmer le départ à la playlist', async () => {
+  let confirm!: (response: Response) => void;
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.endsWith('/status')) return Response.json({ capabilities: ['safePlayback'] });
+    if (url.endsWith('/play')) return Response.json({ playbackId: 'playing' });
+    return new Promise<Response>((resolve) => { confirm = resolve; });
+  }));
+  const bridge = client();
+  let started = false;
+  const launch = bridge.play(track, 0, 1).then((id) => { started = true; return id; });
+  await vi.waitFor(() => expect(confirm).toBeDefined());
+  expect(started).toBe(false);
+  confirm(Response.json({ playbacks: [{ id: 'playing', trackId: track.id }] }));
+  expect(await launch).toBe('playing');
+  expect(bridge.getPlaybacks()[0].id).toBe('playing');
+  expect(bridge.getCachedTrackIds().has(track.id)).toBe(true);
+});

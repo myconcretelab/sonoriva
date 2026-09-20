@@ -199,7 +199,7 @@ export class BridgeClient {
         this.cachedTrackIds.add(track.id);
         this.notifyCache();
       }
-      void this.refreshPlaybacks().catch(() => undefined);
+      await this.refreshPlaybacks(launchSignal);
       return result.playbackId;
     } catch (cause) {
       cancel();
@@ -334,9 +334,9 @@ export class BridgeClient {
     this.polling = undefined;
   }
 
-  private async refreshPlaybacks(): Promise<void> {
+  private async refreshPlaybacks(signal?: AbortSignal): Promise<void> {
     if (!this.isEnabled()) return;
-    const result = await this.request<{ playbacks: BridgePlayback[] }>('/v1/playbacks');
+    const result = await this.request<{ playbacks: BridgePlayback[] }>('/v1/playbacks', { signal });
     this.playbacks = result.playbacks;
     this.notifyPlaybacks();
   }
