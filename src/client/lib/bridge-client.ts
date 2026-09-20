@@ -1,3 +1,4 @@
+import { getDownloadProgress, setDownloadProgress } from './download-state';
 import type { Track } from '../types';
 
 export type AudioPlaybackMode = 'browser' | 'bridge';
@@ -65,6 +66,10 @@ export class BridgeClient {
   private cacheListeners = new Set<CacheListener>();
   private routingListeners = new Set<RoutingListener>();
   private polling?: number;
+  private cachePolling?: ReturnType<typeof setInterval>;
+  private cacheRefreshing = false;
+  private knownTrackSizes = new Map<string, number>();
+  private pendingPreloads = new Map<string, Promise<void>>();
   private socket?: WebSocket;
 
   getMode(): AudioPlaybackMode { return this.mode; }
@@ -135,19 +140,73 @@ export class BridgeClient {
     return result.cached;
   }
 
-  async preload(track: Track): Promise<void> {
-    await this.request('/v1/cache', { method: 'POST', body: JSON.stringify(track) });
-    this.cachedTrackIds.add(track.id);
-    this.notifyCache();
+  setCacheTracks(tracks: Track[]): void {
+    this.knownTrackSizes = new Map(tracks.map((track) => [track.id, track.sizeBytes]));
+    void this.refreshCache().catch(() => undefined);
   }
 
-  async play(track: Track, fadeInMs: number, volumeMultiplier: number, channel: 'main' | 'preview' = 'main', outputId?: string): Promise<string> {
-    const result = await this.request<{ playbackId: string }>('/v1/play', {
-      method: 'POST',
-      body: JSON.stringify({ track, fadeInMs, volumeMultiplier, channel, outputId }),
-    });
-    await this.refreshPlaybacks();
-    return result.playbackId;
+  async refreshCache(): Promise<void> {
+    if (!this.isEnabled() || this.cacheRefreshing) return;
+    this.cacheRefreshing = true;
+    try {
+      const result = await this.request<{ tracks: Record<string, number>; downloads: Record<string, [number, number]> }>('/v1/cache', { signal: AbortSignal.timeout(3000) });
+      if (!this.isEnabled()) return;
+      this.cachedTrackIds = new Set(Object.entries(result.tracks).filter(([id, size]) => !this.knownTrackSizes.has(id) || this.knownTrackSizes.get(id) === size).map(([id]) => id));
+      for (const id of getDownloadProgress('bridge').keys()) {
+        if (!result.downloads[id] && !this.pendingPreloads.has(id)) setDownloadProgress('bridge', id);
+      }
+      for (const [id, [received, total]] of Object.entries(result.downloads)) setDownloadProgress('bridge', id, { received, total });
+      this.notifyCache();
+    } finally { this.cacheRefreshing = false; }
+  }
+
+  async preload(track: Track): Promise<void> {
+    this.knownTrackSizes.set(track.id, track.sizeBytes);
+    const existing = this.pendingPreloads.get(track.id);
+    if (existing) return existing;
+    setDownloadProgress('bridge', track.id, { received: 0, total: track.sizeBytes });
+    const loading = (async () => {
+      try {
+        await this.request('/v1/cache', { method: 'POST', body: JSON.stringify(track), signal: AbortSignal.timeout(300_000) });
+        this.cachedTrackIds.add(track.id);
+        this.notifyCache();
+      } finally {
+        this.pendingPreloads.delete(track.id);
+        setDownloadProgress('bridge', track.id);
+      }
+    })();
+    this.pendingPreloads.set(track.id, loading);
+    return loading;
+  }
+
+  async play(track: Track, fadeInMs: number, volumeMultiplier: number, channel: 'main' | 'preview' = 'main', outputId?: string, signal?: AbortSignal, expiresAtMs = Date.now() + 10_000, remotePreview?: { id: number; url: string }): Promise<string> {
+    // Older bridges cannot guarantee that an abandoned HTTP request will not start later.
+    const status = await this.discover(signal ?? AbortSignal.timeout(3000));
+    if (!status.capabilities?.includes('safePlayback')) throw new Error('Mettez SonoRiva Bridge à jour pour activer les lancements protégés et le suivi du cache.');
+    signal?.throwIfAborted();
+    this.knownTrackSizes.set(track.id, track.sizeBytes);
+    const requestId = crypto.randomUUID();
+    const launchSignal = signal ?? AbortSignal.timeout(10_000);
+    const cancel = () => { void this.request(`/v1/cancel-launch/${requestId}`, { method: 'POST', signal: AbortSignal.timeout(3000) }).catch(() => undefined); };
+    launchSignal.addEventListener('abort', cancel, { once: true });
+    try {
+      launchSignal.throwIfAborted();
+      const result = await this.request<{ playbackId: string }>('/v1/play', {
+        method: 'POST', signal: launchSignal,
+        body: JSON.stringify({ track, fadeInMs, volumeMultiplier, channel, outputId, expiresAtMs, requestId, remotePreview }),
+      });
+      if (!remotePreview) {
+        this.cachedTrackIds.add(track.id);
+        this.notifyCache();
+      }
+      void this.refreshPlaybacks().catch(() => undefined);
+      return result.playbackId;
+    } catch (cause) {
+      cancel();
+      // A lost reply is not proof that playback failed: never replay it in another engine.
+      if (isBridgeUnavailableError(cause)) throw new Error('Confirmation du lancement perdue. La demande a été annulée.');
+      throw cause;
+    } finally { launchSignal.removeEventListener('abort', cancel); }
   }
 
   async playRemotePreview(input: { id: string | number; name: string; url: string; durationMs: number; volume: number }, outputId?: string): Promise<string> {
@@ -178,12 +237,7 @@ export class BridgeClient {
       position: 0,
       createdAt: new Date().toISOString(),
     } satisfies Track;
-    const result = await this.request<{ playbackId: string }>('/v1/play', {
-      method: 'POST',
-      body: JSON.stringify({ track, fadeInMs: 0, volumeMultiplier: 1, channel: 'preview', outputId, remotePreview: { id: bridgePreviewId, url: input.url } }),
-    });
-    await this.refreshPlaybacks();
-    return result.playbackId;
+    return this.play(track, 0, 1, 'preview', outputId, undefined, Date.now() + 10_000, { id: bridgePreviewId, url: input.url });
   }
 
   togglePause(id: string): void { this.send(`/v1/playbacks/${encodeURIComponent(id)}/pause`, 'POST'); }
@@ -223,6 +277,10 @@ export class BridgeClient {
 
   private startPolling(): void {
     if (this.polling || this.socket || typeof window === 'undefined') return;
+    if (!this.cachePolling) {
+      void this.refreshCache().catch(() => undefined);
+      this.cachePolling = setInterval(() => { void this.refreshCache().catch(() => undefined); }, 500);
+    }
     if (typeof WebSocket !== 'undefined' && this.association) {
       try {
         const socket = new WebSocket('ws://127.0.0.1:43821/v1/events');
@@ -262,6 +320,9 @@ export class BridgeClient {
   }
 
   private stopPolling(): void {
+    clearInterval(this.cachePolling);
+    this.cachePolling = undefined;
+    for (const id of getDownloadProgress('bridge').keys()) setDownloadProgress('bridge', id);
     if (this.socket) {
       const socket = this.socket;
       this.socket = undefined;
@@ -313,7 +374,7 @@ export class BridgeClient {
         },
       });
     } catch (cause) {
-      if ((cause as { name?: string })?.name === 'AbortError') throw cause;
+      if (init.signal?.aborted || ['AbortError', 'TimeoutError'].includes((cause as { name?: string })?.name ?? '')) throw cause;
       throw new BridgeUnavailableError();
     }
     if (!response.ok) {

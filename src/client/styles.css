@@ -1469,3 +1469,11 @@ html:root .is-dense-list .track-pad:not(.subcategory-pad) .track-title { white-s
 html:root .is-dense-list .track-pad .track-meta { grid-column: 1; grid-row: 2; min-height: 24px; padding: 2px 7px; border-left: 0; }
 html:root .is-dense-list .track-pad .track-output-plays { grid-column: 1; grid-row: 3; flex-wrap: wrap; }
 html:root .is-dense-list .track-pad .track-loaded { top: auto; bottom: 5px; right: 6px; }
+
+.track-download { position: absolute; z-index: 5; bottom: 28px; left: 0; right: 0; height: 4px; pointer-events: none; background: #172433; color: #fff; }
+.track-download-fill { display: block; height: 100%; width: var(--download-progress); background: #7ed8ff; transition: width .2s linear; }
+.track-download-marker { position: absolute; bottom: 2px; left: clamp(0px, var(--download-progress), calc(100% - 54px)); display: flex; align-items: center; gap: 3px; padding: 2px 4px; border-radius: 4px; background: #172433; font-size: 10px; transition: left .2s linear; }
+.track-download.is-indeterminate .track-download-marker { animation: download-pulse 1s ease-in-out infinite alternate; }
+.track-grid.is-list .track-download, .subcategory-drawer-grid.is-list .track-download { bottom: 0; }
+@keyframes download-pulse { to { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .track-download-marker, .track-download-fill { animation: none !important; transition: none; } }

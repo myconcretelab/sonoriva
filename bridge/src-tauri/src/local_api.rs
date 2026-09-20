@@ -52,6 +52,8 @@ struct OutputInput {
 #[serde(rename_all = "camelCase")]
 struct PlayInput {
     track: BridgeTrack,
+    expires_at_ms: Option<u128>,
+    request_id: Option<String>,
     remote_preview: Option<RemotePreviewInput>,
     fade_in_ms: Option<u64>,
     volume_multiplier: Option<f32>,
@@ -126,9 +128,13 @@ pub async fn serve(state: Arc<Runtime>) -> Result<(), String> {
         .route("/v1/status", get(status))
         .route("/v1/outputs", get(outputs))
         .route("/v1/outputs/{channel}", put(set_output))
-        .route("/v1/cache", post(cache_track).delete(clear_cache))
+        .route(
+            "/v1/cache",
+            get(cache_inventory).post(cache_track).delete(clear_cache),
+        )
         .route("/v1/projects/{id}/sync", post(sync_project))
         .route("/v1/play", post(play))
+        .route("/v1/cancel-launch/{id}", post(cancel_launch))
         .route("/v1/playbacks", get(playbacks))
         .route("/v1/events", get(events))
         .route("/v1/playbacks/{id}/pause", post(toggle_pause))
@@ -170,7 +176,7 @@ async fn status(State(state): State<Arc<Runtime>>) -> Json<serde_json::Value> {
         "deviceId": config.device_id,
         "cachedTracks": cached_tracks,
         "cachedBytes": cached_bytes,
-        "capabilities": ["perPlaybackOutput", "remotePreview"],
+        "capabilities": ["perPlaybackOutput", "remotePreview", "cacheInventory", "safePlayback"],
     }))
 }
 
@@ -205,6 +211,14 @@ async fn set_output(
     }
     state.save_output(&channel, input.device_id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn cache_inventory(
+    headers: HeaderMap,
+    State(state): State<Arc<Runtime>>,
+) -> ApiResult<Json<serde_json::Value>> {
+    authorize(&headers, &state, false).await?;
+    Ok(Json(state.cache_inventory().await?))
 }
 
 async fn cache_track(
@@ -242,6 +256,42 @@ async fn play(
     Json(input): Json<PlayInput>,
 ) -> ApiResult<Json<serde_json::Value>> {
     authorize(&headers, &state, false).await?;
+    let request_id = input
+        .request_id
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let expires_at = input
+        .expires_at_ms
+        .unwrap_or(now_ms() + 10_000)
+        .min(now_ms() + 10_000);
+    let generation = {
+        let mut generations = state.launch_generations.lock().map_err(lock_error)?;
+        let global = *generations.entry(String::new()).or_default();
+        let track = *generations.entry(input.track.id.clone()).or_default();
+        (global, track)
+    };
+    let can_start = || {
+        let generations = state
+            .launch_generations
+            .lock()
+            .map_err(|_| "Moteur audio indisponible.".to_string())?;
+        let cancelled = state
+            .cancelled_launches
+            .lock()
+            .map_err(|_| "Moteur audio indisponible.".to_string())?
+            .contains_key(&request_id);
+        check_launch(
+            now_ms(),
+            expires_at,
+            generation,
+            (
+                *generations.get("").unwrap_or(&0),
+                *generations.get(&input.track.id).unwrap_or(&0),
+            ),
+            cancelled,
+        )
+    };
+    can_start()?;
     let path = if let Some(preview) = &input.remote_preview {
         let preview_id = preview.id.normalized();
         state
@@ -275,8 +325,25 @@ async fn play(
         channel,
         input.fade_in_ms.unwrap_or(input.track.fade_in_ms),
         input.volume_multiplier.unwrap_or(1.0),
+        &request_id,
+        can_start,
     )?;
     Ok(Json(json!({ "playbackId": id, "startedAt": now_ms() })))
+}
+
+async fn cancel_launch(
+    headers: HeaderMap,
+    State(state): State<Arc<Runtime>>,
+    Path(id): Path<String>,
+) -> ApiResult<StatusCode> {
+    authorize(&headers, &state, false).await?;
+    {
+        let mut cancelled = state.cancelled_launches.lock().map_err(lock_error)?;
+        cancelled.retain(|_, expires_at| *expires_at > now_ms());
+        cancelled.insert(id.clone(), now_ms() + 60_000);
+    }
+    state.audio.lock().map_err(lock_error)?.stop(&id, 0);
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn playbacks(
@@ -472,6 +539,12 @@ async fn stop_track(
     Json(input): Json<StopTrackInput>,
 ) -> ApiResult<StatusCode> {
     authorize(&headers, &state, false).await?;
+    *state
+        .launch_generations
+        .lock()
+        .map_err(lock_error)?
+        .entry(input.track_id.clone())
+        .or_default() += 1;
     state
         .audio
         .lock()
@@ -486,6 +559,12 @@ async fn stop_all(
     Json(input): Json<StopInput>,
 ) -> ApiResult<StatusCode> {
     authorize(&headers, &state, false).await?;
+    *state
+        .launch_generations
+        .lock()
+        .map_err(lock_error)?
+        .entry(String::new())
+        .or_default() += 1;
     state
         .audio
         .lock()
@@ -532,6 +611,20 @@ fn lock_error<T>(_error: std::sync::PoisonError<T>) -> ApiError {
     )
 }
 
+fn check_launch(
+    now: u128,
+    expires_at: u128,
+    initial: (u64, u64),
+    current: (u64, u64),
+    cancelled: bool,
+) -> Result<(), String> {
+    if cancelled || now >= expires_at || initial != current {
+        Err("Démarrage annulé : délai dépassé ou arrêt demandé.".to_string())
+    } else {
+        Ok(())
+    }
+}
+
 fn now_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -541,7 +634,16 @@ fn now_ms() -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use super::RemotePreviewId;
+    use super::{RemotePreviewId, check_launch};
+
+    #[test]
+    fn rejects_expired_stopped_and_previously_cancelled_launches() {
+        assert!(check_launch(100, 200, (0, 0), (0, 0), false).is_ok());
+        assert!(check_launch(200, 200, (0, 0), (0, 0), false).is_err());
+        assert!(check_launch(100, 200, (0, 0), (1, 0), false).is_err());
+        assert!(check_launch(100, 200, (0, 0), (0, 1), false).is_err());
+        assert!(check_launch(100, 200, (0, 0), (0, 0), true).is_err());
+    }
 
     #[test]
     fn accepts_legacy_numeric_and_openverse_text_preview_ids() {

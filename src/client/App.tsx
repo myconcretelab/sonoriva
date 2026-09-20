@@ -1,3 +1,4 @@
+import { getDownloadProgress, subscribeDownloads, type DownloadProgress } from './lib/download-state';
 import { CategoryBackgroundDialog } from './components/CategoryBackgroundDialog';
 import { ProjectionConsole } from './components/ProjectionConsole';
 import { isVideoTrack, videoEngine } from './lib/video-engine';
@@ -43,7 +44,7 @@ import { contrastColor } from './lib/color-contrast';
 import { droppedFilesHaveSubfolders, droppedFolderNames, droppedFolderTags, firstFolderName, readDroppedAudioFiles, titleFromAudioFilename, type DroppedAudioFile, type FolderImportMode } from './lib/file-import';
 import { formatShortcut, projectShortcut, projectShortcutDefinitions, resolvePrimaryShortcut, shortcutFromKeyboardEvent, shortcutMainKey, shortcutMatchesKeyboardEvent, shortcutModifierKeys, trackIndexFromKeyboardEvent, trackShortcutLabel } from './lib/keyboard-shortcuts';
 import { mobileTrackAutoScrollDelta, type ClientPoint } from './lib/mobile-track-reorder';
-import { cachedTrackIds, cacheTrackOffline, deleteCachedTracks, deleteOfflineAudio } from './lib/offline-audio';
+import { subscribeOfflineCache, cachedTrackIds, cacheTrackOffline, deleteCachedTracks, deleteOfflineAudio } from './lib/offline-audio';
 import { movePlaylistItem as repositionPlaylistItem, playlistEntries, playlistQueueItems, playlistRows as groupPlaylistItems, type PlaylistItemPlacement, type PlaylistQueueItem } from './lib/playlist-rows';
 import { categoryIsFavorites, parseStopwatchState, playlistIsVisible, resolveCategoryId } from './lib/session-state';
 import { applySoundboardViewMode, defaultSoundboardViewSettings, readSoundboardViewSettings, resolveSoundboardView, soundboardViewModeForCategory, soundboardViewStorageKey, type SoundboardViewMode, type SoundboardViewSettings } from './lib/soundboard-view';
@@ -133,6 +134,7 @@ export default function App() {
   const [searchScopes, setSearchScopes] = useState<Set<SearchScope>>(() => new Set(['name']));
   const [activePlaybacks, setActivePlaybacks] = useState<ActivePlayback[]>([]);
   const [playbackHistory, setPlaybackHistory] = useState<Map<string, number>>(new Map());
+  const [downloads, setDownloads] = useState<Map<string, DownloadProgress>>(new Map());
   const [offlineTrackIds, setOfflineTrackIds] = useState<Set<string>>(new Set());
   const [preloadProgress, setPreloadProgress] = useState<{ done: number; total: number }>();
   const [fileDropActive, setFileDropActive] = useState(false);
@@ -229,6 +231,7 @@ export default function App() {
   const playlistTransitioningRef = useRef(false);
   const playlistAdvanceTimerRef = useRef<number | undefined>(undefined);
   const playlistRunGenerationRef = useRef(0);
+  const playlistLaunchAbortRef = useRef<AbortController | undefined>(undefined);
   const playlistPlayedRowIdsRef = useRef(new Set<string>());
   const releaseAutoShownRef = useRef(false);
   const workspaceLayoutUserRef = useRef<string | null>(null);
@@ -427,6 +430,7 @@ export default function App() {
     const revoke = () => {
       playlistRunRef.current = false;
       playlistTransitioningRef.current = false;
+      playlistLaunchAbortRef.current?.abort(new Error('Lancement de la playlist annulé.'));
       playlistRunGenerationRef.current += 1;
       if (playlistAdvanceTimerRef.current !== undefined) window.clearTimeout(playlistAdvanceTimerRef.current);
       playlistAdvanceTimerRef.current = undefined;
@@ -632,20 +636,26 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!detail) {
-      setOfflineTrackIds(new Set());
-      return;
-    }
-    cachedTrackIds(detail.tracks.map((track) => track.id)).then((trackIds) => {
-      if (cancelled) return;
-      setOfflineTrackIds(trackIds);
-      if (detail.tracks.length > 0 && trackIds.size === detail.tracks.length) setOfflineStatus('Projet disponible hors ligne');
-      else if (trackIds.size > 0) setOfflineStatus(`${trackIds.size}/${detail.tracks.length} sons hors ligne`);
-      else setOfflineStatus('');
-    }).catch(() => {
-      if (!cancelled) setOfflineTrackIds(new Set());
-    });
-    return () => { cancelled = true; };
+    let revision = 0;
+    const refresh = () => {
+      const currentRevision = ++revision;
+      const target = bridgeClient.isEnabled() ? 'bridge' : 'browser';
+      setDownloads(getDownloadProgress(target));
+      if (target === 'bridge') {
+        setOfflineTrackIds(bridgeClient.getCachedTrackIds());
+        return;
+      }
+      cachedTrackIds(detail?.tracks.map((track) => track.id) ?? []).then((ids) => {
+        if (!cancelled && currentRevision === revision) setOfflineTrackIds(ids);
+      }).catch(() => { if (!cancelled && currentRevision === revision) setOfflineTrackIds(new Set()); });
+    };
+    bridgeClient.setCacheTracks(detail?.tracks ?? []);
+    const unsubscribeCache = bridgeClient.subscribeCache(refresh);
+    const unsubscribeRouting = bridgeClient.subscribeRouting(refresh);
+    const unsubscribeOffline = subscribeOfflineCache(refresh);
+    const unsubscribeProgress = subscribeDownloads(() => setDownloads(getDownloadProgress(bridgeClient.isEnabled() ? 'bridge' : 'browser')));
+    refresh();
+    return () => { cancelled = true; unsubscribeCache(); unsubscribeRouting(); unsubscribeOffline(); unsubscribeProgress(); };
   }, [detail]);
 
   useEffect(() => {
@@ -821,6 +831,7 @@ export default function App() {
     if (preparedCommand.type === 'stop-all' || preparedCommand.type === 'stop-all-immediate') {
       playlistRunRef.current = false;
       playlistTransitioningRef.current = false;
+      playlistLaunchAbortRef.current?.abort(new Error('Lancement de la playlist annulé.'));
       playlistRunGenerationRef.current += 1;
       clearPlaylistAdvanceTimer();
       setPlaylistPlaybackIds([]);
@@ -868,14 +879,17 @@ export default function App() {
     });
     if (tracks.some(isVideoTrack)) { setError('Les vidéos se déclenchent depuis leurs pads. Les playlists vidéo ne sont pas encore disponibles.'); return []; }
     if (tracks.length === 0) return [];
+    playlistLaunchAbortRef.current?.abort(new Error('Lancement de la playlist annulé.'));
+    const launchController = new AbortController();
+    playlistLaunchAbortRef.current = launchController;
     const generation = ++playlistRunGenerationRef.current;
     playlistRunRef.current = true;
     playlistPlayedRowIdsRef.current.add(row.id);
     setPlaylistCurrentIndex(index);
     try {
-      await Promise.all(tracks.map((track) => audioEngine.preload(track)));
+      const expiresAtMs = await audioEngine.preparePlayback(tracks, launchController.signal);
       if (generation !== playlistRunGenerationRef.current) return [];
-      const results = await Promise.allSettled(tracks.map((track) => audioEngine.play({ ...track, loop: false }, fadeInMs ?? track.fadeInMs)));
+      const results = await Promise.allSettled(tracks.map((track) => audioEngine.play({ ...track, loop: false }, fadeInMs ?? track.fadeInMs, 1, undefined, expiresAtMs, launchController.signal)));
       const playbackIds = results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
       const firstFailure = results.find((result) => result.status === 'rejected');
       const failureMessage = firstFailure?.status === 'rejected' && firstFailure.reason instanceof Error ? firstFailure.reason.message : undefined;
@@ -975,6 +989,7 @@ export default function App() {
   function stopPlaylistPlayback() {
     playlistRunRef.current = false;
     playlistTransitioningRef.current = false;
+    playlistLaunchAbortRef.current?.abort(new Error('Lancement de la playlist annulé.'));
     playlistRunGenerationRef.current += 1;
     clearPlaylistAdvanceTimer();
     for (const playbackId of playlistPlaybackIds) audioEngine.stopInstance(playbackId, 0);
@@ -1067,6 +1082,7 @@ export default function App() {
   function resetPlaylistEditor() {
     playlistRunRef.current = false;
     playlistTransitioningRef.current = false;
+    playlistLaunchAbortRef.current?.abort(new Error('Lancement de la playlist annulé.'));
     playlistRunGenerationRef.current += 1;
     clearPlaylistAdvanceTimer();
     setPlaylistPlaybackIds([]);
@@ -1148,9 +1164,8 @@ export default function App() {
       for (let index = 0; index < remaining.length; index += 3) {
         const batch = remaining.slice(index, index + 3);
         await Promise.all(batch.map(async (track) => {
-          await cacheTrackOffline(track.id);
-          setOfflineTrackIds((current) => new Set(current).add(track.id));
-          await audioEngine.preload(track);
+          if (bridgeClient.isEnabled()) await audioEngine.preload(track);
+          else await cacheTrackOffline(track.id);
         }));
         done += batch.length;
         setPreloadProgress({ done, total: tracksToPreload.length });
@@ -1895,7 +1910,6 @@ export default function App() {
       for (const track of detail.tracks) {
         await cacheTrackOffline(track.id);
         done += 1;
-        setOfflineTrackIds((current) => new Set(current).add(track.id));
         setOfflineStatus(`${done}/${detail.tracks.length}`);
       }
       setOfflineStatus('Projet disponible hors ligne');
@@ -2204,7 +2218,7 @@ export default function App() {
     const color = track.color ?? category?.color ?? '#71717a';
     const shortcutIndex = visibleTracks.findIndex((candidate) => candidate.id === track.id);
     const reorderPositionTarget = dropTrackId === track.id && dropTrackPlacement !== 'group' ? dropTrackPlacement : undefined;
-    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} reorderEnabled={reorderMode} playlistDropEnabled={playlistsEnabled && !selectionMode && !remote && !isVideoTrack(track)} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || reorderMode || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
+    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} download={downloads.get(track.id)} reorderEnabled={reorderMode} playlistDropEnabled={playlistsEnabled && !selectionMode && !remote && !isVideoTrack(track)} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || reorderMode || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
       onPrimary={() => detail && runTrackAction(detail.project.leftClickAction ?? 'start', track)}
       onOutputPlay={(outputId) => playTrackOnOutput(track, outputId)}
       onSecondary={() => detail && runTrackAction(detail.project.rightClickAction ?? 'crossfade', track)}

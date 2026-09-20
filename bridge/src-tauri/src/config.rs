@@ -37,6 +37,15 @@ struct BridgeCredentials {
 }
 
 impl ConfigStore {
+    #[cfg(test)]
+    pub fn for_test(directory: &Path) -> Self {
+        Self {
+            config_path: directory.join("config.json"),
+            credentials_path: directory.join("credentials.json"),
+            cache_dir: directory.to_path_buf(),
+        }
+    }
+
     pub fn new() -> Result<Self, String> {
         let project_dirs = ProjectDirs::from("fr", "SonoRiva", "SonoRiva Bridge")
             .ok_or_else(|| "Dossier de données utilisateur introuvable.".to_string())?;

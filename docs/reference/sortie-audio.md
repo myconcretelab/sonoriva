@@ -83,3 +83,11 @@ La fenêtre de SonoRiva Bridge affiche le nombre de fichiers présents et leur t
 La liste des bridges associés affiche le nom de la machine, sa plateforme et sa dernière activité. La commande de dissociation révoque le jeton de l’appareil côté serveur. La dissociation du bridge actif replace le navigateur en mode Web Audio.
 
 Si le compte passe sur un forfait gratuit, en lecture seule ou suspendu, le serveur refuse les nouvelles associations et les requêtes du Bridge. L’application web revient au moteur Navigateur et supprime sa clé d’association locale lors du prochain contrôle du compte.
+
+### Préchargement et délai de lancement
+
+À partir de SonoRiva 1.22.0 et Bridge 1.0.9, l’indicateur hors ligne des pads correspond au cache du moteur sélectionné. Le préchargement d’une catégorie télécharge les fichiers dans ce moteur. Le navigateur conserve aussi les fichiers téléchargés pendant une lecture si son stockage local est disponible et dispose d’un quota suffisant. Le Bridge rétablit l’état des sons à partir des fichiers présents sur disque après reconnexion.
+
+La barre du pad affiche une icône et le pourcentage pendant le téléchargement. Si la taille est inconnue, l’icône pulse. Plusieurs demandes simultanées du même son partagent son téléchargement.
+
+Le délai maximal entre une demande de lecture et son démarrage est de dix secondes. Passé ce délai, le lancement est annulé et un message s’affiche. Un arrêt annule également les lancements concernés encore en attente. Le téléchargement peut continuer pour alimenter le cache, sans lancement automatique. La lecture avec une version du Bridge antérieure à 1.0.9 affiche une demande de mise à jour.

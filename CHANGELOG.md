@@ -2,6 +2,19 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.22.0] - 2026-09-20
+
+### Ajouté
+
+- progression des téléchargements sur les pads, pour le navigateur et Bridge 1.0.9 ;
+- annulation des lancements après dix secondes et des demandes en attente lors d’un arrêt.
+
+### Corrigé
+
+- conservation hors ligne des fichiers téléchargés lors d’une lecture navigateur ;
+- inventaire du cache Bridge relu sur disque et indicateur lié au moteur sélectionné ;
+- mutualisation des téléchargements concurrents d’un même son et nettoyage des fichiers incomplets.
+
 ## [1.21.1] - 2026-09-16
 
 ### Corrigé

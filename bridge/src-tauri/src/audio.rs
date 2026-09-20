@@ -12,7 +12,6 @@ use std::{
 
 use cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player, Source};
-use uuid::Uuid;
 
 use crate::models::{AudioOutput, BridgeTrack, PlaybackSnapshot};
 
@@ -172,7 +171,10 @@ impl AudioEngine {
         channel: &str,
         fade_in_ms: u64,
         volume_multiplier: f32,
+        request_id: &str,
+        can_start: impl Fn() -> Result<(), String>,
     ) -> Result<String, String> {
+        can_start()?;
         self.refresh_output_if_idle(output_id, None);
         let mixer = self.output(output_id)?.sink.mixer().clone();
         let duration_ms = track
@@ -182,6 +184,7 @@ impl AudioEngine {
             .saturating_sub(track.start_time_ms)
             .max(10);
         let player = Arc::new(Player::connect_new(&mixer));
+        player.pause();
         let target_volume = (track.volume * volume_multiplier).clamp(0.0, 1.0);
         player.set_volume(if fade_in_ms > 0 {
             0.0
@@ -189,8 +192,10 @@ impl AudioEngine {
             target_volume * self.master_volume
         });
         append_source(&player, track, path, 0, track.loop_playback)?;
+        can_start()?;
+        player.play();
         self.sequence += 1;
-        let id = format!("{}:{}", track.id, Uuid::new_v4());
+        let id = request_id.to_string();
         self.active.insert(
             id.clone(),
             Playback {

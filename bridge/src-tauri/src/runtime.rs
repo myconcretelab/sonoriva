@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use reqwest::header::AUTHORIZATION;
 use serde::Deserialize;
@@ -19,6 +19,26 @@ pub struct Runtime {
     pub audio: std::sync::Mutex<AudioEngine>,
     pub store: ConfigStore,
     client: reqwest::Client,
+    download_locks: tokio::sync::Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+    cache_access: RwLock<()>,
+    pub downloads: std::sync::Mutex<HashMap<String, (u64, u64)>>,
+    pub cancelled_launches: std::sync::Mutex<HashMap<String, u128>>,
+    pub launch_generations: std::sync::Mutex<HashMap<String, u64>>,
+}
+
+struct DownloadCleanup<'a> {
+    downloads: &'a std::sync::Mutex<HashMap<String, (u64, u64)>>,
+    id: &'a str,
+    temporary: PathBuf,
+}
+
+impl Drop for DownloadCleanup<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut downloads) = self.downloads.lock() {
+            downloads.remove(self.id);
+        }
+        let _ = std::fs::remove_file(&self.temporary);
+    }
 }
 
 #[derive(Deserialize)]
@@ -41,7 +61,14 @@ impl Runtime {
             local_token: RwLock::new(local_token),
             audio: std::sync::Mutex::new(AudioEngine::new()),
             store,
+            download_locks: tokio::sync::Mutex::new(HashMap::new()),
+            cache_access: RwLock::new(()),
+            downloads: std::sync::Mutex::new(HashMap::new()),
+            cancelled_launches: std::sync::Mutex::new(HashMap::new()),
+            launch_generations: std::sync::Mutex::new(HashMap::new()),
             client: reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(10))
+                .read_timeout(std::time::Duration::from_secs(15))
                 .user_agent(format!("SonoRiva-Bridge/{}", env!("CARGO_PKG_VERSION")))
                 .build()
                 .map_err(|error| error.to_string())?,
@@ -125,12 +152,34 @@ impl Runtime {
 
     pub async fn ensure_track(&self, track: &BridgeTrack) -> Result<PathBuf, String> {
         validate_track_id(&track.id)?;
+        let _access = self.cache_access.read().await;
+        let lock = self
+            .download_locks
+            .lock()
+            .await
+            .entry(track.id.clone())
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+            .clone();
+        let _download = lock.lock().await;
+        let _cleanup = DownloadCleanup {
+            downloads: &self.downloads,
+            id: &track.id,
+            temporary: self.store.cache_dir.join(format!("{}.part", track.id)),
+        };
+        self.download_track(track).await
+    }
+
+    async fn download_track(&self, track: &BridgeTrack) -> Result<PathBuf, String> {
         let path = self.store.cache_dir.join(format!("{}.audio", track.id));
         if let Ok(metadata) = fs::metadata(&path).await {
             if metadata.len() == track.size_bytes {
                 return Ok(path);
             }
         }
+        self.downloads
+            .lock()
+            .map_err(|_| "État du téléchargement indisponible.".to_string())?
+            .insert(track.id.clone(), (0, track.size_bytes));
         let config = self.config.read().await.clone();
         let server_url = config
             .server_url
@@ -162,6 +211,10 @@ impl Runtime {
         let mut received = 0_u64;
         while let Some(chunk) = response.chunk().await.map_err(|error| error.to_string())? {
             received += chunk.len() as u64;
+            self.downloads
+                .lock()
+                .map_err(|_| "État du téléchargement indisponible.".to_string())?
+                .insert(track.id.clone(), (received, track.size_bytes));
             if received > track.size_bytes.max(1) {
                 let _ = fs::remove_file(&temporary).await;
                 return Err("Le fichier reçu dépasse la taille annoncée.".to_string());
@@ -300,6 +353,33 @@ impl Runtime {
         Ok(cached)
     }
 
+    pub async fn cache_inventory(&self) -> Result<serde_json::Value, String> {
+        let mut tracks = HashMap::new();
+        let mut entries = fs::read_dir(&self.store.cache_dir)
+            .await
+            .map_err(|error| error.to_string())?;
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .map_err(|error| error.to_string())?
+        {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) == Some("audio") {
+                if let (Some(id), Ok(metadata)) = (
+                    path.file_stem().and_then(|value| value.to_str()),
+                    entry.metadata().await,
+                ) {
+                    if metadata.is_file() && metadata.len() > 0 {
+                        tracks.insert(id.to_string(), metadata.len());
+                    }
+                }
+            }
+        }
+        Ok(
+            serde_json::json!({ "tracks": tracks, "downloads": *self.downloads.lock().map_err(|_| "État du téléchargement indisponible.".to_string())? }),
+        )
+    }
+
     pub async fn cache_stats(&self) -> (usize, u64) {
         std::fs::read_dir(&self.store.cache_dir)
             .ok()
@@ -317,6 +397,7 @@ impl Runtime {
     }
 
     pub async fn clear_cache(&self) -> Result<usize, String> {
+        let _access = self.cache_access.write().await;
         let mut removed = 0;
         let mut entries = fs::read_dir(&self.store.cache_dir)
             .await
@@ -402,6 +483,77 @@ fn validate_remote_preview_url(value: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{validate_remote_preview_url, validate_track_id};
+
+    #[tokio::test]
+    async fn persists_shared_downloads_and_cleans_incomplete_files() {
+        use super::*;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let directory =
+            std::env::temp_dir().join(format!("sonoriva-cache-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&directory).await.unwrap();
+        let requests = Arc::new(AtomicUsize::new(0));
+        let counter = requests.clone();
+        let router = axum::Router::new().route(
+            "/api/bridge/tracks/{id}/audio",
+            axum::routing::get(move || {
+                let counter = counter.clone();
+                async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    vec![1_u8, 2, 3, 4]
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let server_url = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        let state = Runtime {
+            config: RwLock::new(BridgeConfig {
+                server_url: Some(server_url),
+                ..Default::default()
+            }),
+            device_token: RwLock::new(Some("test".into())),
+            local_token: RwLock::new(None),
+            audio: std::sync::Mutex::new(AudioEngine::new()),
+            store: ConfigStore::for_test(&directory),
+            client: reqwest::Client::new(),
+            download_locks: tokio::sync::Mutex::new(HashMap::new()),
+            cache_access: RwLock::new(()),
+            downloads: std::sync::Mutex::new(HashMap::new()),
+            launch_generations: std::sync::Mutex::new(HashMap::new()),
+            cancelled_launches: std::sync::Mutex::new(HashMap::new()),
+        };
+        let mut track: BridgeTrack = serde_json::from_value(serde_json::json!({
+            "id": "sound", "title": "Sound", "originalFilename": "sound.wav", "mimeType": "audio/wav", "sizeBytes": 4,
+            "startTimeMs": 0, "volume": 1, "loop": false, "fadeInMs": 0, "fadeOutMs": 0
+        })).unwrap();
+        let (first, second) = tokio::join!(state.ensure_track(&track), state.ensure_track(&track));
+        assert_eq!(first.unwrap(), second.unwrap());
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        assert_eq!(state.cache_inventory().await.unwrap()["tracks"]["sound"], 4);
+        // A fresh per-track lock still reuses the completed file on disk.
+        state.download_locks.lock().await.clear();
+        state.ensure_track(&track).await.unwrap();
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        track.id = "incomplete".into();
+        track.size_bytes = 8;
+        assert!(state.ensure_track(&track).await.is_err());
+        assert!(!directory.join("incomplete.part").exists());
+        assert!(state.downloads.lock().unwrap().is_empty());
+        assert!(
+            state.cache_inventory().await.unwrap()["tracks"]
+                .get("incomplete")
+                .is_none()
+        );
+        state.clear_cache().await.unwrap();
+        assert_eq!(
+            state.cache_inventory().await.unwrap()["tracks"],
+            serde_json::json!({})
+        );
+        server.abort();
+        fs::remove_dir_all(directory).await.unwrap();
+    }
 
     #[test]
     fn accepts_uuid_identifiers_and_rejects_paths() {

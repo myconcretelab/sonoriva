@@ -2,6 +2,12 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.22.0 — 20 septembre 2026
+
+Cache persistant, progression des téléchargements et lancements protégés avec Bridge 1.0.9.
+
+[Détails de la version 1.22.0](./1.22.0.md)
+
 ## Version 1.21.1 — 16 septembre 2026
 
 Ordre stable des lecteurs Bridge et correction de l’arrêt des boucles avec Bridge 1.0.7.

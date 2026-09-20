@@ -11,6 +11,21 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.22.0',
+    date: '2026-09-20',
+    title: 'Préchargement et lancements protégés',
+    summary: 'Cache persistant, progression sur les sons et annulation des lancements tardifs avec Bridge 1.0.9.',
+    important: true,
+    changes: [
+      'Les sons téléchargés pendant une lecture sont conservés dans le cache du moteur utilisé.',
+      'Le statut des sons du Bridge est relu sur disque, y compris après un redémarrage.',
+      'Une icône indique la progression des téléchargements sur chaque son.',
+      'Un lancement en attente est annulé après dix secondes ou lors d’une commande d’arrêt.',
+      'Bridge 1.0.9 est requis pour la lecture protégée ; les versions précédentes affichent une demande de mise à jour.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.21.1',
     date: '2026-09-16',
     title: 'Lecture en boucle avec le Bridge',

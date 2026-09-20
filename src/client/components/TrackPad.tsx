@@ -1,7 +1,8 @@
+import type { DownloadProgress } from '../lib/download-state';
 import { VideoThumbnail } from './VideoThumbnail';
 import { isVideoTrack } from '../lib/video-engine';
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
-import { Video, AudioWaveform, CircleCheck, Infinity as InfinityIcon, MoreHorizontal, Play } from 'lucide-react';
+import { Download, Video, AudioWaveform, CircleCheck, Infinity as InfinityIcon, MoreHorizontal, Play } from 'lucide-react';
 import type { ActivePlayback } from '../lib/audio-engine';
 import type { RoutedBridgeOutput } from '../lib/bridge-output-routing';
 import { contrastColor } from '../lib/color-contrast';
@@ -15,6 +16,7 @@ interface Props {
   playbacks: ActivePlayback[];
   historyProgress: number;
   loaded: boolean;
+  download?: DownloadProgress;
   reorderEnabled: boolean;
   playlistDropEnabled: boolean;
   selectionMode: boolean;
@@ -42,7 +44,7 @@ interface Props {
   onMobileDragEnd?: (point: ClientPoint, cancelled: boolean) => void;
 }
 
-export function TrackPad({ track, color, active, playbacks, historyProgress, loaded, reorderEnabled, playlistDropEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
+export function TrackPad({ track, color, active, playbacks, historyProgress, loaded, download, reorderEnabled, playlistDropEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
   const mainOutput = (isVideoTrack(track) ? [] : bridgeOutputs).find((output) => output.id === mainBridgeOutputId);
   const alternateOutputs = mainOutput ? bridgeOutputs.filter((output) => output.id !== mainOutput.id) : [];
   const pointerDrag = useRef<{ pointerId: number; start: ClientPoint; started: boolean } | undefined>(undefined);
@@ -106,6 +108,10 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
         '--progress-iterations': playback.loop ? 'infinite' : '1',
         animationPlayState: playback.paused ? 'paused' : 'running',
       } as React.CSSProperties} />)}
+    </span>}
+    {download && <span className={`track-download ${download.total ? '' : 'is-indeterminate'}`} role="progressbar" aria-label={`Téléchargement de ${track.title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={download.total ? Math.min(100, Math.round(download.received / download.total * 100)) : undefined} style={{ '--download-progress': `${download.total ? Math.min(100, download.received / download.total * 100) : 0}%` } as React.CSSProperties}>
+      <span className="track-download-fill" />
+      <span className="track-download-marker"><Download size={12} /><span>{download.total ? `${Math.min(100, Math.round(download.received / download.total * 100))} %` : '…'}</span></span>
     </span>}
     <div className="track-meta">
       <span>{isVideoTrack(track) && 'Vidéo · '}{track.durationMs ? formatDuration((track.endTimeMs ?? track.durationMs) - track.startTimeMs) : '—:—'}</span>
