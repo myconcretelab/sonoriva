@@ -134,3 +134,9 @@ Chaque carré lance son son. Le bouton **Play** en haut de la zone lance tous le
 Le bouton **Options** règle la taille des carrés (mini, moyen ou grand) et leur retrait après lancement. Par défaut, les sons restent dans la zone. Le bouton **Remplacer les lectures en cours**, activé par défaut et allumé lorsqu’il est actif, arrête immédiatement les lectures existantes avant de lancer les sons préparés. Il s’applique aussi au lancement d’un carré individuel. Le bouton **Vider** retire les sons de la zone sans arrêter leur lecture.
 
 La zone se déplace dans le mode de modification de la disposition, comme les autres modules. Les dispositions prédéfinies la replacent à gauche du Soundboard. Les sons préparés, la visibilité et les options sont mémorisés dans le navigateur, par utilisateur et par spectacle.
+
+## Griser les sons déjà joués
+
+Le bouton à deux coches du tableau de bord active ou désactive le grisé des sons déjà joués. Sa flèche ouvre le choix de portée : **Cette catégorie** ou **Toutes les catégories**. Sélectionner la portée, puis activer ou désactiver le marquage. Un réglage appliqué à toutes les catégories remplace les réglages individuels.
+
+Le réglage est conservé dans ce navigateur, pour chaque spectacle. Les sons dont l’historique contient une progression apparaissent en gris avec la mention « joué ». Ils restent cliquables ; pendant une lecture, leur couleur est rétablie. La commande **Réinitialiser les progressions** efface aussi ce marquage, pour la catégorie actuelle ou tout le spectacle.

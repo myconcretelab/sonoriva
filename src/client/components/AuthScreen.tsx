@@ -115,20 +115,13 @@ export function AuthScreen({ onAuthenticated }: Props) {
     }
   }
 
-  return <main className="auth-shell">
-    <section className="auth-intro">
-      <img className="brand-mark" src="/sonoriva-logo.svg" alt="SonoRiva" />
-      <p className="eyebrow">Régie son en ligne</p>
-      <h1>Play sound.<br /><span>Play the scene.</span></h1>
-      <p className="auth-copy">Préparez votre spectacle, déclenchez vos sons instantanément et gardez toute votre bibliothèque à portée de main.</p>
-      <div className="signal-lines" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /></div>
-    </section>
+  return <main className="auth-shell auth-centered">
+    <img className="auth-animated-logo" src="/sonoriva-logo-animated.svg" alt="SonoRiva" />
     <section className="auth-panel">
       <form className="auth-card" onSubmit={submit}>
         <div>
-          <p className="eyebrow">SonoRiva</p>
-          <h2>{mode === 'register' ? 'Créer votre régie' : mode === 'forgot' ? 'Réinitialiser le mot de passe' : 'Heureux de vous revoir'}</h2>
-          <p>{mode === 'register' ? 'Choisissez votre offre. Les forfaits payants utilisent Stripe pour enregistrer le moyen de paiement.' : mode === 'forgot' ? 'Saisissez l’adresse e-mail associée à votre compte.' : 'Connectez-vous pour reprendre votre spectacle.'}</p>
+          <h2>{mode === 'register' ? 'Créer votre régie' : mode === 'forgot' ? 'Réinitialiser le mot de passe' : 'Connexion'}</h2>
+          {mode === 'forgot' && <p>Saisissez l’adresse e-mail de votre compte.</p>}
         </div>
         {mode === 'register' && <label>Nom affiché<input name="displayName" autoComplete="name" required minLength={2} placeholder="Votre nom" /></label>}
         <label>Adresse e-mail<input name="email" type="email" autoComplete="email" required placeholder="vous@exemple.fr" /></label>
@@ -144,7 +137,7 @@ export function AuthScreen({ onAuthenticated }: Props) {
         {error && <p className="form-error">{error}</p>}
         {message && <p className="form-success">{message}</p>}
         <button className="button primary wide" disabled={loading || (mode === 'register' && (!selectedPlan || selectedPrice === null || selectedPrice === undefined))}>{loading && <LoaderCircle className="spin" size={18} />}{mode === 'register' ? freePlan ? 'Créer mon compte gratuitement' : 'Continuer avec Stripe' : mode === 'forgot' ? 'Envoyer le lien' : 'Se connecter'}</button>
-        {mode !== 'forgot' && <><div className="auth-separator"><span>ou</span></div><button className="button demo wide" type="button" disabled={demoLoading} onClick={startDemo}>{demoLoading && <LoaderCircle className="spin" size={18} />}Essayer sans compte</button><small className="demo-auth-note">Espace temporaire · {demo?.maxUploads ?? 15} fichiers · {formatFileSize(demo?.maxFileBytes ?? 5 * 1024 ** 2)} maximum par fichier · réinitialisé après {demo?.lifetimeHours ?? 24} h d’inactivité</small></>}
+        {mode !== 'forgot' && <><div className="auth-separator"><span>ou</span></div><button className="button demo wide" type="button" disabled={demoLoading} onClick={startDemo}>{demoLoading && <LoaderCircle className="spin" size={18} />}Essayer sans compte</button><details className="demo-auth-details"><summary>Limites de la démo</summary><small className="demo-auth-note">Espace temporaire · {demo?.maxUploads ?? 15} fichiers · {formatFileSize(demo?.maxFileBytes ?? 5 * 1024 ** 2)} maximum par fichier · réinitialisé après {demo?.lifetimeHours ?? 24} h d’inactivité</small></details></>}
         {mode === 'login' && <button className="text-button" type="button" onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}>
           Mot de passe oublié ?
         </button>}

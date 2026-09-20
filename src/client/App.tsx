@@ -1,3 +1,4 @@
+import { PlayedSoundsControl } from './components/PlayedSoundsControl';
 import { QuickLaunchPanel } from './components/QuickLaunchPanel';
 import { useQuickLaunch } from './lib/quick-launch';
 import { getDownloadProgress, subscribeDownloads, type DownloadProgress } from './lib/download-state';
@@ -49,7 +50,7 @@ import { mobileTrackAutoScrollDelta, type ClientPoint } from './lib/mobile-track
 import { subscribeOfflineCache, cachedTrackIds, cacheTrackOffline, deleteCachedTracks, deleteOfflineAudio } from './lib/offline-audio';
 import { movePlaylistItem as repositionPlaylistItem, playlistEntries, playlistQueueItems, playlistRows as groupPlaylistItems, type PlaylistItemPlacement, type PlaylistQueueItem } from './lib/playlist-rows';
 import { categoryIsFavorites, parseStopwatchState, playlistIsVisible, resolveCategoryId } from './lib/session-state';
-import { applySoundboardViewMode, defaultSoundboardViewSettings, readSoundboardViewSettings, resolveSoundboardView, soundboardViewModeForCategory, soundboardViewStorageKey, type SoundboardViewMode, type SoundboardViewSettings } from './lib/soundboard-view';
+import { applyGreyPlayed, greyPlayedForCategory, applySoundboardViewMode, defaultSoundboardViewSettings, readSoundboardViewSettings, resolveSoundboardView, soundboardViewModeForCategory, soundboardViewStorageKey, type SoundboardViewMode, type SoundboardViewSettings } from './lib/soundboard-view';
 import { intersectsSelection, type SelectionRectangle } from './lib/track-selection';
 import { normalizeTrackTags, toggleSearchScopeSelection, trackMatchesEnabledSearch, type TrackSearchScope } from './lib/track-tags';
 import { canDropTrackInSubcategoryDrawer, subcategoryDrawerEdgeClasses, subcategoryMatchesSearch, trackDropPlacement, trackIdAfterTarget } from './lib/track-subcategories';
@@ -2237,7 +2238,7 @@ export default function App() {
     const color = track.color ?? category?.color ?? '#71717a';
     const shortcutIndex = visibleTracks.findIndex((candidate) => candidate.id === track.id);
     const reorderPositionTarget = dropTrackId === track.id && dropTrackPlacement !== 'group' ? dropTrackPlacement : undefined;
-    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} download={downloads.get(track.id)} dragEnabled={reorderAllowed || (remote && quickLaunch.state.enabled && !isVideoTrack(track))} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
+    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} greyPlayed={greyPlayedForCategory(soundboardViewSettings, track.categoryId ?? undefined)} loaded={offlineTrackIds.has(track.id)} download={downloads.get(track.id)} dragEnabled={reorderAllowed || (remote && quickLaunch.state.enabled && !isVideoTrack(track))} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
       onPrimary={() => detail && runTrackAction(detail.project.leftClickAction ?? 'start', track)}
       onOutputPlay={(outputId) => playTrackOnOutput(track, outputId)}
       onSecondary={() => detail && runTrackAction(detail.project.rightClickAction ?? 'crossfade', track)}
@@ -2561,6 +2562,14 @@ export default function App() {
         <div className="dashboard-actions">
           {!remote && <button className={`dashboard-button projection-toggle ${projectionOpen ? 'active' : ''}`} onClick={() => { setProjectionOpen((value) => !value); setPendingVideo(undefined); }} aria-label="Commandes de projection vidéo" aria-expanded={projectionOpen} title="Projection vidéo"><MonitorPlay size={18} /><span>Projection</span></button>}
           <button type="button" className={`dashboard-button ${quickLaunch.state.enabled ? 'active' : ''}`} aria-label="Afficher la zone de départ rapide" title="Départ rapide" aria-pressed={quickLaunch.state.enabled} onClick={() => quickLaunch.update({ enabled: !quickLaunch.state.enabled })}><Rocket size={18} /></button>
+          <PlayedSoundsControl settings={soundboardViewSettings} categoryId={currentCategory?.id} onChange={(enabled, categoryId) => {
+            if (!detail) return;
+            setSoundboardViewSettings((current) => {
+              const next = applyGreyPlayed(current, enabled, categoryId);
+              localStorage.setItem(soundboardViewStorageKey(detail.project.id), JSON.stringify(next));
+              return next;
+            });
+          }} />
           <div className="dashboard-tools">
           <button className={`dashboard-button dashboard-more ${dashboardToolsOpen ? 'active' : ''}`} aria-label="Outils du tableau de bord" aria-expanded={dashboardToolsOpen} onClick={() => setDashboardToolsOpen((value) => !value)}><MoreHorizontal size={18} /></button>
           <div className={`dashboard-tools-list ${dashboardToolsOpen ? 'is-open' : ''}`} onKeyDown={(event) => { if (event.key === 'Escape') setDashboardToolsOpen(false); }}>

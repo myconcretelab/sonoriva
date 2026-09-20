@@ -280,3 +280,7 @@ html[data-skin='tape'] .quick-launch-tools .icon-button.active {
 }
 html[data-skin='tape'] button.is-loaded:disabled { opacity: .85; }
 html:root[data-skin='tape'] body button.has-background-image.active { color: #fff3cd; text-shadow: 0 1px 3px #000; }
+
+/* Played-sound controls use the same surfaces and active colors in every skin. */
+html .played-sounds-popover { background: var(--surface-2); color: var(--ui-ink, #fafafa); border-color: var(--border); }
+html:root:not([data-skin='tape']) body .played-sounds-control > button[aria-pressed='true'] { background: var(--accent); background-image: none; color: var(--ui-on-highlight, #384661); border-color: var(--accent); }

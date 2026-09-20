@@ -16,6 +16,7 @@ interface Props {
   playbacks: ActivePlayback[];
   historyProgress: number;
   loaded: boolean;
+  greyPlayed?: boolean;
   download?: DownloadProgress;
   dragEnabled: boolean;
   selectionMode: boolean;
@@ -43,7 +44,7 @@ interface Props {
   onMobileDragEnd?: (point: ClientPoint, cancelled: boolean) => void;
 }
 
-export function TrackPad({ track, color, active, playbacks, historyProgress, loaded, download, dragEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
+export function TrackPad({ track, color, active, playbacks, historyProgress, loaded, greyPlayed = false, download, dragEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
   const mainOutput = (isVideoTrack(track) ? [] : bridgeOutputs).find((output) => output.id === mainBridgeOutputId);
   const alternateOutputs = mainOutput ? bridgeOutputs.filter((output) => output.id !== mainOutput.id) : [];
   const pointerDrag = useRef<{ pointerId: number; start: ClientPoint; started: boolean } | undefined>(undefined);
@@ -85,8 +86,8 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
     window.setTimeout(() => { suppressClick.current = false; }, 0);
   }
 
-  return <article className={`track-pad ${track.backgroundImage ? 'has-background-image' : ''} ${active ? 'is-active' : ''} ${canDrag ? 'drag-enabled' : ''} ${selectionMode ? 'selection-enabled' : ''} ${selected ? 'is-selected' : ''} ${mobileDragEnabled ? 'mobile-drag-enabled' : ''} ${mobileDragSource ? 'mobile-drag-source' : ''} ${dropTarget ? 'is-drop-target group-drop-target' : ''} ${reorderPositionTarget ? `reorder-position-target drop-${reorderPositionTarget}` : ''} ${playlistPositionTarget ? `playlist-position-target drop-${playlistPositionTarget}` : ''}`}
-    style={{ backgroundImage: track.backgroundImage ? `linear-gradient(#0009, #0009), url("${track.backgroundImage}")` : undefined, '--track-color': color, '--track-contrast': contrastColor(color) } as React.CSSProperties} draggable={canDrag && selectionMode && selected} data-track-id={track.id} data-drop-label={dropTarget ? dropLabel : undefined} onClick={() => selectionMode && onSelect()}
+  return <article className={`track-pad ${greyPlayed && historyProgress > 0 && !active ? 'is-played' : ''} ${track.backgroundImage ? 'has-background-image' : ''} ${active ? 'is-active' : ''} ${canDrag ? 'drag-enabled' : ''} ${selectionMode ? 'selection-enabled' : ''} ${selected ? 'is-selected' : ''} ${mobileDragEnabled ? 'mobile-drag-enabled' : ''} ${mobileDragSource ? 'mobile-drag-source' : ''} ${dropTarget ? 'is-drop-target group-drop-target' : ''} ${reorderPositionTarget ? `reorder-position-target drop-${reorderPositionTarget}` : ''} ${playlistPositionTarget ? `playlist-position-target drop-${playlistPositionTarget}` : ''}`}
+    style={{ backgroundImage: track.backgroundImage ? `linear-gradient(#0009, #0009), url("${track.backgroundImage}")` : undefined, '--track-color': color, '--track-contrast': contrastColor(color) } as React.CSSProperties} draggable={canDrag && selectionMode && selected} data-track-id={track.id} data-played={historyProgress > 0 || undefined} data-drop-label={dropTarget ? dropLabel : undefined} onClick={() => selectionMode && onSelect()}
     onClickCapture={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}
     onDragStart={(event) => {
       if (!canDrag || (!(selectionMode && selected) && !(event.target instanceof Element && event.target.closest('[data-track-drag-handle]')))) { event.preventDefault(); return; }

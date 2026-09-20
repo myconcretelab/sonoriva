@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { applySoundboardViewMode, defaultSoundboardViewSettings, readSoundboardViewSettings, resolveSoundboardView, soundboardViewModeForCategory, soundboardViewStorageKey } from '../src/client/lib/soundboard-view';
+import { applyGreyPlayed, greyPlayedForCategory, applySoundboardViewMode, defaultSoundboardViewSettings, readSoundboardViewSettings, resolveSoundboardView, soundboardViewModeForCategory, soundboardViewStorageKey } from '../src/client/lib/soundboard-view';
 
 describe('soundboard view', () => {
   it('resolves the automatic list view from the configured track threshold', () => {
@@ -12,7 +12,7 @@ describe('soundboard view', () => {
 
   it('restores and clamps persisted display settings', () => {
     expect(readSoundboardViewSettings(JSON.stringify({ mode: 'auto', categoryModes: { category: 'list', invalid: 'tiles' }, automaticListThreshold: 500, desktopListColumns: 3, mobileListColumns: 8 }))).toEqual({
-      mode: 'auto', categoryModes: { category: 'list' }, automaticListThreshold: 200, desktopListColumns: 3, mobileListColumns: 2,
+      mode: 'auto', categoryModes: { category: 'list' }, greyPlayed: false, categoryGreyPlayed: {}, automaticListThreshold: 200, desktopListColumns: 3, mobileListColumns: 2,
     });
     expect(readSoundboardViewSettings('{')).toEqual(defaultSoundboardViewSettings);
   });
@@ -53,5 +53,22 @@ describe('soundboard view', () => {
     expect(styles).toContain('.track-grid.is-list');
     expect(styles).toContain('grid-template-columns: minmax(0, 1fr) auto 96px;');
     expect(styles).toContain('min-height: 46px;');
+  });
+});
+
+describe('played sound marking', () => {
+  it('supports category overrides and replacing all overrides at once', () => {
+    const all = applyGreyPlayed(defaultSoundboardViewSettings, true);
+    const except = applyGreyPlayed(all, false, 'quiet');
+    expect(greyPlayedForCategory(except, 'quiet')).toBe(false);
+    expect(greyPlayedForCategory(except, 'other')).toBe(true);
+    const reset = applyGreyPlayed(except, false);
+    expect(reset.categoryGreyPlayed).toEqual({});
+    expect(greyPlayedForCategory(reset, 'other')).toBe(false);
+  });
+  it('persists the setting and rejects invalid stored switches', () => {
+    const settings = applyGreyPlayed(defaultSoundboardViewSettings, true, 'scene');
+    expect(readSoundboardViewSettings(JSON.stringify(settings))).toEqual(settings);
+    expect(readSoundboardViewSettings(JSON.stringify({ greyPlayed: 'true', categoryGreyPlayed: { valid: false, invalid: 'yes' } }))).toMatchObject({ greyPlayed: false, categoryGreyPlayed: { valid: false } });
   });
 });

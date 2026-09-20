@@ -3,6 +3,8 @@ export type SoundboardView = 'cards' | 'list';
 
 export interface SoundboardViewSettings {
   mode: SoundboardViewMode;
+  greyPlayed: boolean;
+  categoryGreyPlayed: Record<string, boolean>;
   categoryModes: Record<string, SoundboardViewMode>;
   automaticListThreshold: number;
   desktopListColumns: number;
@@ -11,6 +13,8 @@ export interface SoundboardViewSettings {
 
 export const defaultSoundboardViewSettings: SoundboardViewSettings = {
   mode: 'cards',
+  greyPlayed: false,
+  categoryGreyPlayed: {},
   categoryModes: {},
   automaticListThreshold: 30,
   desktopListColumns: 2,
@@ -39,6 +43,9 @@ export function readSoundboardViewSettings(serialized: string | null): Soundboar
     return {
       mode: value.mode === 'list' || value.mode === 'auto' || value.mode === 'cards' ? value.mode : defaultSoundboardViewSettings.mode,
       categoryModes: readCategoryModes(value.categoryModes),
+      greyPlayed: value.greyPlayed === true,
+      categoryGreyPlayed: value.categoryGreyPlayed && typeof value.categoryGreyPlayed === 'object' && !Array.isArray(value.categoryGreyPlayed)
+        ? Object.fromEntries(Object.entries(value.categoryGreyPlayed).filter(([, enabled]) => typeof enabled === 'boolean')) : {},
       automaticListThreshold: clamp(value.automaticListThreshold, 5, 200, defaultSoundboardViewSettings.automaticListThreshold),
       desktopListColumns: clamp(value.desktopListColumns, 1, 8, defaultSoundboardViewSettings.desktopListColumns),
       mobileListColumns: clamp(value.mobileListColumns, 1, 2, defaultSoundboardViewSettings.mobileListColumns),
@@ -59,4 +66,14 @@ export function soundboardViewStorageKey(projectId: string): string {
 
 function clamp(value: number | undefined, minimum: number, maximum: number, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, Math.round(value))) : fallback;
+}
+
+export function greyPlayedForCategory(settings: SoundboardViewSettings, categoryId?: string): boolean {
+  return categoryId ? settings.categoryGreyPlayed[categoryId] ?? settings.greyPlayed : settings.greyPlayed;
+}
+
+export function applyGreyPlayed(settings: SoundboardViewSettings, enabled: boolean, categoryId?: string): SoundboardViewSettings {
+  return categoryId
+    ? { ...settings, categoryGreyPlayed: { ...settings.categoryGreyPlayed, [categoryId]: enabled } }
+    : { ...settings, greyPlayed: enabled, categoryGreyPlayed: {} };
 }
