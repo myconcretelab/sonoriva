@@ -1478,17 +1478,24 @@ html:root .is-dense-list .track-pad .track-loaded { top: auto; bottom: 5px; righ
 .soundboard-with-quick-launch { display: flex; min-width: 0; min-height: 0; gap: 6px; }
 .soundboard-with-quick-launch > .workspace-soundboard { flex: 1; min-width: 0; }
 .soundboard-with-quick-launch > .workspace-quickLaunch { flex: 0 0 auto; max-width: 45%; }
-.workspace-quickLaunch.is-attached { min-width: 10px; width: max-content; }
+.workspace-quickLaunch.is-attached { min-width: 20px; width: max-content; }
 .workspace-quickLaunch.is-attached.is-layout-editing { min-width: 150px; }
-.quick-launch-panel { --quick-pad-size: 96px; height: 100%; min-height: 0; display: flex; flex-direction: column; width: calc(var(--quick-pad-size) + 12px); background: var(--panel, #202532); border: 1px solid var(--border, #454b58); border-radius: 8px; overflow: hidden; }
+.quick-launch-panel { --quick-pad-size: 96px; position: relative; isolation: isolate; height: 100%; min-height: 0; display: flex; flex-direction: column; width: max(104px, calc(var(--quick-pad-size) + 12px)); background: var(--surface); color: var(--ui-ink, #f4f4f5); border: 1px solid var(--border); border-radius: var(--skin-radius, 8px); overflow: hidden; }
 .quick-launch-panel.size-mini { --quick-pad-size: 60px; }
 .quick-launch-panel.size-large { --quick-pad-size: 144px; }
-.quick-launch-panel.is-empty { width: 10px; min-height: 80px; background: color-mix(in srgb, var(--accent, #a78bfa) 25%, transparent); }
-.quick-launch-panel.is-drag-over { background: color-mix(in srgb, var(--accent, #a78bfa) 50%, transparent); outline: 2px solid var(--accent, #a78bfa); }
-.quick-launch-panel header { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px; padding: 5px 0; }
-.quick-launch-panel header .active { background: var(--accent, #a78bfa); color: #fff; box-shadow: 0 0 7px var(--accent, #a78bfa); }
-.quick-launch-tracks { display: flex; flex-direction: column; gap: 6px; padding: 5px; overflow-y: auto; min-height: 0; }
-.quick-launch-pad { width: var(--quick-pad-size); height: var(--quick-pad-size); flex: 0 0 var(--quick-pad-size); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background-color: #34435c; color: white; background-size: cover; background-position: center; border: 1px solid #7183a4; border-radius: 7px; padding: 5px; overflow: hidden; }
+.quick-launch-panel.is-empty { width: 20px; min-height: 80px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.quick-launch-watermark { position: absolute; z-index: -1; pointer-events: none; width: 180px; height: 180px; top: 28px; left: 50%; transform: translateX(-50%) rotate(-12deg); color: var(--accent); opacity: .12; }
+.quick-launch-panel.is-empty .quick-launch-watermark { left: 0; transform: translateX(-42%) rotate(-12deg); opacity: .25; }
+.quick-launch-panel.is-drag-over { background: color-mix(in srgb, var(--accent) 25%, var(--surface)); outline: 2px solid var(--accent); }
+.quick-launch-controls { display: grid; gap: 5px; padding: 5px; flex: 0 0 auto; }
+.quick-launch-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
+.quick-launch-tools .icon-button { width: 100%; min-width: 0; height: 30px; padding: 0; border-radius: var(--skin-radius, 7px); }
+html .quick-launch-tools .icon-button.active { background: var(--accent); color: var(--ui-on-highlight, #384661); border-color: var(--accent); box-shadow: inset 0 0 0 1px rgba(var(--ui-edge-rgb, 255,255,255),.15); }
+.quick-launch-play { width: 100%; min-height: 34px; padding: 5px; justify-content: center; border-radius: var(--skin-radius, 7px); }
+.quick-launch-tracks { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 5px; overflow-y: auto; min-height: 0; }
+.quick-launch-pad { width: var(--quick-pad-size); height: var(--quick-pad-size); flex: 0 0 var(--quick-pad-size); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background-color: var(--surface-2); color: var(--ui-ink, #f4f4f5); background-size: cover; background-position: center; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--surface-3)); border-radius: var(--skin-radius, 7px); padding: 5px; overflow: hidden; cursor: pointer; }
+.quick-launch-pad:hover { background-color: var(--surface-3); border-color: var(--accent); }
+.quick-launch-pad.has-background-image { color: #fff; }
 .quick-launch-pad span { width: 100%; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; font-size: 12px; }
 .quick-launch-options { width: min(440px, 95vw); padding: 22px; display: grid; gap: 18px; }
 .quick-launch-options header, .quick-launch-options h2 { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
@@ -1498,3 +1505,18 @@ html:root .is-dense-list .track-pad .track-loaded { top: auto; bottom: 5px; righ
 .quick-launch-panel.size-mini .quick-launch-pad > svg { width: 14px; height: 14px; }
 .quick-launch-panel.size-mini .quick-launch-pad span { -webkit-line-clamp: 2; font-size: 10px; line-height: 12px; }
 .sidebar-layout-dock > .workspace-quickLaunch { max-height: 50vh; }
+
+/* A fixed search cap prevents workspace/module changes from expanding the field. */
+.workspace-soundboard .dashboard { display: flex; flex-wrap: wrap; }
+.dashboard-search-group { flex: 0 1 320px; width: 320px; max-width: 50%; flex-wrap: wrap; container: search-controls / inline-size; }
+.dashboard-search-group .search { flex: 1 1 100%; }
+.dashboard .dashboard-actions { margin-left: auto; }
+.dashboard-search-group .search-scope { display: none; }
+.dashboard-search-group .search:focus-within .search-scope { display: grid; top: calc(100% + 5px); left: 0; width: 138px; }
+.dashboard-search-group .search > svg { display: block; left: 10px; width: 16px; }
+.dashboard-search-group .search input { padding-left: 34px; padding-right: 82px; }
+.dashboard-search-group .search kbd { display: none; }
+@container search-controls (max-width: 240px) {
+  .dashboard-search-group .search input { padding-right: 42px; }
+  .dashboard-search-group .search-openverse { display: none; }
+}

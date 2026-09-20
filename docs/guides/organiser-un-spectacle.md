@@ -127,10 +127,10 @@ Une playlist enregistrée appartient au spectacle sélectionné.
 
 ## Zone de départ rapide
 
-Le bouton **Fusée** du Soundboard affiche ou masque la zone de départ rapide. Elle apparaît à gauche du Soundboard, sous la forme d’une bande de 10 pixels lorsqu’elle est vide. Glissez des sons depuis le Soundboard dans cette bande pour les préparer. Les vidéos ne sont pas acceptées.
+Le bouton **Fusée** du Soundboard affiche ou masque la zone de départ rapide. Elle apparaît à gauche du Soundboard, sous la forme d’une bande de 20 pixels lorsqu’elle est vide. Glissez des sons depuis le Soundboard dans cette bande pour les préparer. Les vidéos ne sont pas acceptées.
 
 Chaque carré lance son son. Le bouton **Play** en haut de la zone lance tous les sons préparés ensemble. La touche **Entrée** déclenche la même commande ; son affectation se modifie dans **Paramètres → Raccourcis clavier → Départ rapide**. Ce raccourci est inactif lorsque la zone est masquée ou vide, pendant la saisie de texte et dans les fenêtres de dialogue.
 
-Le bouton **Options** règle la taille des carrés (mini, moyen ou grand) et leur retrait après lancement. Par défaut, les sons restent dans la zone. Le bouton **Remplacer les lectures en cours**, allumé lorsqu’il est actif, arrête immédiatement les lectures existantes avant de lancer les sons préparés. Il s’applique aussi au lancement d’un carré individuel. Le bouton **Vider** retire les sons de la zone sans arrêter leur lecture.
+Le bouton **Options** règle la taille des carrés (mini, moyen ou grand) et leur retrait après lancement. Par défaut, les sons restent dans la zone. Le bouton **Remplacer les lectures en cours**, activé par défaut et allumé lorsqu’il est actif, arrête immédiatement les lectures existantes avant de lancer les sons préparés. Il s’applique aussi au lancement d’un carré individuel. Le bouton **Vider** retire les sons de la zone sans arrêter leur lecture.
 
 La zone se déplace dans le mode de modification de la disposition, comme les autres modules. Les dispositions prédéfinies la replacent à gauche du Soundboard. Les sons préparés, la visibilité et les options sont mémorisés dans le navigateur, par utilisateur et par spectacle.

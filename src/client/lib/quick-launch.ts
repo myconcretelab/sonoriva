@@ -8,7 +8,7 @@ export interface QuickLaunchState {
   replace: boolean;
   trackIds: string[];
 }
-export const defaultQuickLaunchState: QuickLaunchState = { enabled: false, size: 'medium', removeAfterLaunch: false, replace: false, trackIds: [] };
+export const defaultQuickLaunchState: QuickLaunchState = { enabled: false, size: 'medium', removeAfterLaunch: false, replace: true, trackIds: [] };
 export function readQuickLaunch(serialized: string | null): QuickLaunchState {
   try {
     const value = JSON.parse(serialized ?? 'null');
@@ -17,7 +17,7 @@ export function readQuickLaunch(serialized: string | null): QuickLaunchState {
       enabled: value.enabled === true,
       size: ['mini', 'medium', 'large'].includes(value.size) ? value.size : 'medium',
       removeAfterLaunch: value.removeAfterLaunch === true,
-      replace: value.replace === true,
+      replace: typeof value.replace === 'boolean' ? value.replace : defaultQuickLaunchState.replace,
       trackIds: Array.isArray(value.trackIds) ? [...new Set(value.trackIds.filter((id: unknown): id is string => typeof id === 'string'))] as string[] : [],
     };
   } catch { return { ...defaultQuickLaunchState }; }

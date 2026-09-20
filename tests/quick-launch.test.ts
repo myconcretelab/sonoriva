@@ -32,6 +32,9 @@ function setup(play = vi.fn(async (items: Track[]) => items.map((track) => track
 describe('départ rapide', () => {
   it('restaure uniquement des préférences valides et déduplique les sons', () => {
     expect(readQuickLaunch('{')).toEqual(defaultQuickLaunchState);
+    expect(readQuickLaunch(null).replace).toBe(true);
+    expect(readQuickLaunch('{}').replace).toBe(true);
+    expect(readQuickLaunch('{"replace":false}').replace).toBe(false);
     expect(readQuickLaunch(JSON.stringify({ enabled: true, size: 'bad', trackIds: ['a', 1, 'a', 'b'] }))).toMatchObject({ enabled: true, size: 'medium', trackIds: ['a', 'b'] });
   });
   it('lance la zone ensemble, conserve les sons par défaut et transmet le remplacement', async () => {
@@ -46,7 +49,7 @@ describe('départ rapide', () => {
     const view = setup(vi.fn(async () => ['a']));
     act(() => view.current.update({ enabled: true, removeAfterLaunch: true, trackIds: ['a', 'b'] }));
     await act(() => view.current.launch('a'));
-    expect(view.play).toHaveBeenCalledWith([tracks[0]], false);
+    expect(view.play).toHaveBeenCalledWith([tracks[0]], true);
     expect(view.current.state.trackIds).toEqual(['b']);
   });
   it('ignore une zone masquée ou vide et isole les spectacles', async () => {

@@ -254,3 +254,16 @@ html[data-skin='tape'] .next-volume-control > .console-volume-lock { grid-column
 
 html[data-skin='tape'] .next-volume-control > strong,
 html[data-skin='tape'] .next-volume-control > .console-volume-lock { align-self: center; }
+
+/* Départ rapide et poignées permanentes : couleurs et reliefs de chaque habillage. */
+html[data-skin='porcelain'] .quick-launch-panel { background-color: var(--ui-panel); box-shadow: inset 0 1px #fff, 0 2px 6px #243f501a; }
+html[data-skin='porcelain'] .quick-launch-pad { background-color: var(--ui-control); color: var(--ui-ink); box-shadow: inset 0 1px #fff; }
+html[data-skin='tape'] .quick-launch-panel { background: var(--skin-panel); border: 2px ridge #76543b; }
+html[data-skin='tape'] .quick-launch-pad { background-color: var(--ui-control); color: var(--ui-ink); box-shadow: var(--skin-button-shadow); font-family: 'Courier New', monospace; }
+html[data-skin='studio'] .quick-launch-panel { background-color: #171614; border-color: #514d45; }
+html[data-skin='studio'] .quick-launch-pad { background-color: #272520; border-color: #716a5d; }
+html:is([data-skin='porcelain'], [data-skin='tape']) .quick-launch-pad.has-background-image { color: #fff; }
+html:is([data-skin='porcelain'], [data-skin='tape']) .track-pad.drag-enabled .track-meta:hover { color: var(--ui-ink); background: rgba(var(--ui-edge-rgb), .08); }
+html[data-skin] .quick-launch-panel.is-empty { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+html[data-skin] .quick-launch-panel.is-drag-over { background: color-mix(in srgb, var(--accent) 25%, var(--surface)); }
+html[data-skin] .quick-launch-tools .icon-button.active { color: var(--ui-on-highlight, #384661); background: var(--accent); border-color: var(--accent); }

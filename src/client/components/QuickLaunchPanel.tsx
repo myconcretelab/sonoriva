@@ -26,12 +26,17 @@ export function QuickLaunchPanel({ state, tracks, shortcut, onUpdate, onDropTrac
         const ids = event.dataTransfer.getData('application/x-sonoriva-track-selection') || event.dataTransfer.getData('application/x-sonoriva-track') || event.dataTransfer.getData('text/plain');
         onDropTracks(ids.split(','));
       }}>
+      <Rocket className="quick-launch-watermark" aria-hidden="true" strokeWidth={1} />
       {tracks.length > 0 && <>
-        <header><Rocket size={16} /><button type="button" className="icon-button" title="Options du départ rapide" aria-label="Options du départ rapide" onClick={() => setOptionsOpen(true)}><Settings2 size={16} /></button>
-          <button type="button" className={`icon-button ${state.replace ? 'active' : ''}`} aria-label="Remplacer les lectures en cours" title="Remplacer les lectures en cours" aria-pressed={state.replace} onClick={() => onUpdate({ replace: !state.replace })}><Replace size={16} /></button>
-          <button type="button" className="icon-button" aria-label="Lancer le départ rapide" title={`Lancer tous les sons (${shortcut})`} onClick={() => onLaunch()}><Play size={16} /></button>
-          <button type="button" className="icon-button" aria-label="Vider le départ rapide" title="Vider la zone" onClick={() => onUpdate({ trackIds: [] })}><Trash2 size={16} /></button></header>
-        <div className="quick-launch-tracks">{tracks.map((track) => <button type="button" className="quick-launch-pad" key={track.id} title={`Lancer ${track.title}`} onClick={() => onLaunch(track.id)} style={track.backgroundImage ? { backgroundImage: `linear-gradient(#0008, #0008), url("${track.backgroundImage}")` } : undefined}><Play size={18} /><span>{track.title}</span></button>)}</div>
+        <header className="quick-launch-controls">
+          <div className="quick-launch-tools">
+            <button type="button" className="icon-button" title="Options du départ rapide" aria-label="Options du départ rapide" onClick={() => setOptionsOpen(true)}><Settings2 size={16} /></button>
+            <button type="button" className={`icon-button ${state.replace ? 'active' : ''}`} aria-label="Remplacer les lectures en cours" title="Remplacer les lectures en cours" aria-pressed={state.replace} onClick={() => onUpdate({ replace: !state.replace })}><Replace size={16} /></button>
+            <button type="button" className="icon-button" aria-label="Vider le départ rapide" title="Vider la zone" onClick={() => onUpdate({ trackIds: [] })}><Trash2 size={16} /></button>
+          </div>
+          <button type="button" className="button primary quick-launch-play" aria-label="Lancer le départ rapide" title={`Lancer tous les sons (${shortcut})`} onClick={() => onLaunch()}><Play size={18} fill="currentColor" /></button>
+        </header>
+        <div className="quick-launch-tracks">{tracks.map((track) => <button type="button" className={`quick-launch-pad ${track.backgroundImage ? 'has-background-image' : ''}`} key={track.id} title={`Lancer ${track.title}`} onClick={() => onLaunch(track.id)} style={track.backgroundImage ? { backgroundImage: `linear-gradient(#0008, #0008), url("${track.backgroundImage}")` } : undefined}><Play size={18} /><span>{track.title}</span></button>)}</div>
       </>}
     </div>
     {optionsOpen && createPortal(<div className="dialog-backdrop" onClick={() => setOptionsOpen(false)}><section className="dialog quick-launch-options" role="dialog" aria-modal="true" aria-label="Options du départ rapide" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => { event.stopPropagation(); if (event.key === 'Escape') setOptionsOpen(false); }}>
