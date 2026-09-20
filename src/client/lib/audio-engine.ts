@@ -210,7 +210,14 @@ class AudioEngine {
     this.listeners.add(listener);
     const unsubscribeVideo = videoEngine.subscribe(() => this.notify());
     const unsubscribeBridge = bridgeClient.subscribe(() => {
-      if (bridgeClient.isEnabled()) this.notify();
+      if (bridgeClient.isEnabled()) {
+        for (const playback of bridgeClient.getPlaybacks()) {
+          if (playback.channel === 'main' && playback.durationMs > 0) {
+            this.recordProgress(playback, Math.max(Number.EPSILON, playback.positionMs / playback.durationMs));
+          }
+        }
+        this.notify();
+      }
     });
     listener(this.getActivePlaybacks());
     return () => {
@@ -422,7 +429,10 @@ class AudioEngine {
     try {
       if (bridgeClient.isEnabled()) {
         try {
-          return await launch.wait(bridgeClient.play(track, fadeInMs, volumeMultiplier, 'main', outputId, launch.signal, launch.expiresAtMs));
+          const playbackId = await launch.wait(bridgeClient.play(track, fadeInMs, volumeMultiplier, 'main', outputId, launch.signal, launch.expiresAtMs));
+          // Short sounds may finish between two Bridge status polls.
+          this.recordProgress({ trackId: track.id }, Number.EPSILON);
+          return playbackId;
         } catch (cause) {
           if (!isBridgeUnavailableError(cause)) throw cause;
           bridgeClient.fallbackToBrowser();

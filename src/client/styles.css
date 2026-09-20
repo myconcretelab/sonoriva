@@ -286,8 +286,8 @@ kbd { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; col
 .workspace-resize-handle:hover { color: var(--ui-accent-ink, #F8FCFE); border-color: rgba(219,237,247,.72); background: rgba(56,70,97,.94); }
 .workspace-block.is-layout-editing .workspace-block-content { padding-top: 37px; opacity: .62; pointer-events: none; }
 .workspace-categories .category-strip { height: 100%; min-height: 0; padding: 8px 10px 0; border: 0; }
-.workspace-categories .category-tabs-row { height: calc(100% - 25px); min-height: 0; }
-.workspace-categories .category-tabs { min-height: 0; padding: 7px 0 8px; }
+.workspace-categories .category-tabs-row { height: 100%; min-height: 0; }
+.workspace-categories .category-tabs { min-height: 0; padding: 0 0 8px; }
 .workspace-categories .category-tabs { align-items: center; }
 .workspace-categories .category-tab-shell, .workspace-categories .category-tabs > .category-tab { width: auto; height: min(var(--category-tab-width, 112px), 100%); min-height: 0; flex: 0 0 auto; aspect-ratio: 1; }
 .workspace-actions .mouse-actions { height: 100%; overflow: auto; }
@@ -1077,7 +1077,7 @@ kbd { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; col
   .workspace-block-editor, .workspace-resize-handle { display: none; }
   .workspace-block.is-layout-editing { border-color: var(--border); box-shadow: 0 8px 28px rgba(0,0,0,.14); }
   .workspace-block.is-layout-editing .workspace-block-content { padding-top: 0; opacity: 1; pointer-events: auto; }
-  .workspace-categories { order: 1; min-height: 148px; }
+  .workspace-categories { order: 1; min-height: 116px; }
   .workspace-soundboard { order: 2; }
   .workspace-soundboard .soundboard { overflow: visible; }
   .workspace-players { order: 3; height: min(420px, 60vh); }
@@ -1552,3 +1552,15 @@ html .quick-launch-tools .icon-button.active { background: var(--accent); color:
 .auth-centered .demo-auth-details .demo-auth-note { display: block; margin-top: 8px; }
 html[data-skin='porcelain'] .auth-animated-logo { filter: brightness(.35) sepia(.5) saturate(2) hue-rotate(145deg); }
 html[data-skin='tape'] .auth-animated-logo { filter: sepia(.8) saturate(1.5); }
+
+/* Category tools share the pad row instead of reserving a title row. */
+.category-strip { padding-top: 8px; }
+.category-strip-tools { flex: 0 0 28px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.category-strip-tools .icon-button { width: 28px; height: 28px; min-height: 28px; }
+.category-strip-tools .category-manage-toggle.active { color: var(--accent); background: var(--accent-soft); }
+.category-tabs { padding-top: 0; padding-bottom: 8px; }
+/* The cache badge stays in the footer in cards, lists and dense lists. */
+html:root .track-pad .track-meta .track-loaded { position: static; display: inline-flex; flex: 0 0 auto; overflow: visible; filter: none; }
+html:root .track-pad .track-meta .track-duration { overflow: visible; flex-shrink: 0; gap: 4px; }
+.track-meta .track-loaded svg { flex-shrink: 0; }
+.track-grid.is-list .track-pad:not(.subcategory-pad), .subcategory-drawer-grid.is-list .track-pad:not(.subcategory-pad) { grid-template-columns: minmax(0, 1fr) auto 114px; }

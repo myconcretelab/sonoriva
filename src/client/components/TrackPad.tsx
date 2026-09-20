@@ -97,7 +97,6 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
     }} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={() => { onDragEnd(); window.setTimeout(() => { suppressClick.current = false; }, 0); }}
     onPointerDown={beginMobileDrag} onPointerMove={moveMobileDrag} onPointerUp={(event) => finishMobileDrag(event, false)} onPointerCancel={(event) => finishMobileDrag(event, true)}>
     {selectionMode && <span className="track-selection-indicator" aria-hidden="true">{selected && <CircleCheck size={18} />}</span>}
-    {loaded && <span className="track-loaded" title="Disponible hors ligne" aria-label="Disponible hors ligne"><CircleCheck size={15} /></span>}
     <button className="icon-button subtle track-edit" onClick={() => !selectionMode && onEdit()} aria-label={`Modifier ${track.title}`} tabIndex={selectionMode ? -1 : undefined}><MoreHorizontal size={18} /></button>
     <button className="track-trigger" onClick={() => !selectionMode && onPrimary()} onContextMenu={(event) => { event.preventDefault(); if (!selectionMode) onSecondary(); }} aria-pressed={selectionMode ? selected : undefined}>
       <span className={`play-disc ${mainOutput ? 'has-output-route' : ''}`} style={mainOutput ? { '--main-output-color': mainOutput.color } as React.CSSProperties : undefined}>{isVideoTrack(track) ? <Video size={18} /> : active ? <AudioWaveform size={18} /> : <Play size={18} fill="currentColor" />}</span>
@@ -121,7 +120,7 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
       <span className="track-download-marker"><Download size={12} /><span>{download.total ? `${Math.min(100, Math.round(download.received / download.total * 100))} %` : '…'}</span></span>
     </span>}
     <div className="track-meta" data-track-drag-handle draggable={canDrag} title={canDrag ? (selectionMode ? 'Glisser pour déplacer les morceaux sélectionnés' : 'Glisser pour déplacer ce morceau') : undefined}>
-      <span>{isVideoTrack(track) && 'Vidéo · '}{track.durationMs ? formatDuration((track.endTimeMs ?? track.durationMs) - track.startTimeMs) : '—:—'}</span>
+      <span className="track-duration">{loaded && <span className="track-loaded" title="Disponible hors ligne" aria-label="Disponible hors ligne"><CircleCheck size={13} /></span>}{isVideoTrack(track) && 'Vidéo · '}{track.durationMs ? formatDuration((track.endTimeMs ?? track.durationMs) - track.startTimeMs) : '—:—'}</span>
       <span className="track-card-secondary">{track.loop && <InfinityIcon size={15} />}{shortcut ? `Touche ${shortcut}` : `${Math.min(100, Math.round(track.volume * 100))} %`}</span>
       <span className="track-list-shortcut" title={shortcut ? `Raccourci ${shortcut}` : 'Aucun raccourci'}>{track.loop && <InfinityIcon size={15} />}{shortcut ?? '—'}</span>
     </div>

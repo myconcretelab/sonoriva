@@ -48,31 +48,31 @@ export const workspacePresetLabels: Record<Exclude<WorkspacePreset, 'custom'>, s
 const basePresets: Record<Exclude<WorkspacePreset, 'custom'>, WorkspaceLayoutItem[]> = {
   classic: [
     { id: 'actions', x: 0, y: 0, w: 3, h: 4 },
-    { id: 'categories', x: 0, y: 0, w: 12, h: 3 },
-    { id: 'soundboard', x: 0, y: 3, w: 12, h: 9 },
+    { id: 'categories', x: 0, y: 0, w: 12, h: 2 },
+    { id: 'soundboard', x: 0, y: 2, w: 12, h: 10 },
     { id: 'players', x: 9, y: 0, w: 3, h: 6 },
     { id: 'playlist', x: 9, y: 6, w: 3, h: 6 },
   ],
   'playlist-vertical': [
     { id: 'actions', x: 0, y: 0, w: 3, h: 4 },
     { id: 'playlist', x: 0, y: 0, w: 4, h: 12 },
-    { id: 'categories', x: 4, y: 0, w: 8, h: 3 },
-    { id: 'soundboard', x: 4, y: 3, w: 8, h: 9 },
-    { id: 'players', x: 10, y: 3, w: 2, h: 9 },
+    { id: 'categories', x: 4, y: 0, w: 8, h: 2 },
+    { id: 'soundboard', x: 4, y: 2, w: 8, h: 10 },
+    { id: 'players', x: 10, y: 2, w: 2, h: 10 },
   ],
   'playlist-focus': [
     { id: 'actions', x: 0, y: 0, w: 3, h: 4 },
-    { id: 'categories', x: 0, y: 0, w: 12, h: 3 },
-    { id: 'playlist', x: 0, y: 3, w: 8, h: 9 },
-    { id: 'players', x: 8, y: 3, w: 4, h: 4 },
-    { id: 'soundboard', x: 8, y: 3, w: 4, h: 9 },
+    { id: 'categories', x: 0, y: 0, w: 12, h: 2 },
+    { id: 'playlist', x: 0, y: 2, w: 8, h: 10 },
+    { id: 'players', x: 8, y: 2, w: 4, h: 4 },
+    { id: 'soundboard', x: 8, y: 2, w: 4, h: 10 },
   ],
 };
 
 const minimumSizes: Record<WorkspaceBlockId, { w: number; h: number }> = {
   quickLaunch: { w: 1, h: 3 },
   actions: { w: 2, h: 3 },
-  categories: { w: 2, h: 3 },
+  categories: { w: 2, h: 2 },
   soundboard: { w: 2, h: 4 },
   players: { w: 1, h: 3 },
   playlist: { w: 2, h: 4 },
@@ -80,7 +80,7 @@ const minimumSizes: Record<WorkspaceBlockId, { w: number; h: number }> = {
 
 export function createWorkspaceLayout(preset: Exclude<WorkspacePreset, 'custom'> = 'classic', columns: WorkspaceGridColumns = 12): WorkspaceLayout {
   const dock: WorkspaceBlockId[] = preset === 'classic' ? ['actions', 'players', 'playlist'] : ['actions', 'players'];
-  return { columns, preset, items: scaleItems([...basePresets[preset], { id: 'quickLaunch', x: 0, y: 3, w: 2, h: 9 }], 12, columns), dock: [...dock, 'quickLaunch'], collapsed: [], quickLaunchAttached: true };
+  return { columns, preset, items: scaleItems([...basePresets[preset], { id: 'quickLaunch', x: 0, y: 2, w: 2, h: 10 }], 12, columns), dock: [...dock, 'quickLaunch'], collapsed: [], quickLaunchAttached: true };
 }
 
 export function workspaceLayoutWithColumns(layout: WorkspaceLayout, columns: WorkspaceGridColumns): WorkspaceLayout {

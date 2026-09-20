@@ -25,22 +25,22 @@ describe('workspace layout', () => {
     expect(workspaceItemIsDocked(layout, 'actions')).toBe(true);
     expect(workspaceItemIsDocked(layout, 'players')).toBe(true);
     expect(workspaceItemIsDocked(layout, 'playlist')).toBe(true);
-    expect(workspaceLayoutItem(layout, 'categories')).toMatchObject({ x: 0, y: 0, w: 12, h: 3 });
-    expect(workspaceLayoutItem(layout, 'soundboard')).toMatchObject({ x: 0, y: 3, w: 12, h: 9 });
+    expect(workspaceLayoutItem(layout, 'categories')).toMatchObject({ x: 0, y: 0, w: 12, h: 2 });
+    expect(workspaceLayoutItem(layout, 'soundboard')).toMatchObject({ x: 0, y: 2, w: 12, h: 10 });
   });
 
   it('provides a full-height playlist preset', () => {
     const layout = createWorkspaceLayout('playlist-vertical');
     expect(workspaceLayoutItem(layout, 'playlist')).toMatchObject({ x: 0, y: 0, w: 4, h: 12 });
     expect(layout.dock).toEqual(['actions', 'players', 'quickLaunch']);
-    expect(workspaceLayoutItem(layout, 'soundboard')).toMatchObject({ x: 4, y: 3, w: 8, h: 9 });
+    expect(workspaceLayoutItem(layout, 'soundboard')).toMatchObject({ x: 4, y: 2, w: 8, h: 10 });
   });
 
   it('places current playbacks below actions in every preset', () => {
     for (const preset of ['classic', 'playlist-vertical', 'playlist-focus'] as const) {
       expect(workspaceDockItems(createWorkspaceLayout(preset)).slice(0, 2)).toEqual(['actions', 'players']);
     }
-    expect(workspaceLayoutItem(createWorkspaceLayout('playlist-focus'), 'soundboard')).toMatchObject({ x: 8, y: 3, w: 4, h: 9 });
+    expect(workspaceLayoutItem(createWorkspaceLayout('playlist-focus'), 'soundboard')).toMatchObject({ x: 8, y: 2, w: 4, h: 10 });
   });
 
   it('collapses reusable modules', () => {
@@ -122,12 +122,12 @@ describe('workspace layout', () => {
     expect(workspaceLayoutItem(migrated, 'soundboard')).toMatchObject({ x: 0, w: 12 });
   });
 
-  it('expands categories in layouts saved with the former two-row height', () => {
+  it('preserves compact two-row categories in saved custom layouts', () => {
     const current = createWorkspaceLayout();
     const legacyItems = current.items.map((item) => item.id === 'categories' ? { ...item, h: 2 } : item.id === 'soundboard' ? { ...item, y: 2, h: 10 } : item);
     const migrated = readWorkspaceLayout(JSON.stringify({ ...current, preset: 'custom', items: legacyItems }));
-    expect(workspaceLayoutItem(migrated, 'categories')).toMatchObject({ y: 0, h: 3 });
-    expect(workspaceLayoutItem(migrated, 'soundboard')).toMatchObject({ y: 3, h: 9 });
+    expect(workspaceLayoutItem(migrated, 'categories')).toMatchObject({ y: 0, h: 2 });
+    expect(workspaceLayoutItem(migrated, 'soundboard')).toMatchObject({ y: 2, h: 10 });
   });
 
   it('uses a distinct persistence key for each user', () => {
