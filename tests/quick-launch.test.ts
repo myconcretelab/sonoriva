@@ -15,10 +15,10 @@ beforeEach(() => {
 });
 afterEach(() => { cleanups.splice(0).forEach((cleanup) => cleanup()); vi.unstubAllGlobals(); });
 const tracks = [{ id: 'a', title: 'Pluie' }, { id: 'b', title: 'Vent' }] as Track[];
-function setup(play = vi.fn(async (items: Track[]) => items.map((track) => track.id))) {
+function setup(play = vi.fn(async (items: Track[]) => items.map((track) => track.id)), prepare = vi.fn<(tracks: Track[]) => Promise<void>>(async () => {})) {
   let current: ReturnType<typeof useQuickLaunch>;
   function Harness({ scope }: { scope: string }) {
-    current = useQuickLaunch(scope, tracks, play);
+    current = useQuickLaunch(scope, tracks, play, prepare);
     return null;
   }
   const element = document.createElement('div');
@@ -26,10 +26,29 @@ function setup(play = vi.fn(async (items: Track[]) => items.map((track) => track
   const render = (scope: string) => act(() => root.render(createElement(Harness, { scope })));
   render('first');
   cleanups.push(() => act(() => root.unmount()));
-  return { get current() { return current!; }, play, render };
+  return { get current() { return current!; }, play, prepare, render };
 }
 
 describe('départ rapide', () => {
+  it('précharge les sons déposés sans les jouer et ignore les identifiants inconnus', async () => {
+    const view = setup();
+    await act(() => view.current.add(['a', 'a', 'b', 'missing']));
+    expect(view.current.state.trackIds).toEqual(['a', 'b']);
+    expect(view.prepare).toHaveBeenCalledWith(tracks);
+    expect(view.play).not.toHaveBeenCalled();
+    await act(() => view.current.add(['missing']));
+    expect(view.prepare).toHaveBeenCalledTimes(1);
+  });
+  it('conserve le son après un échec et permet de relancer sa préparation sans doublon', async () => {
+    const prepare = vi.fn<(tracks: Track[]) => Promise<void>>(async () => {}).mockRejectedValueOnce(new Error('Hors ligne'));
+    const view = setup(undefined, prepare);
+    await act(async () => { await expect(view.current.add(['a'])).rejects.toThrow('Hors ligne'); });
+    expect(view.current.state.trackIds).toEqual(['a']);
+    await act(() => view.current.add(['a']));
+    expect(prepare).toHaveBeenCalledTimes(2);
+    expect(view.current.state.trackIds).toEqual(['a']);
+  });
+
   it('restaure uniquement des préférences valides et déduplique les sons', () => {
     expect(readQuickLaunch('{')).toEqual(defaultQuickLaunchState);
     expect(readQuickLaunch(null).replace).toBe(true);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isVideoTrack } from './video-engine';
 import type { Track } from '../types';
 
 export interface QuickLaunchState {
@@ -23,7 +24,7 @@ export function readQuickLaunch(serialized: string | null): QuickLaunchState {
   } catch { return { ...defaultQuickLaunchState }; }
 }
 
-export function useQuickLaunch(scope: string, tracks: Track[], play: (tracks: Track[], replace: boolean) => Promise<string[]>) {
+export function useQuickLaunch(scope: string, tracks: Track[], play: (tracks: Track[], replace: boolean) => Promise<string[]>, prepare?: (tracks: Track[]) => Promise<void>) {
   const key = `sonoriva-quick-launch:${scope}`;
   const initial = useMemo(() => readQuickLaunch(localStorage.getItem(key)), [key]);
   const [stored, setStored] = useState({ key, value: initial });
@@ -39,6 +40,15 @@ export function useQuickLaunch(scope: string, tracks: Track[], play: (tracks: Tr
   }, [initial, key]);
   useEffect(() => { if (stored.key === key) localStorage.setItem(key, JSON.stringify(stored.value)); }, [key, stored]);
   const queuedTracks = state.trackIds.flatMap((id) => { const track = tracks.find((item) => item.id === id); return track ? [track] : []; });
+  const add = useCallback(async (ids: string[]) => {
+    const added = [...new Set(ids)].flatMap((id) => {
+      const track = tracks.find((item) => item.id === id && !isVideoTrack(item));
+      return track ? [track] : [];
+    });
+    if (!added.length) return;
+    update((current) => ({ ...current, trackIds: [...new Set([...current.trackIds, ...added.map((track) => track.id)])] }));
+    await prepare?.(added);
+  }, [prepare, tracks, update]);
   const launch = useCallback(async (trackId?: string) => {
     if (!state.enabled || busy.current) return;
     const selected = state.trackIds.flatMap((id) => { const track = tracks.find((item) => item.id === id); return track && (!trackId || track.id === trackId) ? [track] : []; });
@@ -49,5 +59,5 @@ export function useQuickLaunch(scope: string, tracks: Track[], play: (tracks: Tr
       if (state.removeAfterLaunch && activeKey.current === key) update((current) => ({ ...current, trackIds: current.trackIds.filter((id) => !started.includes(id)) }));
     } finally { busy.current = false; }
   }, [key, play, state, tracks, update]);
-  return { state, update, tracks: queuedTracks, launch };
+  return { state, update, tracks: queuedTracks, launch, add };
 }

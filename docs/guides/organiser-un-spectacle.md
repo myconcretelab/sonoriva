@@ -140,3 +140,7 @@ La zone se déplace dans le mode de modification de la disposition, comme les au
 Le bouton à deux coches du tableau de bord active ou désactive le grisé des sons déjà joués. Sa flèche ouvre le choix de portée : **Cette catégorie** ou **Toutes les catégories**. Sélectionner la portée, puis activer ou désactiver le marquage. Un réglage appliqué à toutes les catégories remplace les réglages individuels.
 
 Le réglage est conservé dans ce navigateur, pour chaque spectacle. Les sons dont l’historique contient une progression apparaissent en gris avec la mention « joué ». Ils restent cliquables ; pendant une lecture, leur couleur est rétablie. La commande **Réinitialiser les progressions** efface aussi ce marquage, pour la catégorie actuelle ou tout le spectacle.
+
+## Préchargement du départ rapide
+
+Déposer un son dans la fusée déclenche son préchargement via le moteur audio actif. Avec le Bridge, le fichier est mis en cache localement ; dans le navigateur, le fichier est chargé et décodé pour la lecture. En mode télécommande, la demande est transmise à la régie connectée. Le dépôt ne démarre pas la lecture. Si le préchargement échoue, une erreur est affichée et le son reste dans la zone ; un nouveau dépôt du même son relance sa préparation sans créer de doublon.

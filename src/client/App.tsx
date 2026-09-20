@@ -682,6 +682,7 @@ export default function App() {
       const track = currentTracks.find((candidate) => candidate.id === command.trackId);
       if (!track) return;
       if (command.type === 'run-action') audioEngine.runAction(command.action, track, currentTracks, command.volumeMultiplier, command.outputId).catch((cause) => setError(cause.message));
+      else if (command.type === 'preload') audioEngine.preload(track).catch((cause) => setError(cause.message));
       else if (command.type === 'play') audioEngine.play(track, track.fadeInMs, command.volumeMultiplier, command.outputId).catch((cause) => setError(cause.message));
       else audioEngine.stop(track.id, track.fadeOutMs);
     });
@@ -868,7 +869,18 @@ export default function App() {
     }));
     return results.filter((id): id is string => Boolean(id));
   }, [consumeNextTrackVolume, detail, remote, sendOrRun, shortcutLaunchOutputId, socket]);
-  const quickLaunch = useQuickLaunch(`${workspaceUserId ?? 'guest'}:${detail?.project.id ?? 'none'}`, detail?.tracks ?? [], playQuickLaunchTracks);
+  const prepareQuickLaunchTracks = useCallback(async (tracks: Track[]) => {
+    if (remote) {
+      if (!detail || !socket?.connected) throw new Error('Télécommande déconnectée : préchargement impossible.');
+      for (const track of tracks) socket.emit('remote-command', { projectId: detail.project.id, command: { type: 'preload', trackId: track.id } satisfies RemoteCommand });
+      return;
+    }
+    for (let index = 0; index < tracks.length; index += 3) {
+      const results = await Promise.allSettled(tracks.slice(index, index + 3).map((track) => audioEngine.preload(track)));
+      for (const result of results) if (result.status === 'rejected') setError(result.reason instanceof Error ? result.reason.message : 'Préchargement du départ rapide impossible.');
+    }
+  }, [detail, remote, socket]);
+  const quickLaunch = useQuickLaunch(`${workspaceUserId ?? 'guest'}:${detail?.project.id ?? 'none'}`, detail?.tracks ?? [], playQuickLaunchTracks, prepareQuickLaunchTracks);
   const launchQuickTracks = quickLaunch.launch;
 
   const runTrackAction = useCallback((action: MouseAction, track: Track) => {
@@ -2417,7 +2429,7 @@ export default function App() {
   function renderQuickLaunchContent() {
     return <QuickLaunchPanel state={quickLaunch.state} tracks={quickLaunch.tracks} shortcut={formatShortcut(projectShortcut(detail?.project ?? {}, 'quickLaunchShortcut'))}
         onUpdate={quickLaunch.update} onLaunch={(id) => { void launchQuickTracks(id); }}
-        onDropTracks={(ids) => quickLaunch.update((current) => ({ ...current, trackIds: [...new Set([...current.trackIds, ...ids.filter((id) => detail?.tracks.some((track) => track.id === id && !isVideoTrack(track)))])] }))} />;
+        onDropTracks={(ids) => { void quickLaunch.add(ids).catch((cause) => setError(cause instanceof Error ? cause.message : 'Préchargement du départ rapide impossible.')); }} />;
   }
 
   function renderQuickLaunch(attached: boolean) {

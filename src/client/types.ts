@@ -435,6 +435,7 @@ export interface OpenverseSearchResult {
 }
 
 export type RemoteCommand =
+  | { type: 'preload'; trackId: string }
   | { type: 'play'; trackId: string; volumeMultiplier?: number; outputId?: string }
   | { type: 'stop'; trackId: string }
   | { type: 'stop-all' }

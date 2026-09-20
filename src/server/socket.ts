@@ -12,6 +12,7 @@ const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('stop'), trackId: z.string().uuid() }),
   z.object({ type: z.literal('stop-all') }),
   z.object({ type: z.literal('stop-all-immediate') }),
+  z.object({ type: z.literal('preload'), trackId: z.string().uuid() }),
   z.object({ type: z.literal('stop-last'), immediate: z.boolean() }),
   z.object({
     type: z.literal('run-action'),
