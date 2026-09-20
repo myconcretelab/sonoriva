@@ -142,6 +142,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       masterVolumeUpFastShortcut: keyboardShortcutSchema.optional(),
       masterVolumeDownShortcut: keyboardShortcutSchema.optional(),
       masterVolumeDownFastShortcut: keyboardShortcutSchema.optional(),
+      quickLaunchShortcut: keyboardShortcutSchema.optional(),
       searchShortcut: keyboardShortcutSchema.optional(),
       maxPlaylistGroupSize: z.number().int().min(2).max(8).optional(),
       maxActivePlaybacks: z.number().int().min(1).max(16).optional(),

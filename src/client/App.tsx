@@ -1,3 +1,5 @@
+import { QuickLaunchPanel } from './components/QuickLaunchPanel';
+import { useQuickLaunch } from './lib/quick-launch';
 import { getDownloadProgress, subscribeDownloads, type DownloadProgress } from './lib/download-state';
 import { CategoryBackgroundDialog } from './components/CategoryBackgroundDialog';
 import { ProjectionConsole } from './components/ProjectionConsole';
@@ -6,7 +8,7 @@ import { RetroActionSelector } from './components/RetroActionSelector';
 import { RotaryVolume } from './components/RotaryVolume';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
-  ArrowUpDown, AudioLines, AudioWaveform, CircleCheck, Clock3, Columns3, Download, FolderInput, FolderPlus, GripVertical, History, LayoutDashboard, LifeBuoy, ListMusic, ListPlus, LoaderCircle, Menu, MonitorPlay, MoreHorizontal, Move, Pause, Pencil, Play, Plus, Radio,
+  Rocket, ArrowUpDown, AudioLines, AudioWaveform, CircleCheck, Clock3, Columns3, Download, FolderInput, FolderPlus, GripVertical, History, LayoutDashboard, LifeBuoy, ListMusic, ListPlus, LoaderCircle, Menu, MonitorPlay, MoreHorizontal, Move, Pause, Pencil, Play, Plus, Radio,
   LockKeyhole, LogIn, RefreshCcw, Repeat2, RotateCcw, Scan, Search, Settings, Settings2, SlidersHorizontal, Square, SquareDashed, Timer, Trash2, Upload, Volume2, VolumeX, Waves, Wifi, WifiOff, X,
 } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
@@ -849,6 +851,25 @@ export default function App() {
     }
   }, [consumeNextTrackVolume, detail, remote, shortcutLaunchOutputId, socket]);
 
+  const playQuickLaunchTracks = useCallback(async (tracks: Track[], replace: boolean): Promise<string[]> => {
+    if (replace) sendOrRun({ type: 'stop-all-immediate' });
+    const volumeMultiplier = consumeNextTrackVolume();
+    const outputId = shortcutLaunchOutputId();
+    const results = await Promise.all(tracks.map(async (track) => {
+      try {
+        if (remote && detail) {
+          if (!socket?.connected) throw new Error('Télécommande déconnectée.');
+          socket.emit('remote-command', { projectId: detail.project.id, command: { type: 'play', trackId: track.id, volumeMultiplier, outputId } satisfies RemoteCommand });
+        }
+        else await audioEngine.play(track, track.fadeInMs, volumeMultiplier, outputId);
+        return track.id;
+      } catch (cause) { setError(cause instanceof Error ? cause.message : 'Lancement impossible.'); return undefined; }
+    }));
+    return results.filter((id): id is string => Boolean(id));
+  }, [consumeNextTrackVolume, detail, remote, sendOrRun, shortcutLaunchOutputId, socket]);
+  const quickLaunch = useQuickLaunch(`${workspaceUserId ?? 'guest'}:${detail?.project.id ?? 'none'}`, detail?.tracks ?? [], playQuickLaunchTracks);
+  const launchQuickTracks = quickLaunch.launch;
+
   const runTrackAction = useCallback((action: MouseAction, track: Track) => {
     if (action === 'none') return;
     const startsPlayback = action === 'start' || action === 'crossfade' || action === 'fade-in' || action === 'replace';
@@ -1243,6 +1264,7 @@ export default function App() {
         event.preventDefault();
         if (!event.repeat || repeat) callback();
       };
+      if (quickLaunch.state.enabled && quickLaunch.tracks.length > 0 && !document.querySelector('[aria-modal="true"], .dialog-backdrop') && shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'quickLaunchShortcut'))) return run(() => { void launchQuickTracks(); });
       if (shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'nextCategoryShortcut'))) return run(() => moveCategory(1));
       if (shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'previousCategoryShortcut'))) return run(() => moveCategory(-1));
       if (shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'loadCategoryShortcut'))) return run(() => { preloadCategory().catch(() => undefined); });
@@ -1283,7 +1305,7 @@ export default function App() {
       window.removeEventListener('blur', resetHeldOutput);
       resetHeldOutput();
     };
-  }, [detail, displayedCategories, preloadCategory, runTrackAction, secondaryBridgeOutputId, selectedCategoryId, selectionMode, selectCategory, sendOrRun, visibleTracks]);
+  }, [quickLaunch.state.enabled, quickLaunch.tracks.length, launchQuickTracks, detail, displayedCategories, preloadCategory, runTrackAction, secondaryBridgeOutputId, selectedCategoryId, selectionMode, selectCategory, sendOrRun, visibleTracks]);
 
   async function createProject() {
     const name = window.prompt('Nom du nouveau spectacle');
@@ -2218,13 +2240,13 @@ export default function App() {
     const color = track.color ?? category?.color ?? '#71717a';
     const shortcutIndex = visibleTracks.findIndex((candidate) => candidate.id === track.id);
     const reorderPositionTarget = dropTrackId === track.id && dropTrackPlacement !== 'group' ? dropTrackPlacement : undefined;
-    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} download={downloads.get(track.id)} reorderEnabled={reorderMode} playlistDropEnabled={playlistsEnabled && !selectionMode && !remote && !isVideoTrack(track)} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || reorderMode || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
+    return <TrackPad key={track.id} track={track} color={color} active={activeTrackIds.has(track.id)} playbacks={playbacksByTrack.get(track.id) ?? []} historyProgress={playbackHistory.get(track.id) ?? 0} loaded={offlineTrackIds.has(track.id)} download={downloads.get(track.id)} reorderEnabled={reorderMode} playlistDropEnabled={(playlistsEnabled || quickLaunch.state.enabled) && !selectionMode && (!remote || quickLaunch.state.enabled) && !isVideoTrack(track)} selectionMode={selectionMode} selected={selectedTrackIds.has(track.id)} dropTarget={dropTrackId === track.id && dropTrackPlacement === 'group'} dropLabel={track.subcategoryId ? 'Ajouter à la sous-catégorie' : 'Créer une sous-catégorie'} reorderPositionTarget={reorderPositionTarget} playlistPositionTarget={dropPlaylistTrackId === track.id ? (dropPlaylistAfter ? 'after' : 'before') : undefined} shortcut={trackShortcutLabel(shortcutIndex)} bridgeOutputs={remote || reorderMode || selectionMode ? [] : routedBridgeOutputs} mainBridgeOutputId={mainBridgeOutputId}
       onPrimary={() => detail && runTrackAction(detail.project.leftClickAction ?? 'start', track)}
       onOutputPlay={(outputId) => playTrackOnOutput(track, outputId)}
       onSecondary={() => detail && runTrackAction(detail.project.rightClickAction ?? 'crossfade', track)}
       onEdit={() => { if (!reorderMode) setEditingTrack(track); }}
       onSelect={() => toggleTrackSelection(track.id)}
-      onDragStart={(event) => { if (selectionMode && selectedTrackIds.has(track.id)) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-sonoriva-track-selection', [...selectedTrackIds].join(',')); setSelectionDragImage(event, selectedTracks); setDraggedTrackId(track.id); } else if (reorderMode) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', track.id); setDraggedTrackId(track.id); } else if (!remote) { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-sonoriva-track', track.id); } }}
+      onDragStart={(event) => { if (selectionMode && selectedTrackIds.has(track.id)) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-sonoriva-track-selection', [...selectedTrackIds].join(',')); setSelectionDragImage(event, selectedTracks); setDraggedTrackId(track.id); } else if (reorderMode) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', track.id); setDraggedTrackId(track.id); } else if (!remote || quickLaunch.state.enabled) { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-sonoriva-track', track.id); } }}
       onDragOver={(event) => {
         if (!reorderMode && !draggingSelectedTracks) return;
         if (draggedPlaylistId || draggedTrackSubcategoryId) {
@@ -2319,7 +2341,9 @@ export default function App() {
     return <PlaylistPanel items={playlistItems} tracks={detail?.tracks ?? []} colors={detail?.colors ?? []} options={playlistOptions} currentRowIndex={playlistCurrentIndex} maxGroupSize={detail?.project.maxPlaylistGroupSize ?? 4} playbackActive={playlistPlaybacks.length > 0} playbackPaused={playlistPlaybacks.length > 0 && playlistPlaybacks.every((playback) => playback.paused)} saved={Boolean(loadedPlaylistId)} saving={playlistSaving} optionsOpen={playlistOptionsOpen} onOptionsOpenChange={setPlaylistOptionsOpen} onOptionsChange={(patch) => setPlaylistOptions((current) => ({ ...current, ...patch }))} onDropTrack={addTrackToPlaylist} onMoveItem={movePlaylistItem} onRemoveItem={removePlaylistItem} onPlayRow={playPlaylistRow} onPlayPause={playPausePlaylist} onStop={stopPlaylistPlayback} onNext={skipPlaylistRow} onSave={() => saveCurrentPlaylist().catch(() => undefined)} onDelete={() => deleteCurrentPlaylist().catch(() => undefined)} onClear={clearPlaylist} />;
   }
 
-  const storedDockedBlockIds = workspaceDockItems(workspaceLayout);
+  const quickLaunchAttached = stackedWorkspaceLayout || (workspaceLayout.quickLaunchAttached !== false && workspaceItemIsDocked(workspaceLayout, 'quickLaunch'));
+  const storedDockedBlockIds = workspaceDockItems(workspaceLayout).filter((id) => id !== 'quickLaunch' || (!quickLaunchAttached && quickLaunch.state.enabled));
+  const soundboardPlacement = workspaceLayoutItem(workspaceLayout, 'soundboard');
   const dockedBlockIds = stackedWorkspaceLayout ? ['actions'] as WorkspaceBlockId[] : storedDockedBlockIds;
   const actionsDocked = stackedWorkspaceLayout || workspaceItemIsDocked(workspaceLayout, 'actions');
   const playersDocked = !stackedWorkspaceLayout && workspaceItemIsDocked(workspaceLayout, 'players');
@@ -2388,7 +2412,21 @@ export default function App() {
       onToggleCollapsed={id === 'actions' || id === 'playlist' ? () => toggleWorkspaceModule(id) : undefined}
       onCollapsedDragOver={id === 'playlist' ? expandCollapsedPlaylistOnDrag : undefined} onCollapsedDrop={id === 'playlist' ? dropTrackOnCollapsedPlaylist : undefined}
       onSwap={swapWorkspacePlacement} onResize={(blockId, width, height) => setWorkspaceLayout((current) => resizeWorkspaceItem(current, blockId, width, height))}>
-      {id === 'actions' ? renderActionsContent() : id === 'players' ? renderPlayersContent() : id === 'playlist' ? renderPlaylistContent() : null}
+      {id === 'actions' ? renderActionsContent() : id === 'players' ? renderPlayersContent() : id === 'playlist' ? renderPlaylistContent() : id === 'quickLaunch' ? renderQuickLaunchContent() : null}
+    </WorkspaceLayoutBlock>;
+  }
+
+  function renderQuickLaunchContent() {
+    return <QuickLaunchPanel state={quickLaunch.state} tracks={quickLaunch.tracks} shortcut={formatShortcut(projectShortcut(detail?.project ?? {}, 'quickLaunchShortcut'))}
+        onUpdate={quickLaunch.update} onLaunch={(id) => { void launchQuickTracks(id); }}
+        onDropTracks={(ids) => quickLaunch.update((current) => ({ ...current, trackIds: [...new Set([...current.trackIds, ...ids.filter((id) => detail?.tracks.some((track) => track.id === id && !isVideoTrack(track)))])] }))} />;
+  }
+
+  function renderQuickLaunch(attached: boolean) {
+    if (!quickLaunch.state.enabled) return null;
+    return <WorkspaceLayoutBlock item={workspaceLayoutItem(workspaceLayout, 'quickLaunch')} columns={workspaceLayout.columns} label={workspaceBlockLabels.quickLaunch} editing={layoutEditing && !remote} docked={attached} className={attached ? 'is-attached' : ''}
+      onSwap={swapWorkspacePlacement} onResize={(id, width, height) => setWorkspaceLayout((current) => resizeWorkspaceItem(current, id, width, height))}>
+      {renderQuickLaunchContent()}
     </WorkspaceLayoutBlock>;
   }
 
@@ -2401,7 +2439,7 @@ export default function App() {
         onDragOver={(event) => { if (!layoutEditing || !event.dataTransfer.types.includes(workspaceBlockMime)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
         onDrop={(event) => { if (!layoutEditing || (event.target instanceof Element && event.target.closest('[data-workspace-block]'))) return; const blockId = event.dataTransfer.getData(workspaceBlockMime) as WorkspaceBlockId; if (!workspaceDockableBlockIds.includes(blockId)) return; event.preventDefault(); setWorkspaceLayout((current) => dockWorkspaceItem(current, blockId)); }}>
         {dockedBlockIds.map(renderDockedBlock)}
-        {layoutEditing && <div className="sidebar-dock-drop-hint"><Move size={17} /><strong>Colonne gauche</strong><span>Déposez ici Actions, Lectures ou Playlist</span></div>}
+        {layoutEditing && <div className="sidebar-dock-drop-hint"><Move size={17} /><strong>Colonne gauche</strong><span>Déposez ici Actions, Lectures, Playlist ou Départ rapide</span></div>}
       </div>
     </aside>
     {sidebarOpen && <button className="sidebar-scrim" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu" />}
@@ -2511,6 +2549,9 @@ export default function App() {
       </section>}
         </WorkspaceLayoutBlock>
 
+        {!quickLaunchAttached && !workspaceItemIsDocked(workspaceLayout, 'quickLaunch') && renderQuickLaunch(false)}
+        <div className="soundboard-with-quick-launch" style={{ gridColumn: `${soundboardPlacement.x + 1} / span ${soundboardPlacement.w}`, gridRow: `${soundboardPlacement.y + 1} / span ${soundboardPlacement.h}` }}>
+        {quickLaunchAttached && renderQuickLaunch(true)}
         <WorkspaceLayoutBlock item={workspaceLayoutItem(workspaceLayout, 'soundboard')} columns={workspaceLayout.columns} label={workspaceBlockLabels.soundboard} editing={layoutEditing && !remote}
           onSwap={swapWorkspacePlacement}
           onResize={(id, width, height) => setWorkspaceLayout((current) => resizeWorkspaceItem(current, id, width, height))}>
@@ -2522,6 +2563,7 @@ export default function App() {
         </div>
         <div className="dashboard-actions">
           {!remote && <button className={`dashboard-button projection-toggle ${projectionOpen ? 'active' : ''}`} onClick={() => { setProjectionOpen((value) => !value); setPendingVideo(undefined); }} aria-label="Commandes de projection vidéo" aria-expanded={projectionOpen} title="Projection vidéo"><MonitorPlay size={18} /><span>Projection</span></button>}
+          <button type="button" className={`dashboard-button ${quickLaunch.state.enabled ? 'active' : ''}`} aria-label="Afficher la zone de départ rapide" title="Départ rapide" aria-pressed={quickLaunch.state.enabled} onClick={() => quickLaunch.update({ enabled: !quickLaunch.state.enabled })}><Rocket size={18} /></button>
           <div className="dashboard-tools">
           <button className={`dashboard-button dashboard-more ${dashboardToolsOpen ? 'active' : ''}`} aria-label="Outils du tableau de bord" aria-expanded={dashboardToolsOpen} onClick={() => setDashboardToolsOpen((value) => !value)}><MoreHorizontal size={18} /></button>
           <div className={`dashboard-tools-list ${dashboardToolsOpen ? 'is-open' : ''}`} onKeyDown={(event) => { if (event.key === 'Escape') setDashboardToolsOpen(false); }}>
@@ -2611,6 +2653,7 @@ export default function App() {
         </div>}
       </section>
         </WorkspaceLayoutBlock>
+        </div>
       </div>
 
       {!remote && projectionOpen && <ProjectionConsole panel onClose={() => { setProjectionOpen(false); setPendingVideo(undefined); }} pending={pendingVideo} onPlayed={() => setPendingVideo(undefined)} />}

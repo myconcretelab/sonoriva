@@ -2,9 +2,9 @@ export const workspaceLayoutRows = 12;
 export const workspaceLayoutColumns = [6, 8, 12] as const;
 
 export type WorkspaceGridColumns = typeof workspaceLayoutColumns[number];
-export type WorkspaceBlockId = 'actions' | 'categories' | 'soundboard' | 'players' | 'playlist';
+export type WorkspaceBlockId = 'actions' | 'categories' | 'soundboard' | 'players' | 'playlist' | 'quickLaunch';
 export type WorkspacePreset = 'classic' | 'playlist-vertical' | 'playlist-focus' | 'custom';
-export const workspaceDockableBlockIds: WorkspaceBlockId[] = ['actions', 'players', 'playlist'];
+export const workspaceDockableBlockIds: WorkspaceBlockId[] = ['actions', 'players', 'playlist', 'quickLaunch'];
 export const workspaceCollapsibleBlockIds: WorkspaceBlockId[] = ['actions', 'playlist'];
 
 export interface WorkspaceLayoutItem {
@@ -21,6 +21,7 @@ export interface WorkspaceLayout {
   items: WorkspaceLayoutItem[];
   dock: WorkspaceBlockId[];
   collapsed: WorkspaceBlockId[];
+  quickLaunchAttached?: boolean;
 }
 
 export interface SavedWorkspaceLayout {
@@ -30,6 +31,7 @@ export interface SavedWorkspaceLayout {
 }
 
 export const workspaceBlockLabels: Record<WorkspaceBlockId, string> = {
+  quickLaunch: 'Départ rapide',
   actions: 'Actions de déclenchement',
   categories: 'Catégories',
   soundboard: 'Soundboard',
@@ -68,6 +70,7 @@ const basePresets: Record<Exclude<WorkspacePreset, 'custom'>, WorkspaceLayoutIte
 };
 
 const minimumSizes: Record<WorkspaceBlockId, { w: number; h: number }> = {
+  quickLaunch: { w: 1, h: 3 },
   actions: { w: 2, h: 3 },
   categories: { w: 2, h: 3 },
   soundboard: { w: 2, h: 4 },
@@ -77,7 +80,7 @@ const minimumSizes: Record<WorkspaceBlockId, { w: number; h: number }> = {
 
 export function createWorkspaceLayout(preset: Exclude<WorkspacePreset, 'custom'> = 'classic', columns: WorkspaceGridColumns = 12): WorkspaceLayout {
   const dock: WorkspaceBlockId[] = preset === 'classic' ? ['actions', 'players', 'playlist'] : ['actions', 'players'];
-  return { columns, preset, items: scaleItems(basePresets[preset], 12, columns), dock, collapsed: [] };
+  return { columns, preset, items: scaleItems([...basePresets[preset], { id: 'quickLaunch', x: 0, y: 3, w: 2, h: 9 }], 12, columns), dock: [...dock, 'quickLaunch'], collapsed: [], quickLaunchAttached: true };
 }
 
 export function workspaceLayoutWithColumns(layout: WorkspaceLayout, columns: WorkspaceGridColumns): WorkspaceLayout {
@@ -115,7 +118,7 @@ export function swapWorkspaceItems(layout: WorkspaceLayout, firstId: WorkspaceBl
     const firstIndex = dock.indexOf(firstId);
     const secondIndex = dock.indexOf(secondId);
     [dock[firstIndex], dock[secondIndex]] = [dock[secondIndex]!, dock[firstIndex]!];
-    return { ...layout, preset: 'custom', dock };
+    return { ...layout, preset: 'custom', dock, quickLaunchAttached: firstId === 'quickLaunch' || secondId === 'quickLaunch' ? false : layout.quickLaunchAttached };
   }
   const dock: WorkspaceBlockId[] = firstDocked === secondDocked
     ? layout.dock
@@ -123,6 +126,7 @@ export function swapWorkspaceItems(layout: WorkspaceLayout, firstId: WorkspaceBl
   return {
     ...layout,
     preset: 'custom',
+    quickLaunchAttached: firstId === 'quickLaunch' || secondId === 'quickLaunch' ? false : layout.quickLaunchAttached,
     dock,
     items: layout.items.map((item) => item.id === firstId ? { ...second, id: firstId } : item.id === secondId ? { ...first, id: secondId } : item),
   };
@@ -155,7 +159,7 @@ export function workspaceDockItems(layout: WorkspaceLayout): WorkspaceBlockId[] 
 export function dockWorkspaceItem(layout: WorkspaceLayout, id: WorkspaceBlockId): WorkspaceLayout {
   if (!workspaceDockableBlockIds.includes(id)) return layout;
   const dock = [...layout.dock.filter((item) => item !== id), id];
-  const next = { ...layout, preset: 'custom' as const, dock };
+  const next = { ...layout, preset: 'custom' as const, dock, quickLaunchAttached: id === 'quickLaunch' ? false : layout.quickLaunchAttached };
   const gridItems = next.items.filter((item) => !workspaceItemIsDocked(next, item.id));
   const rightEdge = Math.max(...gridItems.map((item) => item.x + item.w));
   if (rightEdge >= next.columns) return next;
@@ -180,10 +184,14 @@ export function readWorkspaceLayout(serialized: string | null): WorkspaceLayout 
         : [];
       return { ...preset, collapsed };
     }
-    const storedItems = Array.isArray(value.items) && !value.items.some((item) => item.id === 'actions')
+    let storedItems = Array.isArray(value.items) && !value.items.some((item) => item.id === 'actions')
       ? [...value.items, createWorkspaceLayout('classic', value.columns).items.find((item) => item.id === 'actions')!]
       : value.items;
-    const storedDock = Array.isArray(value.dock) ? value.dock.filter((id): id is WorkspaceBlockId => workspaceDockableBlockIds.includes(id as WorkspaceBlockId)) : ['actions'] as WorkspaceBlockId[];
+    let storedDock = Array.isArray(value.dock) ? value.dock.filter((id): id is WorkspaceBlockId => workspaceDockableBlockIds.includes(id as WorkspaceBlockId)) : ['actions'] as WorkspaceBlockId[];
+    if (Array.isArray(storedItems) && !storedItems.some((item) => item.id === 'quickLaunch')) {
+      storedItems = [...storedItems, createWorkspaceLayout('classic', value.columns).items.find((item) => item.id === 'quickLaunch')!];
+      storedDock = [...storedDock, 'quickLaunch'];
+    }
     const legacyClassic = value.preset === 'classic' && storedDock.length === 1 && storedDock[0] === 'actions';
     const dock = legacyClassic ? ['actions', 'players', 'playlist'] as WorkspaceBlockId[] : storedDock;
     const collapsed = Array.isArray(value.collapsed)
@@ -201,6 +209,7 @@ export function readWorkspaceLayout(serialized: string | null): WorkspaceLayout 
       items,
       dock,
       collapsed,
+      quickLaunchAttached: value.quickLaunchAttached !== false,
     };
     return workspaceLayoutWithColumns(restored, 12);
   } catch {
@@ -251,6 +260,7 @@ export function workspaceLayoutsMatch(first: WorkspaceLayout, second: WorkspaceL
       items: normalized.items,
       dock: normalized.dock,
       collapsed: normalized.collapsed,
+      quickLaunchAttached: normalized.quickLaunchAttached !== false,
     };
   };
   return JSON.stringify(comparable(first)) === JSON.stringify(comparable(second));
@@ -286,7 +296,7 @@ function expandCategorySpace(items: WorkspaceLayoutItem[]): WorkspaceLayoutItem[
 
 function layoutItemsAreValid(items: WorkspaceLayoutItem[], columns: WorkspaceGridColumns, dock: WorkspaceBlockId[]): boolean {
   const ids = new Set(items.map((item) => item.id));
-  if (ids.size !== 5 || !(['actions', 'categories', 'soundboard', 'players', 'playlist'] as WorkspaceBlockId[]).every((id) => ids.has(id))) return false;
+  if (ids.size !== 6 || !(['actions', 'categories', 'soundboard', 'players', 'playlist', 'quickLaunch'] as WorkspaceBlockId[]).every((id) => ids.has(id))) return false;
   if (new Set(dock).size !== dock.length || dock.some((id) => !ids.has(id))) return false;
   const effectiveDock = new Set(dock);
   return items.every((item) => Number.isInteger(item.x) && Number.isInteger(item.y) && Number.isInteger(item.w) && Number.isInteger(item.h)

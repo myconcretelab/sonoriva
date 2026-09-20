@@ -19,6 +19,7 @@ Les affectations suivantes sont également enregistrées pour le spectacle séle
 
 | Réglage initial | Commande |
 | --- | --- |
+| `Entrée` | Lancer ensemble les sons de la zone de départ rapide visible |
 | `Tab` | Passer à la catégorie suivante |
 | `Ctrl + Tab` | Revenir à la catégorie précédente |
 | `1` à `9`, puis `A` à `Z` | Déclencher l’un des 35 premiers morceaux visibles avec l’action clavier du spectacle |

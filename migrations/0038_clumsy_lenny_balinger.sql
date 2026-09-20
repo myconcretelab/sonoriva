@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "quick_launch_shortcut" text DEFAULT 'Enter' NOT NULL;

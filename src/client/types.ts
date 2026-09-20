@@ -51,6 +51,7 @@ export interface ProjectKeyboardShortcuts {
   masterVolumeUpFastShortcut: string;
   masterVolumeDownShortcut: string;
   masterVolumeDownFastShortcut: string;
+  quickLaunchShortcut: string;
   searchShortcut: string;
 }
 

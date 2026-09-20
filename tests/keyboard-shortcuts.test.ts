@@ -26,6 +26,7 @@ describe('raccourcis clavier', () => {
     expect(projectShortcut({}, 'nextCategoryShortcut')).toBe('Tab');
     expect(projectShortcut({}, 'crossfadeTrackShortcut')).toBe('Control+TrackKey');
     expect(projectShortcut({}, 'secondaryOutputHoldShortcut')).toBe('Shift');
+    expect(projectShortcut({}, 'quickLaunchShortcut')).toBe('Enter');
     expect(projectShortcut({}, 'searchShortcut')).toBe('Primary+KeyK');
   });
 

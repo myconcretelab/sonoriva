@@ -21,7 +21,7 @@ import {
 describe('workspace layout', () => {
   it('places actions, playbacks and playlist in the left dock by default', () => {
     const layout = createWorkspaceLayout();
-    expect(layout.dock).toEqual(['actions', 'players', 'playlist']);
+    expect(layout.dock).toEqual(['actions', 'players', 'playlist', 'quickLaunch']);
     expect(workspaceItemIsDocked(layout, 'actions')).toBe(true);
     expect(workspaceItemIsDocked(layout, 'players')).toBe(true);
     expect(workspaceItemIsDocked(layout, 'playlist')).toBe(true);
@@ -32,7 +32,7 @@ describe('workspace layout', () => {
   it('provides a full-height playlist preset', () => {
     const layout = createWorkspaceLayout('playlist-vertical');
     expect(workspaceLayoutItem(layout, 'playlist')).toMatchObject({ x: 0, y: 0, w: 4, h: 12 });
-    expect(layout.dock).toEqual(['actions', 'players']);
+    expect(layout.dock).toEqual(['actions', 'players', 'quickLaunch']);
     expect(workspaceLayoutItem(layout, 'soundboard')).toMatchObject({ x: 4, y: 3, w: 8, h: 9 });
   });
 
@@ -77,14 +77,14 @@ describe('workspace layout', () => {
   it('swaps two complete block slots without creating overlap', () => {
     const layout = createWorkspaceLayout('classic');
     const swapped = swapWorkspaceItems(layout, 'players', 'playlist');
-    expect(workspaceDockItems(swapped)).toEqual(['actions', 'playlist', 'players']);
+    expect(workspaceDockItems(swapped)).toEqual(['actions', 'playlist', 'players', 'quickLaunch']);
     expect(workspaceLayoutItem(swapped, 'players')).toMatchObject({ x: 9, y: 0, w: 3, h: 6 });
     expect(workspaceLayoutItem(swapped, 'playlist')).toMatchObject({ x: 9, y: 6, w: 3, h: 6 });
   });
 
   it('exchanges a docked block with a compatible grid block', () => {
     const layout = swapWorkspaceItems(createWorkspaceLayout('playlist-vertical'), 'actions', 'playlist');
-    expect(workspaceDockItems(layout)).toEqual(['playlist', 'players']);
+    expect(workspaceDockItems(layout)).toEqual(['playlist', 'players', 'quickLaunch']);
     expect(workspaceItemIsDocked(layout, 'actions')).toBe(false);
     expect(workspaceLayoutItem(layout, 'actions')).toMatchObject({ x: 0, y: 0, w: 4, h: 12 });
   });
@@ -105,7 +105,7 @@ describe('workspace layout', () => {
     const legacy = JSON.stringify({ columns: current.columns, preset: current.preset, items: current.items.filter((item) => item.id !== 'actions') });
     const migrated = readWorkspaceLayout(legacy);
     expect(workspaceLayoutItem(migrated, 'actions').id).toBe('actions');
-    expect(migrated.dock).toEqual(['actions', 'players', 'playlist']);
+    expect(migrated.dock).toEqual(['actions', 'players', 'playlist', 'quickLaunch']);
     expect(migrated.collapsed).toEqual([]);
   });
 
@@ -117,7 +117,7 @@ describe('workspace layout', () => {
       items: current.items.map((item) => item.id === 'categories' || item.id === 'soundboard' ? { ...item, w: 9 } : item),
     });
     const migrated = readWorkspaceLayout(legacy);
-    expect(migrated.dock).toEqual(['actions', 'players', 'playlist']);
+    expect(migrated.dock).toEqual(['actions', 'players', 'playlist', 'quickLaunch']);
     expect(workspaceLayoutItem(migrated, 'categories')).toMatchObject({ x: 0, w: 12 });
     expect(workspaceLayoutItem(migrated, 'soundboard')).toMatchObject({ x: 0, w: 12 });
   });

@@ -14,6 +14,7 @@ export const defaultProjectKeyboardShortcuts: ProjectKeyboardShortcuts = {
   masterVolumeUpFastShortcut: 'Control+Plus',
   masterVolumeDownShortcut: 'Minus',
   masterVolumeDownFastShortcut: 'Control+Minus',
+  quickLaunchShortcut: 'Enter',
   searchShortcut: 'Primary+KeyK',
 };
 
@@ -34,6 +35,7 @@ export const projectShortcutDefinitions: Array<{
   { key: 'masterVolumeUpFastShortcut', label: 'Volume maître + rapide', description: 'Augmente le volume maître de 10 %.' },
   { key: 'masterVolumeDownShortcut', label: 'Volume maître −', description: 'Diminue le volume maître de 2 %.' },
   { key: 'masterVolumeDownFastShortcut', label: 'Volume maître − rapide', description: 'Diminue le volume maître de 10 %.' },
+  { key: 'quickLaunchShortcut', label: 'Départ rapide', description: 'Lance ensemble les sons préparés dans la zone de départ rapide.' },
   { key: 'searchShortcut', label: 'Rechercher', description: 'Place le curseur dans la recherche des morceaux.' },
 ];
 

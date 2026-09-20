@@ -225,6 +225,7 @@ export const projects = pgTable('projects', {
   masterVolumeUpFastShortcut: text('master_volume_up_fast_shortcut').notNull().default('Control+Plus'),
   masterVolumeDownShortcut: text('master_volume_down_shortcut').notNull().default('Minus'),
   masterVolumeDownFastShortcut: text('master_volume_down_fast_shortcut').notNull().default('Control+Minus'),
+  quickLaunchShortcut: text('quick_launch_shortcut').notNull().default('Enter'),
   searchShortcut: text('search_shortcut').notNull().default('Primary+KeyK'),
   maxPlaylistGroupSize: integer('max_playlist_group_size').notNull().default(4),
   maxActivePlaybacks: integer('max_active_playbacks').notNull().default(8),
