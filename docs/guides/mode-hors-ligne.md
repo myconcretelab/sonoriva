@@ -33,3 +33,7 @@ La mise en cache d’un spectacle sur un appareil ne le rend pas disponible sur 
 Les fichiers hors ligne disparaissent lorsque les données du site ou le cache de SonoRiva sont supprimés. Le navigateur peut également libérer cet espace selon sa politique de stockage.
 
 Le cache hors ligne est distinct du stockage serveur et ne constitue pas une copie de sauvegarde des projets.
+
+## Forme d’onde et préécoute
+
+L’éditeur cherche le son dans le cache du navigateur, puis dans le cache du Bridge associé (version 1.0.10 ou ultérieure). Si aucun fichier local n’est accessible, il le télécharge depuis le serveur. La forme d’onde et la préécoute Web Audio utilisent le même fichier ; elles fonctionnent sans Internet quand celui-ci est disponible localement. Le Bridge doit être ouvert pour accéder à son cache. Les anciennes versions du Bridge nécessitent un fichier déjà présent dans le cache du navigateur ou une connexion au serveur.

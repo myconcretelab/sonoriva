@@ -4086,7 +4086,7 @@ dependencies = [
 
 [[package]]
 name = "sonoriva-bridge"
-version = "1.0.9"
+version = "1.0.10"
 dependencies = [
  "axum",
  "cpal",

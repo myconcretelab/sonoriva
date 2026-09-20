@@ -56,3 +56,5 @@ Le lien d’association accepte `https://app.sonoriva.fr`. En développement, le
 ## API locale
 
 `GET /v1/status` expose l’état général du processus, ses capacités, `cachedTracks` et `cachedBytes`. `POST /v1/play` accepte une propriété facultative `outputId` ainsi qu’une préécoute distante HTTPS provenant des sources Openverse prises en charge : Freesound, Jamendo, Wikimedia et ccMixter. `PUT /v1/playbacks/:id/output` déplace une lecture active vers le périphérique fourni. `PUT /v1/master-volume` règle le volume commun à toutes les lectures sans remplacer leur volume individuel. Les routes de lecture, de cache et de synchronisation exigent `Authorization: Bearer <clé-locale>`. Les origines CORS admises sont l’application SonoRiva en production, Vite en développement et la fenêtre Tauri.
+
+Depuis la version 1.0.10, `POST /v1/cache/audio` reçoit un morceau et renvoie son fichier local complet pour la forme d’onde et la préécoute du navigateur. La route exige la clé locale, vérifie l’identifiant et la taille du fichier et ne télécharge rien. Elle répond 404 si le fichier est absent ou incomplet. La capacité `cachedAudio` est annoncée dans `/v1/status`.

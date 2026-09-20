@@ -83,3 +83,12 @@ it('publie l’état de lecture avant de confirmer le départ à la playlist', a
   expect(bridge.getPlaybacks()[0].id).toBe('playing');
   expect(bridge.getCachedTrackIds().has(track.id)).toBe(true);
 });
+it('lit le fichier local avec la clé d’association dans l’en-tête', async () => {
+  const fetcher = vi.fn(async () => new Response('wave'));
+  vi.stubGlobal('fetch', fetcher);
+  const response = await client().cachedAudio(track);
+  expect(await response.text()).toBe('wave');
+  expect(fetcher).toHaveBeenCalledWith('http://127.0.0.1:43821/v1/cache/audio', expect.objectContaining({
+    method: 'POST', body: JSON.stringify(track), headers: expect.objectContaining({ Authorization: 'Bearer token' }),
+  }));
+});

@@ -1,6 +1,6 @@
 [package]
 name = "sonoriva-bridge"
-version = "1.0.9"
+version = "1.0.10"
 description = "Pont audio local de SonoRiva"
 authors = ["SonoRiva"]
 edition = "2024"

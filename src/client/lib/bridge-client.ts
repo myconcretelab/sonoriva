@@ -79,6 +79,12 @@ export class BridgeClient {
   getPlaybacks(): BridgePlayback[] { return this.playbacks.map((playback) => ({ ...playback })); }
   getCachedTrackIds(): Set<string> { return new Set(this.cachedTrackIds); }
 
+  async cachedAudio(track: Track, signal?: AbortSignal): Promise<Response> {
+    return this.request<Response>('/v1/cache/audio', {
+      method: 'POST', body: JSON.stringify(track), signal,
+    }, true, true);
+  }
+
   setMode(mode: AudioPlaybackMode): void {
     if (mode === 'bridge' && !this.association) throw new Error('Associez d’abord SonoRiva Bridge à ce navigateur.');
     this.mode = mode;
@@ -361,7 +367,7 @@ export class BridgeClient {
     this.routingListeners.forEach((listener) => listener());
   }
 
-  private async request<T>(path: string, init: RequestInit = {}, authenticated = true): Promise<T> {
+  private async request<T>(path: string, init: RequestInit = {}, authenticated = true, raw = false): Promise<T> {
     if (authenticated && !this.association) throw new Error('SonoRiva Bridge n’est pas associé à ce navigateur.');
     let response: Response;
     try {
@@ -386,6 +392,7 @@ export class BridgeClient {
       } catch { /* Les anciennes versions du Bridge renvoient parfois du texte brut. */ }
       throw new Error(message || `SonoRiva Bridge a répondu avec le statut ${response.status}.`);
     }
+    if (raw) return response as T;
     if (response.status === 204) return undefined as T;
     return response.json() as Promise<T>;
   }

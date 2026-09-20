@@ -9,6 +9,7 @@ import {
   waveformTime,
   waveformWindow,
 } from '../lib/waveform';
+import { loadWaveformAudio } from '../lib/waveform-audio';
 import { audioEngine } from '../lib/audio-engine';
 import { bridgeClient } from '../lib/bridge-client';
 import type { Track } from '../types';
@@ -24,6 +25,7 @@ interface Props {
 export function WaveformEditor({ track, startMs, endMs, onStartChange, onEndChange }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const [audioUrl, setAudioUrl] = useState<string>();
   const [buffer, setBuffer] = useState<AudioBuffer>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -51,13 +53,21 @@ export function WaveformEditor({ track, startMs, endMs, onStartChange, onEndChan
   useEffect(() => {
     const controller = new AbortController();
     const context = new AudioContext();
-    setLoading(true); setError('');
-    fetch(`/api/tracks/${track.id}/stream`, { credentials: 'include', signal: controller.signal })
+    let objectUrl: string | undefined;
+    setLoading(true); setError(''); setBuffer(undefined); setAudioUrl(undefined);
+    loadWaveformAudio(track, controller.signal)
       .then((response) => {
         if (!response.ok) throw new Error('Chargement de la forme d’onde impossible.');
-        return response.arrayBuffer();
+        return response.blob();
       })
-      .then((contents) => context.decodeAudioData(contents))
+      .then(async (blob) => {
+        controller.signal.throwIfAborted();
+        const decoded = await context.decodeAudioData(await blob.arrayBuffer());
+        controller.signal.throwIfAborted();
+        objectUrl = URL.createObjectURL(blob);
+        setAudioUrl(objectUrl);
+        return decoded;
+      })
       .then((decoded) => {
         if (controller.signal.aborted) return;
         setBuffer(decoded);
@@ -68,8 +78,8 @@ export function WaveformEditor({ track, startMs, endMs, onStartChange, onEndChan
       })
       .catch((cause) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Analyse impossible.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => { controller.abort(); context.close().catch(() => undefined); };
-  }, [track.id]);
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); context.close().catch(() => undefined); };
+  }, [track]);
 
   useEffect(() => bridgeClient.subscribe((playbacks) => {
     const id = bridgePreviewId.current;
@@ -264,6 +274,6 @@ export function WaveformEditor({ track, startMs, endMs, onStartChange, onEndChan
       <label><span>Début</span><input type="number" min="0" max={Math.max(0, effectiveEndMs / 1_000 - .001)} step=".001" value={(startMs / 1_000).toFixed(3)} onChange={(event) => onStartChange(clampStartMs(Number(event.target.value) * 1_000, effectiveEndMs, totalMs))} /><em>{formatWaveformTime(startMs)}</em><button type="button" onClick={() => onStartChange(0)} title="Réinitialiser le début"><RotateCcw size={14} /></button></label>
       <label><span>Fin</span><input type="number" min={(startMs + 1) / 1_000} max={totalMs / 1_000} step=".001" value={(effectiveEndMs / 1_000).toFixed(3)} onChange={(event) => onEndChange(clampEndMs(Number(event.target.value) * 1_000, startMs, totalMs))} /><em>{formatWaveformTime(effectiveEndMs)}</em><button type="button" onClick={() => onEndChange(null)} title="Utiliser la fin du fichier"><RotateCcw size={14} /></button></label>
     </div>
-    <audio ref={audioRef} src={`/api/tracks/${track.id}/stream`} preload="metadata" onLoadedMetadata={(event) => { event.currentTarget.currentTime = playheadMs / 1_000; }} onTimeUpdate={(event) => { const currentMs = Math.min(totalMs, event.currentTarget.currentTime * 1_000); setPlayheadMs(currentMs); if (currentMs >= effectiveEndMs) { event.currentTarget.pause(); setPlayheadMs(effectiveEndMs); setPreviewing(false); setStopResetArmed(false); } }} onEnded={() => { setPlayheadMs(effectiveEndMs); setPreviewing(false); setStopResetArmed(false); }} />
+    <audio ref={audioRef} src={audioUrl} preload="metadata" onLoadedMetadata={(event) => { event.currentTarget.currentTime = playheadMs / 1_000; }} onTimeUpdate={(event) => { const currentMs = Math.min(totalMs, event.currentTarget.currentTime * 1_000); setPlayheadMs(currentMs); if (currentMs >= effectiveEndMs) { event.currentTarget.pause(); setPlayheadMs(effectiveEndMs); setPreviewing(false); setStopResetArmed(false); } }} onEnded={() => { setPlayheadMs(effectiveEndMs); setPreviewing(false); setStopResetArmed(false); }} />
   </section>;
 }

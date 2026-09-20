@@ -1380,7 +1380,7 @@ html[data-skin='studio'] .statusbar { border-top: 3px double #594631; color: #8f
 .projection-bar-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .projection-remaining { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .projection-bar .projection-actions { flex-wrap: nowrap; }
-@container (max-width: 1100px) {
+@container (max-width: 900px) {
   .dashboard-more { display: grid; }
   .dashboard-tools-list { display: none; position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: 185px; padding: 10px; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); box-shadow: 0 12px 30px #0005; }
   .dashboard-tools-list.is-open { display: flex; }
@@ -1507,10 +1507,10 @@ html .quick-launch-tools .icon-button.active { background: var(--accent); color:
 .sidebar-layout-dock > .workspace-quickLaunch { max-height: 50vh; }
 
 /* A fixed search cap prevents workspace/module changes from expanding the field. */
-.workspace-soundboard .dashboard { display: flex; flex-wrap: wrap; }
+.workspace-soundboard .dashboard { display: flex; flex-wrap: nowrap; }
 .dashboard-search-group { flex: 0 1 320px; width: 320px; max-width: 50%; flex-wrap: wrap; container: search-controls / inline-size; }
 .dashboard-search-group .search { flex: 1 1 100%; }
-.dashboard .dashboard-actions { margin-left: auto; }
+.dashboard .dashboard-actions { margin-left: 0; flex: 0 0 auto; }
 .dashboard-search-group .search-scope { display: none; }
 .dashboard-search-group .search:focus-within .search-scope { display: grid; top: calc(100% + 5px); left: 0; width: 138px; }
 .dashboard-search-group .search > svg { display: block; left: 10px; width: 16px; }

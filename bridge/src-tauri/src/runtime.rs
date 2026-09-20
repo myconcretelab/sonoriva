@@ -150,6 +150,21 @@ impl Runtime {
         Ok(())
     }
 
+    pub async fn read_cached_track(&self, track: &BridgeTrack) -> Result<Option<Vec<u8>>, String> {
+        validate_track_id(&track.id)?;
+        let _access = self.cache_access.read().await;
+        let path = self.store.cache_dir.join(format!("{}.audio", track.id));
+        let bytes = match fs::read(path).await {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.to_string()),
+        };
+        if bytes.len() as u64 != track.size_bytes {
+            return Ok(None);
+        }
+        Ok(Some(bytes))
+    }
+
     pub async fn ensure_track(&self, track: &BridgeTrack) -> Result<PathBuf, String> {
         validate_track_id(&track.id)?;
         let _access = self.cache_access.read().await;
@@ -535,6 +550,17 @@ mod tests {
         // A fresh per-track lock still reuses the completed file on disk.
         state.download_locks.lock().await.clear();
         state.ensure_track(&track).await.unwrap();
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            state.read_cached_track(&track).await.unwrap(),
+            Some(vec![1, 2, 3, 4])
+        );
+        track.size_bytes = 8;
+        assert!(state.read_cached_track(&track).await.unwrap().is_none());
+        track.id = "../secret".into();
+        assert!(state.read_cached_track(&track).await.is_err());
+        track.id = "absent".into();
+        assert!(state.read_cached_track(&track).await.unwrap().is_none());
         assert_eq!(requests.load(Ordering::SeqCst), 1);
         track.id = "incomplete".into();
         track.size_bytes = 8;

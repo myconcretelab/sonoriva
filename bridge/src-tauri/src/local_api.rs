@@ -132,6 +132,7 @@ pub async fn serve(state: Arc<Runtime>) -> Result<(), String> {
             "/v1/cache",
             get(cache_inventory).post(cache_track).delete(clear_cache),
         )
+        .route("/v1/cache/audio", post(cached_audio))
         .route("/v1/projects/{id}/sync", post(sync_project))
         .route("/v1/play", post(play))
         .route("/v1/cancel-launch/{id}", post(cancel_launch))
@@ -176,7 +177,7 @@ async fn status(State(state): State<Arc<Runtime>>) -> Json<serde_json::Value> {
         "deviceId": config.device_id,
         "cachedTracks": cached_tracks,
         "cachedBytes": cached_bytes,
-        "capabilities": ["perPlaybackOutput", "remotePreview", "cacheInventory", "safePlayback"],
+        "capabilities": ["perPlaybackOutput", "remotePreview", "cacheInventory", "safePlayback", "cachedAudio"],
     }))
 }
 
@@ -219,6 +220,28 @@ async fn cache_inventory(
 ) -> ApiResult<Json<serde_json::Value>> {
     authorize(&headers, &state, false).await?;
     Ok(Json(state.cache_inventory().await?))
+}
+
+async fn cached_audio(
+    headers: HeaderMap,
+    State(state): State<Arc<Runtime>>,
+    Json(track): Json<BridgeTrack>,
+) -> ApiResult<Response> {
+    authorize(&headers, &state, false).await?;
+    let bytes = state.read_cached_track(&track).await?.ok_or_else(|| {
+        ApiError(
+            StatusCode::NOT_FOUND,
+            "Son absent du cache local.".to_string(),
+        )
+    })?;
+    Ok((
+        [
+            (CONTENT_TYPE, "application/octet-stream"),
+            (axum::http::header::CACHE_CONTROL, "no-store"),
+        ],
+        bytes,
+    )
+        .into_response())
 }
 
 async fn cache_track(
