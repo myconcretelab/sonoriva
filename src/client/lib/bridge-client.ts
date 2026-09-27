@@ -133,7 +133,7 @@ export class BridgeClient {
   }
 
   async outputs(): Promise<{ outputs: BridgeOutput[]; mainOutputId: string; previewOutputId: string }> {
-    return this.request('/v1/outputs');
+    return this.request('/v1/outputs', { signal: AbortSignal.timeout(3000) });
   }
 
   async setOutput(channel: 'main' | 'preview', deviceId: string): Promise<void> {
@@ -163,6 +163,10 @@ export class BridgeClient {
       }
       for (const [id, [received, total]] of Object.entries(result.downloads)) setDownloadProgress('bridge', id, { received, total });
       this.notifyCache();
+    } catch (cause) {
+      this.cachedTrackIds.clear();
+      this.notifyCache();
+      throw cause;
     } finally { this.cacheRefreshing = false; }
   }
 

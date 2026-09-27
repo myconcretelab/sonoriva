@@ -27,13 +27,13 @@ export function AudioOutputConsole({ bridgeAvailable, onError, onRoutingChange }
 
   const refresh = useCallback(async () => {
     const sequence = ++refreshSequence.current;
-    if (bridgeAvailable !== true) {
+    if (bridgeAvailable === false || (bridgeAvailable === undefined && !bridgeClient.isAssociated())) {
       setBridgeDetected(undefined);
       clearOutputs();
       return false;
     }
     try {
-      const status = await bridgeClient.discover();
+      const status = await bridgeClient.discover(AbortSignal.timeout(3000));
       if (sequence !== refreshSequence.current) return true;
       setBridgeDetected(true);
       if (!bridgeClient.isAssociated()) {
@@ -61,7 +61,7 @@ export function AudioOutputConsole({ bridgeAvailable, onError, onRoutingChange }
   useEffect(() => audioEngine.subscribeRouting(() => { refresh().catch(() => undefined); }), [refresh]);
 
   useEffect(() => {
-    if (bridgeAvailable !== true) return;
+    if (bridgeAvailable === false || (bridgeAvailable === undefined && !bridgeClient.isAssociated())) return;
     const timer = window.setInterval(() => refresh().catch(() => undefined), 5_000);
     return () => window.clearInterval(timer);
   }, [bridgeAvailable, refresh]);
@@ -137,7 +137,7 @@ export function AudioOutputConsole({ bridgeAvailable, onError, onRoutingChange }
     <div className="bridge-output-actions">
       <i className={`bridge-status-led ${bridgeConnection.state}`} role="status" aria-label={bridgeConnection.label} title={bridgeConnection.label} />
       <button type="button" className={bridgeConnection.state === 'active' ? 'active' : ''} disabled={bridgeBusy || bridgeConnection.action === 'none'} onClick={runBridgeAction} aria-label={bridgeConnection.actionLabel} title={bridgeConnection.actionLabel}>{bridgeBusy ? <LoaderCircle className="spin" size={14} /> : bridgeConnection.action === 'open' || bridgeConnection.action === 'deactivate' ? <Power size={14} /> : <Cable size={14} />}</button>
-      <button type="button" disabled={bridgeBusy || bridgeAvailable !== true} onClick={() => refresh()} aria-label="Actualiser l’état du Bridge" title="Actualiser l’état du Bridge"><RefreshCcw size={13} /></button>
+      <button type="button" disabled={bridgeBusy || bridgeAvailable === false || (bridgeAvailable === undefined && !bridgeClient.isAssociated())} onClick={() => refresh()} aria-label="Actualiser l’état du Bridge" title="Actualiser l’état du Bridge"><RefreshCcw size={13} /></button>
     </div>
   </section>;
 }

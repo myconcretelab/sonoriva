@@ -1,3 +1,4 @@
+import { OfflineStatusControl } from './components/OfflineStatusControl';
 import { PlayedSoundsControl } from './components/PlayedSoundsControl';
 import { QuickLaunchPanel } from './components/QuickLaunchPanel';
 import { useQuickLaunch } from './lib/quick-launch';
@@ -644,11 +645,14 @@ export default function App() {
       const currentRevision = ++revision;
       const target = bridgeClient.isEnabled() ? 'bridge' : 'browser';
       setDownloads(getDownloadProgress(target));
-      if (target === 'bridge') {
-        setOfflineTrackIds(bridgeClient.getCachedTrackIds());
-        return;
-      }
-      cachedTrackIds(detail?.tracks.map((track) => track.id) ?? []).then((ids) => {
+      const browserTracks = detail?.tracks.filter((track) => target !== 'bridge' || isVideoTrack(track)) ?? [];
+      cachedTrackIds(browserTracks.map((track) => track.id)).catch(() => new Set<string>()).then((ids) => {
+        if (target === 'bridge') {
+          const bridgeIds = bridgeClient.getCachedTrackIds();
+          for (const track of detail?.tracks ?? []) {
+            if (!isVideoTrack(track) && bridgeIds.has(track.id)) ids.add(track.id);
+          }
+        }
         if (!cancelled && currentRevision === revision) setOfflineTrackIds(ids);
       }).catch(() => { if (!cancelled && currentRevision === revision) setOfflineTrackIds(new Set()); });
     };
@@ -1198,7 +1202,7 @@ export default function App() {
       for (let index = 0; index < remaining.length; index += 3) {
         const batch = remaining.slice(index, index + 3);
         await Promise.all(batch.map(async (track) => {
-          if (bridgeClient.isEnabled()) await audioEngine.preload(track);
+          if (bridgeClient.isEnabled() && !isVideoTrack(track)) await bridgeClient.preload(track);
           else await cacheTrackOffline(track.id);
         }));
         done += batch.length;
@@ -1936,12 +1940,13 @@ export default function App() {
   }
 
   async function cacheOffline() {
-    if (!detail || !('caches' in window)) return setOfflineStatus('Cache indisponible dans ce navigateur.');
+    if (!detail) return;
     setOfflineStatus(`0/${detail.tracks.length}`);
     try {
       let done = 0;
       for (const track of detail.tracks) {
-        await cacheTrackOffline(track.id);
+        if (bridgeClient.isEnabled() && !isVideoTrack(track)) await bridgeClient.preload(track);
+        else await cacheTrackOffline(track.id);
         done += 1;
         setOfflineStatus(`${done}/${detail.tracks.length}`);
       }
@@ -2478,6 +2483,7 @@ export default function App() {
           <button className="icon-button support-button" onClick={() => setSupportOpen(true)} aria-label="Ouvrir le support" title="Support"><LifeBuoy size={19} />{supportUnreadCount > 0 && <i aria-label={`${supportUnreadCount} réponse${supportUnreadCount > 1 ? 's' : ''} non lue${supportUnreadCount > 1 ? 's' : ''}`}>{Math.min(supportUnreadCount, 9)}</i>}</button>
           <button className={`icon-button settings-button ${unseenReleases.length > 0 ? 'has-update' : ''}`} onClick={() => { setSettingsInitialSection(undefined); setSettingsOpen(true); }} aria-label="Ouvrir les paramètres" title="Paramètres"><Settings size={19} />{unseenReleases.length > 0 && <i aria-hidden="true" />}</button>
           {!remote && <button className="icon-button reset-show-button" onClick={resetCurrentProject} disabled={!detail} aria-label="Réinitialiser le spectacle en cours" title="Réinitialiser le spectacle"><RefreshCcw size={18} /></button>}
+          {!remote && <OfflineStatusControl tracks={detail?.tracks ?? []} cachedIds={offlineTrackIds} />}
           {!remote && <button className="button primary" onClick={() => setUploadOpen(true)}><Upload size={17} />Ajouter un média</button>}
         </div>
       </header>

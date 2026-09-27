@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ associated: vi.fn(), cachedAudio: vi.fn(), fetchTrackAudio: vi.fn() }));
-vi.mock('../src/client/lib/bridge-client', () => ({ bridgeClient: { isAssociated: mocks.associated, cachedAudio: mocks.cachedAudio } }));
+const mocks = vi.hoisted(() => ({ enabled: vi.fn(), preload: vi.fn(), associated: vi.fn(), cachedAudio: vi.fn(), fetchTrackAudio: vi.fn() }));
+vi.mock('../src/client/lib/bridge-client', () => ({ bridgeClient: { isEnabled: mocks.enabled, preload: mocks.preload, isAssociated: mocks.associated, cachedAudio: mocks.cachedAudio } }));
 vi.mock('../src/client/lib/offline-audio', () => ({ audioCacheName: 'sonoriva-audio-v1', trackStreamUrl: (id: string) => `/api/tracks/${id}/stream`, fetchTrackAudio: mocks.fetchTrackAudio }));
 import { loadWaveformAudio } from '../src/client/lib/waveform-audio';
 import type { Track } from '../src/client/types';
@@ -52,4 +52,13 @@ describe('audio local de la forme d’onde', () => {
     await expect(loadWaveformAudio(track, controller.signal)).rejects.toThrow();
     expect(mocks.fetchTrackAudio).not.toHaveBeenCalled();
   });
+});
+
+it('conserve les téléchargements de forme d’onde sur le Bridge actif', async () => {
+  mocks.enabled.mockReturnValue(true);
+  mocks.cachedAudio.mockResolvedValue(new Response('wave'));
+  expect(await (await loadWaveformAudio(track, signal())).text()).toBe('wave');
+  expect(mocks.preload).toHaveBeenCalledWith(track);
+  expect(match).not.toHaveBeenCalled();
+  expect(mocks.fetchTrackAudio).not.toHaveBeenCalled();
 });

@@ -4,6 +4,12 @@ import type { Track } from '../types';
 
 export async function loadWaveformAudio(track: Track, signal: AbortSignal): Promise<Response> {
   signal.throwIfAborted();
+  if (bridgeClient.isEnabled()) {
+    await bridgeClient.preload(track);
+    const response = await bridgeClient.cachedAudio(track, AbortSignal.any([signal, AbortSignal.timeout(15_000)]));
+    signal.throwIfAborted();
+    return response;
+  }
   if ('caches' in globalThis) {
     const cache = await caches.open(audioCacheName).catch(() => undefined);
     const cached = await cache?.match(trackStreamUrl(track.id), { ignoreVary: true });

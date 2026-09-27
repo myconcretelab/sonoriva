@@ -92,3 +92,25 @@ it('lit le fichier local avec la clé d’association dans l’en-tête', async 
     method: 'POST', body: JSON.stringify(track), headers: expect.objectContaining({ Authorization: 'Bearer token' }),
   }));
 });
+
+it('invalide les fichiers annoncés disponibles quand le cache local ne répond plus', async () => {
+  const bridge = client();
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(Response.json({ tracks: { sound: 4 }, downloads: {} })).mockRejectedValue(new TypeError('Offline')));
+  await bridge.refreshCache();
+  expect(bridge.getCachedTrackIds().has('sound')).toBe(true);
+  await expect(bridge.refreshCache()).rejects.toThrow();
+  expect(bridge.getCachedTrackIds().size).toBe(0);
+});
+it('retrouve le cache local dans une nouvelle session sans accès Internet', async () => {
+  const storage = new Map<string, string>();
+  vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) });
+  client();
+  const next = new BridgeClient();
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (!url.startsWith('http://127.0.0.1:43821/')) throw new TypeError('Offline');
+    return Response.json({ tracks: { sound: 4 }, downloads: {} });
+  }));
+  await next.refreshCache();
+  expect(next.isEnabled()).toBe(true);
+  expect(next.getCachedTrackIds()).toEqual(new Set(['sound']));
+});

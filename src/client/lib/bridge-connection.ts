@@ -18,7 +18,7 @@ export function bridgeConnectionView(input: {
   mode: AudioPlaybackMode;
 }): BridgeConnectionView {
   if (input.available === false) return { state: 'unavailable', label: 'Bridge réservé aux forfaits payants', action: 'none', actionLabel: 'Bridge indisponible' };
-  if (input.available === undefined || input.detected === undefined) return { state: 'checking', label: 'Détection du Bridge…', action: 'none', actionLabel: 'Détection en cours' };
+  if ((input.available === undefined && !input.associated) || input.detected === undefined) return { state: 'checking', label: 'Détection du Bridge…', action: 'none', actionLabel: 'Détection en cours' };
   if (!input.detected && input.associated) return { state: 'offline', label: 'Bridge associé mais fermé', action: 'open', actionLabel: 'Ouvrir et activer le Bridge' };
   if (!input.detected) return { state: 'offline', label: 'Bridge non détecté', action: 'pair', actionLabel: 'Ouvrir et associer le Bridge' };
   if (!input.associated) return { state: 'detected', label: 'Bridge détecté, association requise', action: 'pair', actionLabel: 'Associer le Bridge' };
