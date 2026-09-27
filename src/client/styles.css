@@ -1574,3 +1574,12 @@ html:root .track-pad .track-meta .track-duration { overflow: visible; flex-shrin
 .offline-status-details { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: min(290px, calc(100vw - 32px)); padding: 14px; display: grid; gap: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ui-ink, #f4f4f5); box-shadow: 0 8px 24px #0004; font-size: .75rem; }
 .offline-status-details small { color: var(--ui-secondary, #a1a1aa); }
 @media (max-width: 600px) { .offline-status-button { padding: 7px; gap: 4px; font-size: .6rem; } }
+.offline-ready-mark { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-success, #86efac); }
+.offline-status-button .offline-ready-mark { flex-shrink: 0; }
+.offline-prepare-button { width: 100%; padding: 9px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--border); border-radius: 7px; background: var(--accent-soft); color: var(--ui-accent-ink, #F3FAFE); cursor: pointer; font: inherit; text-align: left; }
+.offline-prepare-button svg { flex-shrink: 0; }
+.offline-prepare-button:hover:not(:disabled) { border-color: var(--accent); }
+.offline-prepare-button:disabled { cursor: wait; opacity: .7; }
+.offline-preparation-progress { display: grid; gap: 6px; }
+.offline-preparation-progress progress { width: 100%; accent-color: var(--accent); }
+.offline-preparation-error { color: var(--ui-danger, #fca5a5); overflow-wrap: anywhere; }

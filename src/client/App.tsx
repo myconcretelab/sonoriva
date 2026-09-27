@@ -1,3 +1,4 @@
+import { prepareOfflineTracks, type OfflinePreparation } from './lib/prepare-offline';
 import { OfflineStatusControl } from './components/OfflineStatusControl';
 import { PlayedSoundsControl } from './components/PlayedSoundsControl';
 import { QuickLaunchPanel } from './components/QuickLaunchPanel';
@@ -213,6 +214,8 @@ export default function App() {
   const [socket, setSocket] = useState<Socket>();
   const [connected, setConnected] = useState(false);
   const [offlineStatus, setOfflineStatus] = useState('');
+  const offlinePreparingRef = useRef(false);
+  const [offlinePreparation, setOfflinePreparation] = useState<(OfflinePreparation & { projectId: string; mode: string })>();
   const [error, setError] = useState('');
   const [shortcutNotice, setShortcutNotice] = useState('');
   const [nextTrackVolume, setNextTrackVolume] = useState(() => readNumberRange('sonoriva-next-volume', 100, 0, 100));
@@ -1940,18 +1943,22 @@ export default function App() {
   }
 
   async function cacheOffline() {
-    if (!detail) return;
-    setOfflineStatus(`0/${detail.tracks.length}`);
+    if (!detail || offlinePreparingRef.current) return;
+    offlinePreparingRef.current = true;
+    const projectId = detail.project.id;
+    const mode = bridgeClient.getMode();
     try {
-      let done = 0;
-      for (const track of detail.tracks) {
-        if (bridgeClient.isEnabled() && !isVideoTrack(track)) await bridgeClient.preload(track);
-        else await cacheTrackOffline(track.id);
-        done += 1;
-        setOfflineStatus(`${done}/${detail.tracks.length}`);
-      }
-      setOfflineStatus('Projet disponible hors ligne');
-    } catch { setOfflineStatus('Téléchargement interrompu'); }
+      await prepareOfflineTracks(detail.tracks, offlineTrackIds, (done, total) => {
+        setOfflinePreparation({ projectId, mode, done, total, running: true });
+        setOfflineStatus(`${done}/${total}`);
+      });
+      setOfflinePreparation((current) => current ? { ...current, running: false } : current);
+      setOfflineStatus('Spectacle disponible hors ligne');
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Téléchargement interrompu';
+      setOfflinePreparation((current) => current ? { ...current, running: false, error: message } : current);
+      setOfflineStatus('Téléchargement interrompu');
+    } finally { offlinePreparingRef.current = false; }
   }
 
   function updateTrackColumns(value: number) {
@@ -2483,7 +2490,7 @@ export default function App() {
           <button className="icon-button support-button" onClick={() => setSupportOpen(true)} aria-label="Ouvrir le support" title="Support"><LifeBuoy size={19} />{supportUnreadCount > 0 && <i aria-label={`${supportUnreadCount} réponse${supportUnreadCount > 1 ? 's' : ''} non lue${supportUnreadCount > 1 ? 's' : ''}`}>{Math.min(supportUnreadCount, 9)}</i>}</button>
           <button className={`icon-button settings-button ${unseenReleases.length > 0 ? 'has-update' : ''}`} onClick={() => { setSettingsInitialSection(undefined); setSettingsOpen(true); }} aria-label="Ouvrir les paramètres" title="Paramètres"><Settings size={19} />{unseenReleases.length > 0 && <i aria-hidden="true" />}</button>
           {!remote && <button className="icon-button reset-show-button" onClick={resetCurrentProject} disabled={!detail} aria-label="Réinitialiser le spectacle en cours" title="Réinitialiser le spectacle"><RefreshCcw size={18} /></button>}
-          {!remote && <OfflineStatusControl tracks={detail?.tracks ?? []} cachedIds={offlineTrackIds} />}
+          {!remote && <OfflineStatusControl tracks={detail?.tracks ?? []} cachedIds={offlineTrackIds} onPrepare={cacheOffline} busy={offlinePreparation?.running ?? false} preparation={offlinePreparation?.projectId === detail?.project.id && offlinePreparation?.mode === bridgeClient.getMode() ? offlinePreparation : undefined} />}
           {!remote && <button className="button primary" onClick={() => setUploadOpen(true)}><Upload size={17} />Ajouter un média</button>}
         </div>
       </header>
