@@ -261,7 +261,8 @@ kbd { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; col
 .workspace-layout-save button:disabled { opacity: .35; cursor: default; }
 .workspace-layout-delete { width: 34px; height: 34px; color: var(--ui-secondary, #a1a1aa); border: 1px solid var(--border); }
 .workspace-layout-delete:hover { color: var(--ui-danger, #fca5a5); border-color: rgba(248,113,113,.3); background: rgba(248,113,113,.07); }
-.workspace-layout-grid { --workspace-gap: 8px; --workspace-columns: 12; flex: 1; min-width: 0; min-height: 0; padding: 8px; display: grid; grid-template-columns: repeat(var(--workspace-columns), minmax(0, 1fr)); grid-template-rows: repeat(12, minmax(0, 1fr)); gap: var(--workspace-gap); overflow: hidden; background-color: var(--ui-canvas, #09090b); }
+/* Keep module controls below the header popovers, including on mobile. */
+.workspace-layout-grid { isolation: isolate; --workspace-gap: 8px; --workspace-columns: 12; flex: 1; min-width: 0; min-height: 0; padding: 8px; display: grid; grid-template-columns: repeat(var(--workspace-columns), minmax(0, 1fr)); grid-template-rows: repeat(12, minmax(0, 1fr)); gap: var(--workspace-gap); overflow: hidden; background-color: var(--ui-canvas, #09090b); }
 .workspace-layout-grid.is-editing { background-image: linear-gradient(rgba(var(--ui-edge-rgb, 255, 255, 255),.025) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--ui-edge-rgb, 255, 255, 255),.025) 1px, transparent 1px); background-size: 48px 48px; }
 .workspace-block { position: relative; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 13px; background: var(--ui-recess, #0d0d0f); box-shadow: 0 8px 28px rgba(0,0,0,.14); }
 .workspace-block.is-collapsed:not(.is-layout-editing) { align-self: start; width: 100%; height: 34px; min-height: 34px; max-height: 34px; border-color: rgba(var(--ui-edge-rgb, 255, 255, 255),.09); border-radius: 9px; background: var(--ui-panel, #111113); box-shadow: 0 4px 14px rgba(0,0,0,.14); }
@@ -329,7 +330,7 @@ kbd { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; col
 .bridge-output-upgrade small { display: block; overflow: hidden; color: var(--ui-muted, #71717a); font-size: .6rem; text-overflow: ellipsis; white-space: nowrap; }
 .bridge-output-upgrade > button { min-height: 27px; padding: 0 10px; border: 1px solid rgba(219,237,247,.38); border-radius: 7px; color: var(--ui-accent-ink, #F3FAFE); background: rgba(219,237,247,.1); cursor: pointer; font-size: .58rem; font-weight: 800; }
 .bridge-output-upgrade > button:hover { border-color: var(--ui-accent-ink, #F3FAFE); background: rgba(219,237,247,.2); }
-.topbar { min-height: 84px; padding: 8px clamp(18px, 3vw, 42px); display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); background: rgba(var(--ui-recess-rgb, 9,9,11),.85); backdrop-filter: blur(14px); }
+.topbar { position: relative; z-index: 10; min-height: 84px; padding: 8px clamp(18px, 3vw, 42px); display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); background: rgba(var(--ui-recess-rgb, 9,9,11),.85); backdrop-filter: blur(14px); }
 .topbar-title { min-width: 92px; }
 .topbar-title .eyebrow { display: flex; align-items: center; gap: 7px; }
 .connection-status { display: inline-flex; color: var(--ui-muted, #71717a); transition: color .18s, opacity .18s; }
