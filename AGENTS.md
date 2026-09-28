@@ -10,3 +10,5 @@
 - La documentation utilisateur doit rester factuelle et décrire uniquement le fonctionnement, les commandes, les paramètres et les limites. Ne pas y ajouter de conseils de conduite, de bonnes pratiques, de checklists ni de formulations paternalistes.
 
 - Toute modification d’interface doit être adaptée et vérifiée dans les quatre thèmes de l’application : Original, Studio, Porcelain et Tape. Utiliser les variables de thème et vérifier les contrastes des textes et icônes, les états actifs et les dispositions responsive.
+
+- Privilégier systématiquement une interface compacte pour préserver la place disponible aux morceaux et aux commandes principales. Ne pas élargir les barres ni ajouter de rangées permanentes pour des contrôles secondaires ; privilégier leur affichage contextuel au focus ou à la demande, sans masquer les morceaux.
