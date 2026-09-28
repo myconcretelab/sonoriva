@@ -288,6 +288,8 @@ export interface ProjectColor {
   position: number;
 }
 
+export type PlaylistSoundboardBehavior = 'continue' | 'pause' | 'stop';
+
 export interface Playlist {
   id: string;
   projectId: string;
@@ -300,6 +302,7 @@ export interface Playlist {
   showNextButton: boolean;
   gapMs: number;
   crossfadeMs: number;
+  soundboardBehavior?: PlaylistSoundboardBehavior;
   position: number;
   trackIds: string[];
   items: PlaylistEntry[];
@@ -441,7 +444,7 @@ export type RemoteCommand =
   | { type: 'stop-all' }
   | { type: 'stop-all-immediate' }
   | { type: 'stop-last'; immediate: boolean }
-  | { type: 'run-action'; trackId: string; action: MouseAction; volumeMultiplier?: number; outputId?: string };
+  | { type: 'run-action'; soundboard?: boolean; trackId: string; action: MouseAction; volumeMultiplier?: number; outputId?: string };
 
 export interface AccountMember {
   id: string;

@@ -1,0 +1,1 @@
+ALTER TABLE "playlists" ADD COLUMN "soundboard_behavior" text DEFAULT 'continue' NOT NULL;

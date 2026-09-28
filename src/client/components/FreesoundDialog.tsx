@@ -32,6 +32,13 @@ const sourceOptions: Array<{ value: OpenverseSource; label: string }> = [
 
 export function OpenverseDialog({ initialQuery = '', autoSearch = false, projectId, categories, subcategories, projectColors, defaultCategoryId, nextPosition, bridgeOutputs, mainBridgeOutputId, onImported, onClose }: Props) {
   const [query, setQuery] = useState(initialQuery);
+  const [minDuration, setMinDuration] = useState('');
+  const [maxDuration, setMaxDuration] = useState('');
+  const durationMinimum = minDuration === '' ? undefined : Number(minDuration);
+  const durationMaximum = maxDuration === '' ? undefined : Number(maxDuration);
+  const durationError = durationMinimum !== undefined && durationMaximum !== undefined && durationMinimum > durationMaximum
+    ? 'Le temps minimum doit être inférieur ou égal au temps maximum.' : '';
+  const hasDurationFilter = minDuration !== '' || maxDuration !== '';
   const [license, setLicense] = useState<OpenverseLicenseFilter>('all');
   const [sources, setSources] = useState<Set<OpenverseSource>>(() => new Set(sourceOptions.map((source) => source.value)));
   const [loadedSources, setLoadedSources] = useState<Set<OpenverseSource>>(new Set());
@@ -112,6 +119,10 @@ export function OpenverseDialog({ initialQuery = '', autoSearch = false, project
       setError('Saisissez au moins deux caractères.');
       return;
     }
+    if (durationError) {
+      setError(durationError);
+      return;
+    }
     if (!sources.size) {
       setError('Sélectionnez au moins une source.');
       return;
@@ -140,7 +151,7 @@ export function OpenverseDialog({ initialQuery = '', autoSearch = false, project
     } finally {
       if (searchRef.current === controller) setLoading(false);
     }
-  }, [license, query, sources]);
+  }, [durationError, license, query, sources]);
 
   async function enrichResultsWithSource(source: OpenverseSource) {
     const lastSearch = lastSearchRef.current;
@@ -379,7 +390,7 @@ export function OpenverseDialog({ initialQuery = '', autoSearch = false, project
     setSources(next);
   }
 
-  const visibleResults = result ? filterOpenverseResults(result.results, sources) : [];
+  const visibleResults = result ? filterOpenverseResults(result.results, sources, durationMinimum, durationMaximum) : [];
 
   return <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && closeDialog()}>
     <section className="dialog freesound-dialog openverse-dialog">
@@ -399,12 +410,18 @@ export function OpenverseDialog({ initialQuery = '', autoSearch = false, project
           <option value="cc0">CC0 uniquement</option>
           <option value="by">CC BY uniquement</option>
         </select>
+        <div className="openverse-duration-filters" role="group" aria-label="Filtrer par durée">
+          <label>Temps min (s)<input type="number" min="0" step="any" value={minDuration} onChange={(event) => setMinDuration(event.target.value)} placeholder="Sans minimum" aria-invalid={Boolean(durationError)} aria-describedby={durationError ? 'openverse-duration-error' : undefined} /></label>
+          <label>Temps max (s)<input type="number" min="0" step="any" value={maxDuration} onChange={(event) => setMaxDuration(event.target.value)} placeholder="Sans maximum" aria-invalid={Boolean(durationError)} aria-describedby={durationError ? 'openverse-duration-error' : undefined} /></label>
+          <small>Le filtre de durée s’applique aux résultats de chaque page.</small>
+          {durationError && <span id="openverse-duration-error" className="form-error" role="alert">{durationError}</span>}
+        </div>
       </form>
 
       {error && <div className="form-error">{error}</div>}
 
       {!result && !loading ? <div className="freesound-empty"><Waves size={34} /><strong>Trouvez un son pour la scène</strong><span>Choisissez une ou plusieurs sources Openverse.</span></div> : result && <>
-        <div className="freesound-results-heading"><strong>{visibleResults.length !== result.results.length ? `${visibleResults.length} résultat${visibleResults.length !== 1 ? 's' : ''} affiché${visibleResults.length !== 1 ? 's' : ''}` : `${result.count.toLocaleString('fr-FR')} résultat${result.count !== 1 ? 's' : ''}`}</strong><span>Page {result.page}</span></div>
+        <div className="freesound-results-heading"><strong>{hasDurationFilter ? `${visibleResults.length} résultat${visibleResults.length !== 1 ? 's' : ''} sur cette page` : visibleResults.length !== result.results.length ? `${visibleResults.length} résultat${visibleResults.length !== 1 ? 's' : ''} affiché${visibleResults.length !== 1 ? 's' : ''}` : `${result.count.toLocaleString('fr-FR')} résultat${result.count !== 1 ? 's' : ''}`}</strong><span>Page {result.page}</span></div>
         <div className="freesound-results">
           {visibleResults.map((sound) => {
             const active = currentSound?.id === sound.id;

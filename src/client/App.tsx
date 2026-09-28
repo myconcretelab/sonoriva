@@ -1,3 +1,5 @@
+import { applyPlaylistSoundboardBehavior } from './lib/playlist-interruption';
+import { SearchScopeControl } from './components/SearchScopeControl';
 import { prepareOfflineTracks, type OfflinePreparation } from './lib/prepare-offline';
 import { OfflineStatusControl } from './components/OfflineStatusControl';
 import { PlayedSoundsControl } from './components/PlayedSoundsControl';
@@ -205,7 +207,7 @@ export default function App() {
   const [workspaceLayout, setWorkspaceLayout] = useState(() => createWorkspaceLayout());
   const [savedWorkspaceLayouts, setSavedWorkspaceLayouts] = useState<SavedWorkspaceLayout[]>([]);
   const [playlistItems, setPlaylistItems] = useState<PlaylistQueueItem[]>([]);
-  const [playlistOptions, setPlaylistOptions] = useState<PlaylistOptions>({ name: 'Nouvelle playlist', color: '#8b5cf6', autostart: false, loop: false, random: false, showNextButton: false, gapMs: 0, crossfadeMs: 0 });
+  const [playlistOptions, setPlaylistOptions] = useState<PlaylistOptions>({ name: 'Nouvelle playlist', color: '#8b5cf6', autostart: false, loop: false, random: false, showNextButton: false, gapMs: 0, crossfadeMs: 0, soundboardBehavior: 'continue' });
   const [playlistOptionsOpen, setPlaylistOptionsOpen] = useState(false);
   const [loadedPlaylistId, setLoadedPlaylistId] = useState<string>();
   const [playlistCurrentIndex, setPlaylistCurrentIndex] = useState(0);
@@ -234,6 +236,10 @@ export default function App() {
   const mobileTrackDragRef = useRef<MobileTrackDrag | undefined>(undefined);
   const subcategoryOpenTimerRef = useRef<{ id: string; timer: number } | undefined>(undefined);
   const playlistRunRef = useRef(false);
+  const playlistOwnedIdsRef = useRef(new Set<string>());
+  const playlistPendingIndexRef = useRef<number | undefined>(undefined);
+  const [playlistPaused, setPlaylistPaused] = useState(false);
+  const soundboardInterruptionRef = useRef<(action: MouseAction) => ReadonlySet<string> | undefined>(() => undefined);
   const playlistTransitioningRef = useRef(false);
   const playlistAdvanceTimerRef = useRef<number | undefined>(undefined);
   const playlistRunGenerationRef = useRef(0);
@@ -688,7 +694,7 @@ export default function App() {
       if (command.type === 'stop-last') return audioEngine.stopLast(currentTracks, command.immediate);
       const track = currentTracks.find((candidate) => candidate.id === command.trackId);
       if (!track) return;
-      if (command.type === 'run-action') audioEngine.runAction(command.action, track, currentTracks, command.volumeMultiplier, command.outputId).catch((cause) => setError(cause.message));
+      if (command.type === 'run-action') audioEngine.runAction(command.action, track, currentTracks, command.volumeMultiplier, command.outputId, command.soundboard ? soundboardInterruptionRef.current(command.action) : undefined).catch((cause) => setError(cause.message));
       else if (command.type === 'preload') audioEngine.preload(track).catch((cause) => setError(cause.message));
       else if (command.type === 'play') audioEngine.play(track, track.fadeInMs, command.volumeMultiplier, command.outputId).catch((cause) => setError(cause.message));
       else audioEngine.stop(track.id, track.fadeOutMs);
@@ -831,6 +837,29 @@ export default function App() {
     return resolvedMainBridgeOutputId;
   }, [resolvedMainBridgeOutputId, secondaryBridgeOutputId, shortcutOutputSecondary]);
 
+  const interruptPlaylistForSoundboard = useCallback((action: MouseAction) => applyPlaylistSoundboardBehavior({
+    action,
+    behavior: playlistOptions.soundboardBehavior ?? 'continue',
+    running: playlistRunRef.current,
+    ownedIds: playlistOwnedIdsRef.current,
+    playbacks: activePlaybacks,
+    suspend: (behavior) => {
+      playlistRunRef.current = false;
+      playlistTransitioningRef.current = false;
+      playlistLaunchAbortRef.current?.abort(new Error('Playlist interrompue par le soundboard.'));
+      playlistRunGenerationRef.current += 1;
+      clearPlaylistAdvanceTimer();
+      setPlaylistPaused(behavior === 'pause');
+      if (behavior === 'stop') {
+        playlistPendingIndexRef.current = undefined;
+        setPlaylistPlaybackIds([]);
+      }
+    },
+    pause: (id) => audioEngine.togglePauseInstance(id),
+    stop: (id) => audioEngine.stopInstance(id, 0),
+  }), [activePlaybacks, playlistOptions.soundboardBehavior]);
+  useEffect(() => { soundboardInterruptionRef.current = interruptPlaylistForSoundboard; }, [interruptPlaylistForSoundboard]);
+
   const sendOrRun = useCallback((command: RemoteCommand, track?: Track) => {
     const preparedCommand = command.type === 'play' && command.volumeMultiplier === undefined
       ? { ...command, volumeMultiplier: consumeNextTrackVolume() }
@@ -841,6 +870,8 @@ export default function App() {
     }
     if (preparedCommand.type === 'stop-all' || preparedCommand.type === 'stop-all-immediate') {
       playlistRunRef.current = false;
+      setPlaylistPaused(false);
+      playlistPendingIndexRef.current = undefined;
       playlistTransitioningRef.current = false;
       playlistLaunchAbortRef.current?.abort(new Error('Lancement de la playlist annulé.'));
       playlistRunGenerationRef.current += 1;
@@ -860,18 +891,28 @@ export default function App() {
     }
   }, [consumeNextTrackVolume, detail, remote, shortcutLaunchOutputId, socket]);
 
-  const playQuickLaunchTracks = useCallback(async (tracks: Track[], replace: boolean): Promise<string[]> => {
-    if (replace) sendOrRun({ type: 'stop-all-immediate' });
-    const volumeMultiplier = consumeNextTrackVolume();
+  const playQuickLaunchTracks = useCallback(async (tracks: Track[], action: MouseAction): Promise<string[]> => {
+    if (action === 'none') return [];
+    if (remote && !socket?.connected) { setError('Télécommande déconnectée.'); return []; }
+    const replacesPlayback = action === 'replace' || action === 'crossfade';
+    let expiresAtMs: number | undefined;
+    if (replacesPlayback) {
+      try {
+        // Prepare the whole group before stopping once: its members must not replace each other.
+        if (!remote) expiresAtMs = await audioEngine.preparePlayback(tracks);
+      } catch (cause) { setError(cause instanceof Error ? cause.message : 'Préparation impossible.'); return []; }
+      sendOrRun({ type: action === 'replace' ? 'stop-all-immediate' : 'stop-all' });
+    }
+    const volumeMultiplier = action === 'stop' ? 1 : consumeNextTrackVolume();
     const outputId = shortcutLaunchOutputId();
     const results = await Promise.all(tracks.map(async (track) => {
       try {
         if (remote && detail) {
-          if (!socket?.connected) throw new Error('Télécommande déconnectée.');
-          socket.emit('remote-command', { projectId: detail.project.id, command: { type: 'play', trackId: track.id, volumeMultiplier, outputId } satisfies RemoteCommand });
-        }
-        else await audioEngine.play(track, track.fadeInMs, volumeMultiplier, outputId);
-        return track.id;
+          socket?.emit('remote-command', { projectId: detail.project.id, command: { type: 'run-action', trackId: track.id, action: replacesPlayback ? 'start' : action, volumeMultiplier, outputId } satisfies RemoteCommand });
+        } else if (replacesPlayback) {
+          await audioEngine.play(track, track.fadeInMs, volumeMultiplier, outputId, expiresAtMs);
+        } else await audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, outputId);
+        return action === 'stop' ? undefined : track.id;
       } catch (cause) { setError(cause instanceof Error ? cause.message : 'Lancement impossible.'); return undefined; }
     }));
     return results.filter((id): id is string => Boolean(id));
@@ -895,23 +936,24 @@ export default function App() {
     const startsPlayback = action === 'start' || action === 'crossfade' || action === 'fade-in' || action === 'replace';
     const volumeMultiplier = startsPlayback ? consumeNextTrackVolume() : undefined;
     if (remote && detail) {
-      socket?.emit('remote-command', { projectId: detail.project.id, command: { type: 'run-action', trackId: track.id, action, volumeMultiplier } satisfies RemoteCommand });
+      socket?.emit('remote-command', { projectId: detail.project.id, command: { type: 'run-action', trackId: track.id, action, volumeMultiplier, soundboard: true } satisfies RemoteCommand });
       return;
     }
-    const run = () => audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, shortcutLaunchOutputId());
+    const run = () => audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, shortcutLaunchOutputId(), interruptPlaylistForSoundboard(action));
     if (startsPlayback && isVideoTrack(track) && !videoEngine.getState().connected) {
       setPendingVideo({ title: track.title, run });
       setProjectionOpen(true);
       return;
     }
     run().catch((cause) => setError(cause.message));
-  }, [consumeNextTrackVolume, detail, remote, shortcutLaunchOutputId, socket]);
+  }, [consumeNextTrackVolume, detail, interruptPlaylistForSoundboard, remote, shortcutLaunchOutputId, socket]);
 
   const playTrackOnOutput = useCallback((track: Track, outputId: string) => {
     if (remote || !routedBridgeOutputs.some((output) => output.id === outputId)) return;
     const volumeMultiplier = consumeNextTrackVolume();
+    interruptPlaylistForSoundboard('start');
     audioEngine.play(track, track.fadeInMs, volumeMultiplier, outputId).catch((cause) => setError(cause.message));
-  }, [consumeNextTrackVolume, remote, routedBridgeOutputs]);
+  }, [consumeNextTrackVolume, interruptPlaylistForSoundboard, remote, routedBridgeOutputs]);
 
   const startPlaylistRow = useCallback(async (row: (typeof playlistQueueRows)[number], index: number, fadeInMs?: number): Promise<string[]> => {
     const tracks = row.items.flatMap((item) => {
@@ -925,8 +967,7 @@ export default function App() {
     playlistLaunchAbortRef.current = launchController;
     const generation = ++playlistRunGenerationRef.current;
     playlistRunRef.current = true;
-    playlistPlayedRowIdsRef.current.add(row.id);
-    setPlaylistCurrentIndex(index);
+    setPlaylistPaused(false);
     try {
       const expiresAtMs = await audioEngine.preparePlayback(tracks, launchController.signal);
       if (generation !== playlistRunGenerationRef.current) return [];
@@ -940,6 +981,10 @@ export default function App() {
       }
       if (playbackIds.length === 0) throw new Error(failureMessage ?? 'Aucun morceau de la rangée n’a pu démarrer.');
       if (playbackIds.length < tracks.length) setError(failureMessage ?? 'Certains morceaux de la rangée n’ont pas pu démarrer.');
+      playlistPendingIndexRef.current = undefined;
+      playlistPlayedRowIdsRef.current.add(row.id);
+      setPlaylistCurrentIndex(index);
+      for (const id of playbackIds) playlistOwnedIdsRef.current.add(id);
       setPlaylistPlaybackIds(playbackIds);
       return playbackIds;
     } catch (cause) {
@@ -955,6 +1000,7 @@ export default function App() {
   const playPlaylistAt = useCallback(async (index: number, fadeInMs?: number): Promise<string[]> => {
     const row = playlistQueueRows[index];
     if (!row) return [];
+    playlistPendingIndexRef.current = index;
     return startPlaylistRow(row, index, fadeInMs);
   }, [playlistQueueRows, startPlaylistRow]);
 
@@ -984,6 +1030,7 @@ export default function App() {
       return;
     }
     if (playlistOptions.gapMs > 0) {
+      playlistPendingIndexRef.current = nextIndex;
       playlistAdvanceTimerRef.current = window.setTimeout(() => {
         playlistAdvanceTimerRef.current = undefined;
         if (playlistRunRef.current) playPlaylistAt(nextIndex).catch(() => undefined);
@@ -1010,13 +1057,16 @@ export default function App() {
       if (!playlistRunRef.current || playlistTransitioningRef.current) return;
       playlistTransitioningRef.current = true;
       const outgoingPlaybackIds = [...playlistPlaybackIds];
-      playPlaylistAt(nextIndex, crossfadeMs).then((nextPlaybackIds) => {
+      const transition = playPlaylistAt(nextIndex, crossfadeMs);
+      const generation = playlistRunGenerationRef.current;
+      transition.then((nextPlaybackIds) => {
+        if (generation !== playlistRunGenerationRef.current) return;
         if (nextPlaybackIds.length > 0) for (const playbackId of outgoingPlaybackIds) audioEngine.stopInstance(playbackId, crossfadeMs);
         else {
           for (const playbackId of outgoingPlaybackIds) audioEngine.stopInstance(playbackId, 0);
           setPlaylistPlaybackIds([]);
         }
-      }).finally(() => { playlistTransitioningRef.current = false; });
+      }).finally(() => { if (generation === playlistRunGenerationRef.current) playlistTransitioningRef.current = false; });
     }, Math.max(0, remainingMs - crossfadeMs));
     return () => window.clearTimeout(timer);
   }, [detail?.tracks, nextPlaylistIndex, playPlaylistAt, playlistCurrentIndex, playlistOptions.crossfadeMs, playlistPlayback, playlistPlaybackIds, playlistQueueRows]);
@@ -1028,23 +1078,30 @@ export default function App() {
   }
 
   function stopPlaylistPlayback() {
+    setPlaylistPaused(false);
+    playlistPendingIndexRef.current = undefined;
     playlistRunRef.current = false;
     playlistTransitioningRef.current = false;
     playlistLaunchAbortRef.current?.abort(new Error('Lancement de la playlist annulé.'));
     playlistRunGenerationRef.current += 1;
     clearPlaylistAdvanceTimer();
-    for (const playbackId of playlistPlaybackIds) audioEngine.stopInstance(playbackId, 0);
+    for (const playbackId of playlistOwnedIdsRef.current) audioEngine.stopInstance(playbackId, 0);
+    playlistOwnedIdsRef.current.clear();
     setPlaylistPlaybackIds([]);
   }
 
   function playPausePlaylist() {
     if (playlistPlaybacks.length > 0) {
-      for (const playback of playlistPlaybacks) audioEngine.togglePauseInstance(playback.id);
+      const resume = playlistPaused || playlistPlaybacks.every((playback) => playback.paused);
+      playlistRunRef.current = resume;
+      setPlaylistPaused(!resume);
+      clearPlaylistAdvanceTimer();
+      for (const playback of playlistPlaybacks) if (playback.paused === resume) audioEngine.togglePauseInstance(playback.id);
       return;
     }
     clearPlaylistAdvanceTimer();
     playlistPlayedRowIdsRef.current.clear();
-    playPlaylistAt(Math.min(playlistCurrentIndex, Math.max(0, playlistQueueRows.length - 1))).catch(() => undefined);
+    playPlaylistAt(Math.min(playlistPendingIndexRef.current ?? playlistCurrentIndex, Math.max(0, playlistQueueRows.length - 1))).catch(() => undefined);
   }
 
   function playPlaylistRow(index: number) {
@@ -1121,6 +1178,9 @@ export default function App() {
   }
 
   function resetPlaylistEditor() {
+    setPlaylistPaused(false);
+    playlistPendingIndexRef.current = undefined;
+    playlistOwnedIdsRef.current.clear();
     playlistRunRef.current = false;
     playlistTransitioningRef.current = false;
     playlistLaunchAbortRef.current?.abort(new Error('Lancement de la playlist annulé.'));
@@ -1130,7 +1190,7 @@ export default function App() {
     setPlaylistItems([]);
     setLoadedPlaylistId(undefined);
     setPlaylistCurrentIndex(0);
-    setPlaylistOptions({ name: 'Nouvelle playlist', color: detail?.colors[0]?.color ?? '#8b5cf6', autostart: false, loop: false, random: false, showNextButton: false, gapMs: 0, crossfadeMs: 0 });
+    setPlaylistOptions({ name: 'Nouvelle playlist', color: detail?.colors[0]?.color ?? '#8b5cf6', autostart: false, loop: false, random: false, showNextButton: false, gapMs: 0, crossfadeMs: 0, soundboardBehavior: 'continue' });
     setPlaylistOptionsOpen(false);
     playlistPlayedRowIdsRef.current.clear();
   }
@@ -1147,7 +1207,7 @@ export default function App() {
       .filter((item) => detail?.tracks.some((track) => track.id === item.trackId));
     const items = playlistQueueItems(entries, () => crypto.randomUUID());
     setPlaylistItems(items);
-    setPlaylistOptions({ name: playlist.name, color: playlist.color, autostart: playlist.autostart, loop: playlist.loop, random: playlist.random, showNextButton: playlist.showNextButton ?? false, gapMs: playlist.gapMs ?? 0, crossfadeMs: playlist.crossfadeMs ?? 0 });
+    setPlaylistOptions({ name: playlist.name, color: playlist.color, autostart: playlist.autostart, loop: playlist.loop, random: playlist.random, showNextButton: playlist.showNextButton ?? false, gapMs: playlist.gapMs ?? 0, crossfadeMs: playlist.crossfadeMs ?? 0, soundboardBehavior: playlist.soundboardBehavior ?? 'continue' });
     setLoadedPlaylistId(playlist.id);
     setPlaylistCurrentIndex(0);
     setPlaylistOptionsOpen(false);
@@ -1284,7 +1344,7 @@ export default function App() {
         event.preventDefault();
         if (!event.repeat || repeat) callback();
       };
-      if (quickLaunch.state.enabled && quickLaunch.tracks.length > 0 && !document.querySelector('[aria-modal="true"], .dialog-backdrop') && shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'quickLaunchShortcut'))) return run(() => { void launchQuickTracks(); });
+      if (quickLaunch.state.enabled && quickLaunch.tracks.length > 0 && !document.querySelector('[aria-modal="true"], .dialog-backdrop') && shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'quickLaunchShortcut'))) return run(() => { void launchQuickTracks(undefined, detail.project.keyboardAction ?? 'start'); });
       if (shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'nextCategoryShortcut'))) return run(() => moveCategory(1));
       if (shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'previousCategoryShortcut'))) return run(() => moveCategory(-1));
       if (shortcutMatchesKeyboardEvent(event, projectShortcut(detail.project, 'loadCategoryShortcut'))) return run(() => { preloadCategory().catch(() => undefined); });
@@ -2360,7 +2420,7 @@ export default function App() {
   function renderPlaylistContent() {
     if (remote) return null;
     if (!playlistsEnabled) return <div className="players-empty plan-feature-unavailable"><LockKeyhole size={24} /><strong>Playlists indisponibles</strong><span>Cette fonctionnalité n’est pas incluse dans votre forfait.</span></div>;
-    return <PlaylistPanel items={playlistItems} tracks={detail?.tracks ?? []} colors={detail?.colors ?? []} options={playlistOptions} currentRowIndex={playlistCurrentIndex} maxGroupSize={detail?.project.maxPlaylistGroupSize ?? 4} playbackActive={playlistPlaybacks.length > 0} playbackPaused={playlistPlaybacks.length > 0 && playlistPlaybacks.every((playback) => playback.paused)} saved={Boolean(loadedPlaylistId)} saving={playlistSaving} optionsOpen={playlistOptionsOpen} onOptionsOpenChange={setPlaylistOptionsOpen} onOptionsChange={(patch) => setPlaylistOptions((current) => ({ ...current, ...patch }))} onDropTrack={addTrackToPlaylist} onMoveItem={movePlaylistItem} onRemoveItem={removePlaylistItem} onPlayRow={playPlaylistRow} onPlayPause={playPausePlaylist} onStop={stopPlaylistPlayback} onNext={skipPlaylistRow} onSave={() => saveCurrentPlaylist().catch(() => undefined)} onDelete={() => deleteCurrentPlaylist().catch(() => undefined)} onClear={clearPlaylist} />;
+    return <PlaylistPanel items={playlistItems} tracks={detail?.tracks ?? []} colors={detail?.colors ?? []} options={playlistOptions} currentRowIndex={playlistCurrentIndex} maxGroupSize={detail?.project.maxPlaylistGroupSize ?? 4} playbackActive={playlistPlaybacks.length > 0 || playlistPaused} playbackPaused={playlistPaused || (playlistPlaybacks.length > 0 && playlistPlaybacks.every((playback) => playback.paused))} saved={Boolean(loadedPlaylistId)} saving={playlistSaving} optionsOpen={playlistOptionsOpen} onOptionsOpenChange={setPlaylistOptionsOpen} onOptionsChange={(patch) => setPlaylistOptions((current) => ({ ...current, ...patch }))} onDropTrack={addTrackToPlaylist} onMoveItem={movePlaylistItem} onRemoveItem={removePlaylistItem} onPlayRow={playPlaylistRow} onPlayPause={playPausePlaylist} onStop={stopPlaylistPlayback} onNext={skipPlaylistRow} onSave={() => saveCurrentPlaylist().catch(() => undefined)} onDelete={() => deleteCurrentPlaylist().catch(() => undefined)} onClear={clearPlaylist} />;
   }
 
   const quickLaunchAttached = stackedWorkspaceLayout || (workspaceLayout.quickLaunchAttached !== false && workspaceItemIsDocked(workspaceLayout, 'quickLaunch'));
@@ -2440,7 +2500,7 @@ export default function App() {
 
   function renderQuickLaunchContent() {
     return <QuickLaunchPanel state={quickLaunch.state} tracks={quickLaunch.tracks} shortcut={formatShortcut(projectShortcut(detail?.project ?? {}, 'quickLaunchShortcut'))}
-        onUpdate={quickLaunch.update} onLaunch={(id) => { void launchQuickTracks(id); }}
+        onUpdate={quickLaunch.update} onLaunch={(id, secondary) => { void launchQuickTracks(id, secondary ? detail?.project.rightClickAction ?? 'crossfade' : detail?.project.leftClickAction ?? 'start'); }}
         onDropTracks={(ids) => { void quickLaunch.add(ids).catch((cause) => setError(cause instanceof Error ? cause.message : 'Préchargement du départ rapide impossible.')); }} />;
   }
 
@@ -2582,7 +2642,7 @@ export default function App() {
 
       <section className="dashboard" aria-label="Tableau de bord des morceaux">
         <div className="dashboard-search-group">
-        <div className="search"><div className="search-scope" role="group" aria-label="Filtres de recherche cumulables"><button type="button" className={searchScopes.has('name') ? 'active' : ''} aria-pressed={searchScopes.has('name')} onClick={() => toggleSearchScope('name')}>Noms</button><button type="button" className={searchScopes.has('tags') ? 'active' : ''} aria-pressed={searchScopes.has('tags')} onClick={() => toggleSearchScope('tags')}>Tags</button><button type="button" className={searchScopes.has('subcategories') ? 'active' : ''} aria-pressed={searchScopes.has('subcategories')} onClick={() => toggleSearchScope('subcategories')}>SC</button></div><Search size={18} /><input ref={searchInputRef} aria-label="Rechercher dans les filtres actifs" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher…" /><span className="search-end-actions">{isSearching && <button type="button" className="search-clear" onClick={() => { setSearch(''); searchInputRef.current?.focus(); }} aria-label="Annuler la recherche" title="Effacer la recherche"><X size={16} /></button>}{!remote && <button type="button" className="search-openverse" onClick={() => { setOpenverseAutoSearch(true); setOpenverseOpen(true); }} aria-label={search.trim() ? `Rechercher « ${search.trim()} » sur Openverse` : 'Ouvrir la recherche Openverse'} title={search.trim() ? `Rechercher « ${search.trim()} » sur Openverse` : 'Rechercher sur Openverse'}><Waves size={17} /></button>}<kbd>{formatShortcut(projectShortcut(detail?.project ?? {}, 'searchShortcut'))}</kbd></span></div>
+        <SearchScopeControl scopes={searchScopes} onToggle={toggleSearchScope}><Search size={18} /><input ref={searchInputRef} aria-label="Rechercher dans les filtres actifs" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher…" /><span className="search-end-actions">{isSearching && <button type="button" className="search-clear" onClick={() => { setSearch(''); searchInputRef.current?.focus(); }} aria-label="Annuler la recherche" title="Effacer la recherche"><X size={16} /></button>}{!remote && <button type="button" className="search-openverse" onClick={() => { setOpenverseAutoSearch(true); setOpenverseOpen(true); }} aria-label={search.trim() ? `Rechercher « ${search.trim()} » sur Openverse` : 'Ouvrir la recherche Openverse'} title={search.trim() ? `Rechercher « ${search.trim()} » sur Openverse` : 'Rechercher sur Openverse'}><Waves size={17} /></button>}<kbd>{formatShortcut(projectShortcut(detail?.project ?? {}, 'searchShortcut'))}</kbd></span></SearchScopeControl>
         {(detail?.tracks.some(isVideoTrack) || mediaFilter !== 'all') && <select className="media-filter" aria-label="Type de média" value={mediaFilter} onChange={(event) => setMediaFilter(event.target.value as 'all' | 'audio' | 'video')}><option value="all">Tous les médias</option><option value="audio">Audio</option><option value="video">Vidéo</option></select>}
         </div>
         <div className="dashboard-actions">

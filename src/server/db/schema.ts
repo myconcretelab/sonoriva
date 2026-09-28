@@ -283,6 +283,7 @@ export const playlists = pgTable('playlists', {
   showNextButton: boolean('show_next_button').notNull().default(false),
   gapMs: integer('gap_ms').notNull().default(0),
   crossfadeMs: integer('crossfade_ms').notNull().default(0),
+  soundboardBehavior: text('soundboard_behavior').notNull().default('continue'),
   position: real('position').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

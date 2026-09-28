@@ -4,7 +4,7 @@ import { playlistRows, type PlaylistItemPlacement, type PlaylistQueueItem } from
 import type { ProjectColor, Track } from '../types';
 
 export type { PlaylistQueueItem } from '../lib/playlist-rows';
-export interface PlaylistOptions { name: string; color: string; autostart: boolean; loop: boolean; random: boolean; showNextButton: boolean; gapMs: number; crossfadeMs: number }
+export interface PlaylistOptions { name: string; color: string; autostart: boolean; loop: boolean; random: boolean; showNextButton: boolean; gapMs: number; crossfadeMs: number; soundboardBehavior?: 'continue' | 'pause' | 'stop' }
 
 interface Props {
   items: PlaylistQueueItem[];
@@ -136,6 +136,11 @@ export function PlaylistPanel({ items, tracks, colors, options, currentRowIndex,
     {optionsOpen && <div className="playlist-options">
       <label>Nom<input value={options.name} maxLength={120} onChange={(event) => onOptionsChange({ name: event.target.value })} /></label>
       <label>Couleur<div className="playlist-color-choice"><input type="color" value={options.color} onChange={(event) => onOptionsChange({ color: event.target.value })} />{colors.map((item) => <button type="button" key={item.id} className={item.color.toLowerCase() === options.color.toLowerCase() ? 'active' : ''} style={{ '--swatch-color': item.color } as React.CSSProperties} onClick={() => onOptionsChange({ color: item.color })} aria-label={`Couleur ${item.color}`} />)}</div></label>
+      <label>Au lancement d’un son du soundboard<select value={options.soundboardBehavior ?? 'continue'} onChange={(event) => onOptionsChange({ soundboardBehavior: event.target.value as 'continue' | 'pause' | 'stop' })}>
+        <option value="continue">Continuer la playlist</option>
+        <option value="pause">Mettre la playlist en pause</option>
+        <option value="stop">Arrêter la playlist</option>
+      </select></label>
       <div className="playlist-option-switches">
         <label><input type="checkbox" checked={options.autostart} onChange={(event) => onOptionsChange({ autostart: event.target.checked })} /><Zap size={13} />Autostart</label>
         <label><input type="checkbox" checked={options.loop} onChange={(event) => onOptionsChange({ loop: event.target.checked })} /><Repeat2 size={13} />Boucle</label>

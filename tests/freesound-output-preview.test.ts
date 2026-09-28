@@ -95,3 +95,14 @@ describe('préécoute Openverse par sortie', () => {
     expect(merged.hasNext).toBe(true);
   });
 });
+
+it('filtre précisément les durées, bornes inclusives, et permet de retirer les limites', () => {
+  const results = [0.5, 1, 2, 3, 5].map((durationSeconds, index) => ({ ...openverseSound(String(index), 'freesound'), durationSeconds }));
+  const sources = new Set<OpenverseSound['source']>(['freesound']);
+  expect(filterOpenverseResults(results, sources, 1, 3).map(sound => sound.durationSeconds)).toEqual([1, 2, 3]);
+  expect(filterOpenverseResults(results, sources, undefined, 0.5)).toHaveLength(1);
+  expect(filterOpenverseResults(results, sources, 3)).toHaveLength(2);
+  expect(filterOpenverseResults(results, sources)).toHaveLength(5);
+  expect(filterOpenverseResults(results, sources, 5, 1)).toHaveLength(0);
+  expect(filterOpenverseResults(results, new Set(['jamendo']), 1, 3)).toHaveLength(0);
+});

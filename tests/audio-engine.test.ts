@@ -217,6 +217,22 @@ describe('audio player instance controls', () => {
     expect(localStorage.getItem('sonoriva-audio-output-v1')).toBeNull();
   });
 
+  it.each(['replace', 'crossfade'] as const)('préserve une lecture de playlist en cours ou en pause lors de %s', async (action) => {
+    audioEngine.stopAll([track], 0);
+    const playlistId = await audioEngine.play(track, 0);
+    const otherId = await audioEngine.play(track, 0);
+    const protectedIds = new Set([playlistId]);
+    await audioEngine.runAction(action, track, [track], 1, undefined, protectedIds);
+    expect(latest.some(item => item.id === playlistId && !item.paused)).toBe(true);
+    expect(latest.some(item => item.id === otherId)).toBe(false);
+    audioEngine.togglePauseInstance(playlistId);
+    await audioEngine.runAction(action, track, [track], 1, undefined, protectedIds);
+    expect(latest.some(item => item.id === playlistId && item.paused)).toBe(true);
+    audioEngine.togglePauseInstance(playlistId);
+    expect(latest.some(item => item.id === playlistId && !item.paused)).toBe(true);
+    audioEngine.stopAll([track], 0);
+  });
+
   it('notifie les contrôles de régie lorsque la sortie change', async () => {
     let notifications = 0;
     const unsubscribeRouting = audioEngine.subscribeRouting(() => { notifications += 1; });

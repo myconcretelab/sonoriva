@@ -51,16 +51,14 @@ describe('départ rapide', () => {
 
   it('restaure uniquement des préférences valides et déduplique les sons', () => {
     expect(readQuickLaunch('{')).toEqual(defaultQuickLaunchState);
-    expect(readQuickLaunch(null).replace).toBe(true);
-    expect(readQuickLaunch('{}').replace).toBe(true);
-    expect(readQuickLaunch('{"replace":false}').replace).toBe(false);
+    expect(readQuickLaunch('{"replace":true}')).not.toHaveProperty('replace');
     expect(readQuickLaunch(JSON.stringify({ enabled: true, size: 'bad', trackIds: ['a', 1, 'a', 'b'] }))).toMatchObject({ enabled: true, size: 'medium', trackIds: ['a', 'b'] });
   });
-  it('lance la zone ensemble, conserve les sons par défaut et transmet le remplacement', async () => {
+  it('lance la zone ensemble, conserve les sons par défaut et transmet l’action choisie', async () => {
     const view = setup();
-    act(() => view.current.update({ enabled: true, replace: true, trackIds: ['a', 'b', 'deleted'] }));
-    await act(() => view.current.launch());
-    expect(view.play).toHaveBeenCalledWith(tracks, true);
+    act(() => view.current.update({ enabled: true, trackIds: ['a', 'b', 'deleted'] }));
+    await act(() => view.current.launch(undefined, 'replace'));
+    expect(view.play).toHaveBeenCalledWith(tracks, 'replace');
     expect(view.current.tracks).toEqual(tracks);
     expect(view.current.state.trackIds).toContain('a');
   });
@@ -68,7 +66,7 @@ describe('départ rapide', () => {
     const view = setup(vi.fn(async () => ['a']));
     act(() => view.current.update({ enabled: true, removeAfterLaunch: true, trackIds: ['a', 'b'] }));
     await act(() => view.current.launch('a'));
-    expect(view.play).toHaveBeenCalledWith([tracks[0]], true);
+    expect(view.play).toHaveBeenCalledWith([tracks[0]], 'start');
     expect(view.current.state.trackIds).toEqual(['b']);
   });
   it('ignore une zone masquée ou vide et isole les spectacles', async () => {
@@ -116,10 +114,27 @@ describe('départ rapide', () => {
     expect(onDropTracks).toHaveBeenCalledWith(['a']);
     act(() => element.querySelector<HTMLButtonElement>('[aria-label="Lancer le départ rapide"]')!.click());
     expect(onLaunch).toHaveBeenCalledWith();
+    for (const [selector, id] of [['.quick-launch-play', undefined], ['.quick-launch-pad', 'a']] as const) {
+      const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+      act(() => element.querySelector(selector)!.dispatchEvent(event));
+      expect(event.defaultPrevented).toBe(true);
+      expect(onLaunch).toHaveBeenLastCalledWith(id, true);
+    }
+    expect(element.querySelector('[aria-label="Remplacer les lectures en cours"]')).toBeNull();
     act(() => element.querySelector<HTMLButtonElement>('[aria-label="Options du départ rapide"]')!.click());
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.querySelector('[role="dialog"]')!.textContent).not.toContain('Remplacer les lectures en cours');
     act(() => document.querySelector<HTMLButtonElement>('[aria-label="Fermer"]')!.click());
     act(() => element.querySelector<HTMLButtonElement>('[aria-label="Vider le départ rapide"]')!.click());
     expect(onUpdate).toHaveBeenCalledWith({ trackIds: [] });
   });
+});
+
+it.each(['start', 'crossfade', 'fade-in', 'replace', 'stop', 'none'] as const)('transmet l’action %s sans préférence de remplacement propre à la fusée', async (action) => {
+  const play = vi.fn(async () => action === 'none' || action === 'stop' ? [] : ['a']);
+  const view = setup(play);
+  act(() => view.current.update({ enabled: true, removeAfterLaunch: true, trackIds: ['a', 'b'] }));
+  await act(() => view.current.launch('a', action));
+  expect(play).toHaveBeenCalledWith([tracks[0]], action);
+  expect(view.current.state.trackIds).toEqual(action === 'stop' || action === 'none' ? ['a', 'b'] : ['b']);
 });

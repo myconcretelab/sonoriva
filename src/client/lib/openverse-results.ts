@@ -1,7 +1,9 @@
 import type { OpenverseSearchResult, OpenverseSound, OpenverseSource } from '../types';
 
-export function filterOpenverseResults(results: OpenverseSound[], sources: Set<OpenverseSource>): OpenverseSound[] {
-  return results.filter((sound) => sources.has(sound.source));
+export function filterOpenverseResults(results: OpenverseSound[], sources: Set<OpenverseSource>, minDuration?: number, maxDuration?: number): OpenverseSound[] {
+  return results.filter((sound) => sources.has(sound.source)
+    && (minDuration === undefined || sound.durationSeconds >= minDuration)
+    && (maxDuration === undefined || sound.durationSeconds <= maxDuration));
 }
 
 export function mergeOpenverseResults(current: OpenverseSearchResult, incoming: OpenverseSearchResult): OpenverseSearchResult {

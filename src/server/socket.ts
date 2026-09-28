@@ -16,6 +16,7 @@ const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('stop-last'), immediate: z.boolean() }),
   z.object({
     type: z.literal('run-action'),
+    soundboard: z.boolean().optional(),
     trackId: z.string().uuid(),
     action: z.enum(['start', 'crossfade', 'fade-in', 'replace', 'stop', 'none']),
     volumeMultiplier: z.number().min(0).max(1).optional(),
