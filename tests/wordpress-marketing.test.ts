@@ -39,6 +39,7 @@ describe('site de présentation WordPress', () => {
     expect(deploy).toContain('!has_blocks');
     expect(themeFile('inc/home-content.php')).toContain('preg_replace_callback');
     expect(themeFile('inc/home-content.php')).toContain("$hero_logo_count === 1");
+    expect(readFileSync(new URL('../scripts/update-wordpress-soundboard.php', import.meta.url), 'utf8')).toContain('wp_strip_all_tags');
   });
 
   it('utilise le nouveau logo et protège le menu mobile du contenu de page', () => {

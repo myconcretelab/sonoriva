@@ -20,7 +20,9 @@ $content = str_replace([
     'SonoRiva réunit la préparation, l’organisation et la lecture des sons dans une régie web conçue pour le spectacle vivant. Elle fonctionne dans le navigateur et reste disponible localement lorsque le réseau devient incertain — au théâtre, en improvisation, en école ou en tournée.',
     'SonoRiva réunit la préparation, l’organisation et la lecture d’un spectacle dans une régie qui fonctionne dans le navigateur — et localement quand le réseau devient incertain.',
 ], $intro, $content);
-if (substr_count($content, $heading) !== 1 || substr_count($content, $intro) !== 1) {
+$visible_content = html_entity_decode(wp_strip_all_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+$visible_content = preg_replace('~\s+~u', ' ', $visible_content) ?? $visible_content;
+if (substr_count($visible_content, $heading) !== 1 || substr_count($visible_content, $intro) !== 1) {
     throw new RuntimeException('Le contenu attendu a changé : aucune modification appliquée.');
 }
 if ($content !== $page->post_content) {
