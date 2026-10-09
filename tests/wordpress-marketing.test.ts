@@ -53,4 +53,24 @@ describe('site de présentation WordPress', () => {
     expect(styles).toContain('background-color: #DBEDF7');
     expect(styles).toContain('.sr-hero-grid > .wp-block-column:last-child { display: none; }');
   });
+
+  it('publie un blog SEO avec cinq articles factuels et datés', () => {
+    const archive = themeFile('home.php');
+    const single = themeFile('single.php');
+    const articles = themeFile('inc/blog-content.php');
+    const functions = themeFile('functions.php');
+    const publisher = readFileSync(new URL('../scripts/update-wordpress-blog.php', import.meta.url), 'utf8');
+
+    expect(articles.match(/^ {8}'[a-z0-9-]+' => \[$/gm)).toHaveLength(5);
+    expect(articles).toContain("'date' => '2026-01-22 10:00:00'");
+    expect(articles).toContain("'date' => '2026-08-27 10:00:00'");
+    expect(articles).toContain('Ce cache est local');
+    expect(articles).toContain('une seule session de connexion active par compte');
+    expect(archive).toContain('Tous les articles');
+    expect(single).toContain("the_content()");
+    expect(functions).toContain("'@type' => $is_blog_post ? 'Article'");
+    expect(functions).toContain("'datePublished'");
+    expect(publisher).toContain("update_option('page_for_posts'");
+    expect(publisher).toContain("'_sonoriva_editorial_source'");
+  });
 });

@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 require_once get_template_directory() . '/inc/home-content.php';
 require_once get_template_directory() . '/inc/page-content.php';
 require_once get_template_directory() . '/inc/soundshow-content.php';
+require_once get_template_directory() . '/inc/blog-content.php';
 
 function sonoriva_marketing_setup(): void
 {
@@ -77,25 +78,58 @@ function sonoriva_marketing_document_title(string $title): string
     if (is_page('alternative-soundshow')) {
         return 'Alternative cloud à SoundShow | SonoRiva';
     }
+    if (is_home()) {
+        return 'Blog régie son, théâtre et spectacle vivant | SonoRiva';
+    }
+    if (is_singular('post')) {
+        return get_the_title() . ' | SonoRiva';
+    }
     return $title;
 }
 add_filter('pre_get_document_title', 'sonoriva_marketing_document_title');
 
+/** Return the editorial image configured for a versioned article. */
+function sonoriva_marketing_blog_image(string $slug): array
+{
+    $article = sonoriva_marketing_blog_articles()[$slug] ?? [];
+    return [
+        'url' => get_template_directory_uri() . '/assets/images/' . ($article['image'] ?? 'app-regie-full.png'),
+        'alt' => $article['image_alt'] ?? 'Interface de la régie son cloud SonoRiva',
+    ];
+}
+
 function sonoriva_marketing_seo_head(): void
 {
-    if (!is_front_page() && !is_page('alternative-soundshow')) {
+    if (!is_front_page() && !is_page('alternative-soundshow') && !is_home() && !is_singular('post')) {
         return;
     }
 
     $is_soundshow_page = is_page('alternative-soundshow');
-    $title = $is_soundshow_page
-        ? 'Alternative cloud à SoundShow | SonoRiva'
-        : 'Soundboard en ligne pour théâtre et spectacle | SonoRiva';
-    $description = $is_soundshow_page
-        ? 'Importez un projet SoundShow dans SonoRiva et retrouvez une régie son cloud avec Freesound, multi-lecture, catégories, sorties audio et mode hors ligne.'
-        : 'Soundboard en ligne pour le théâtre et le spectacle vivant. Préparez, organisez et déclenchez vos sons dans le navigateur avec SonoRiva. Version gratuite.';
-    $url = $is_soundshow_page ? home_url('/alternative-soundshow/') : home_url('/');
-    $image = get_template_directory_uri() . '/assets/images/app-regie-full.png';
+    $is_blog_home = is_home();
+    $is_blog_post = is_singular('post');
+    if ($is_blog_post) {
+        $post_id = get_queried_object_id();
+        $title = get_the_title($post_id) . ' | SonoRiva';
+        $description = get_the_excerpt($post_id);
+        $url = get_permalink($post_id);
+        $editorial_image = sonoriva_marketing_blog_image((string) get_post_field('post_name', $post_id));
+    } elseif ($is_blog_home) {
+        $title = 'Blog régie son, théâtre et spectacle vivant | SonoRiva';
+        $description = 'Guides et cas concrets sur la régie son cloud, le théâtre, l’improvisation et les compagnies en tournée.';
+        $url = home_url('/blog/');
+        $editorial_image = sonoriva_marketing_blog_image('soundboard-cloud-theatre-2026');
+    } elseif ($is_soundshow_page) {
+        $title = 'Alternative cloud à SoundShow | SonoRiva';
+        $description = 'Importez un projet SoundShow dans SonoRiva et retrouvez une régie son cloud avec Freesound, multi-lecture, catégories, sorties audio et mode hors ligne.';
+        $url = home_url('/alternative-soundshow/');
+        $editorial_image = sonoriva_marketing_blog_image('soundboard-cloud-theatre-2026');
+    } else {
+        $title = 'Soundboard en ligne pour théâtre et spectacle | SonoRiva';
+        $description = 'Soundboard en ligne pour le théâtre et le spectacle vivant. Préparez, organisez et déclenchez vos sons dans le navigateur avec SonoRiva. Version gratuite.';
+        $url = home_url('/');
+        $editorial_image = sonoriva_marketing_blog_image('soundboard-cloud-theatre-2026');
+    }
+    $image = $editorial_image['url'];
 
     // SEOPress owns the description when active; retain the theme fallback otherwise.
     if (!defined('SEOPRESS_VERSION')) {
@@ -106,12 +140,12 @@ function sonoriva_marketing_seo_head(): void
     echo '<meta property="og:site_name" content="SonoRiva">' . "\n";
     echo '<meta property="og:title" content="' . esc_attr($title) . '">' . "\n";
     echo '<meta property="og:description" content="' . esc_attr($description) . '">' . "\n";
-    echo '<meta property="og:type" content="website">' . "\n";
+    echo '<meta property="og:type" content="' . ($is_blog_post ? 'article' : 'website') . '">' . "\n";
     echo '<meta property="og:url" content="' . esc_url($url) . '">' . "\n";
     echo '<meta property="og:image" content="' . esc_url($image) . '">' . "\n";
     echo '<meta property="og:image:width" content="1600">' . "\n";
     echo '<meta property="og:image:height" content="1050">' . "\n";
-    echo '<meta property="og:image:alt" content="Interface de la régie son cloud SonoRiva">' . "\n";
+    echo '<meta property="og:image:alt" content="' . esc_attr($editorial_image['alt']) . '">' . "\n";
     echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
     echo '<meta name="twitter:title" content="' . esc_attr($title) . '">' . "\n";
     echo '<meta name="twitter:description" content="' . esc_attr($description) . '">' . "\n";
@@ -171,7 +205,7 @@ function sonoriva_marketing_seo_head(): void
             'publisher' => ['@id' => $organization_id],
         ],
         [
-            '@type' => 'WebPage',
+            '@type' => $is_blog_post ? 'Article' : ($is_blog_home ? 'CollectionPage' : 'WebPage'),
             '@id' => $url . '#webpage',
             'url' => $url,
             'name' => $title,
@@ -183,14 +217,28 @@ function sonoriva_marketing_seo_head(): void
         ],
     ];
 
-    if ($is_soundshow_page) {
+    if ($is_blog_post) {
+        $graph[3]['datePublished'] = get_the_date(DATE_W3C, $post_id);
+        $graph[3]['dateModified'] = get_the_modified_date(DATE_W3C, $post_id);
+        $graph[3]['author'] = ['@type' => 'Organization', '@id' => $organization_id, 'name' => 'SonoRiva'];
+        $graph[3]['headline'] = get_the_title($post_id);
+    }
+
+    if ($is_soundshow_page || $is_blog_home || $is_blog_post) {
+        $current_name = $is_soundshow_page ? 'Alternative cloud à SoundShow' : ($is_blog_home ? 'Blog' : get_the_title($post_id));
+        $items = [
+            ['@type' => 'ListItem', 'position' => 1, 'name' => 'Accueil', 'item' => home_url('/')],
+        ];
+        if ($is_blog_post) {
+            $items[] = ['@type' => 'ListItem', 'position' => 2, 'name' => 'Blog', 'item' => home_url('/blog/')];
+            $items[] = ['@type' => 'ListItem', 'position' => 3, 'name' => $current_name, 'item' => $url];
+        } else {
+            $items[] = ['@type' => 'ListItem', 'position' => 2, 'name' => $current_name, 'item' => $url];
+        }
         $graph[] = [
             '@type' => 'BreadcrumbList',
             '@id' => $url . '#breadcrumb',
-            'itemListElement' => [
-                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Accueil', 'item' => home_url('/')],
-                ['@type' => 'ListItem', 'position' => 2, 'name' => 'Alternative cloud à SoundShow', 'item' => $url],
-            ],
+            'itemListElement' => $items,
         ];
     }
 
@@ -203,7 +251,7 @@ add_action('wp_head', 'sonoriva_marketing_seo_head', 1);
 
 function sonoriva_marketing_robots(array $robots): array
 {
-    if (!is_front_page() && !is_page('alternative-soundshow')) {
+    if (!is_front_page() && !is_page('alternative-soundshow') && !is_home() && !is_singular('post')) {
         return $robots;
     }
 
@@ -240,6 +288,9 @@ function sonoriva_marketing_body_classes(array $classes): array
     $classes[] = 'sonoriva-site';
     if (is_page('alternative-soundshow')) {
         $classes[] = 'comparison-page-body';
+    }
+    if (is_home() || is_singular('post')) {
+        $classes[] = 'blog-page-body';
     }
     return $classes;
 }

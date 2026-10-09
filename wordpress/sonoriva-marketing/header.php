@@ -26,6 +26,7 @@
         <nav class="primary-nav" id="primary-nav" aria-label="Navigation principale" data-primary-nav>
             <a href="<?php echo esc_url(home_url('/#fonctionnalites')); ?>">Fonctionnalités</a>
             <a href="<?php echo esc_url(home_url('/alternative-soundshow/')); ?>">Alternative SoundShow</a>
+            <a href="<?php echo esc_url(home_url('/blog/')); ?>">Blog</a>
             <a href="<?php echo esc_url(home_url('/#tarifs')); ?>">Offres</a>
             <a href="https://app.sonoriva.fr/docs/">Documentation</a>
             <a href="<?php echo esc_url(home_url('/#faq')); ?>">FAQ</a>

@@ -58,6 +58,7 @@ ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "
 "
 
 ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "cd '$WORDPRESS_ROOT' && php" < "$repo_root/scripts/update-wordpress-soundboard.php"
+ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "cd '$WORDPRESS_ROOT' && php" < "$repo_root/scripts/update-wordpress-blog.php"
 
 expected_card_count=$(curl --fail --silent --show-error "$SONORIVA_PLANS_API_URL" | php -r '
   $data = json_decode(stream_get_contents(STDIN), true);
@@ -101,10 +102,27 @@ grep --fixed-strings --quiet 'Alternative cloud à SoundShow' <<< "$comparison_h
 grep --fixed-strings --quiet 'Import SoundShow' <<< "$comparison_html" || fail "la page alternative SoundShow ne présente pas l'import."
 grep --fixed-strings --quiet 'wp-block-group alignfull comparison-hero' <<< "$comparison_html" || fail "la page alternative SoundShow n'est pas rendue depuis ses blocs Gutenberg."
 
+blog_html=$(curl --fail --silent --show-error "$WORDPRESS_SITE_URL/blog/")
+grep --fixed-strings --quiet 'Régie son,' <<< "$blog_html" || fail "la page du blog n'est pas publiée."
+grep --fixed-strings --quiet 'Tous les articles' <<< "$blog_html" || fail "l'index du blog ne contient pas la liste des articles."
+grep --fixed-strings --quiet 'Pourquoi choisir un soundboard cloud pour le théâtre en 2026 ?' <<< "$blog_html" || fail "l'article sur le soundboard cloud est absent du blog."
+
+for article_slug in \
+  soundboard-cloud-theatre-2026 \
+  regie-son-sans-installer-logiciel \
+  panne-ordinateur-balance-regie-cloud \
+  guide-regie-son-improvisation-theatrale \
+  compagnie-theatre-tournee-synchroniser-sons-techniciens; do
+  article_html=$(curl --fail --silent --show-error "$WORDPRESS_SITE_URL/$article_slug/")
+  grep --fixed-strings --quiet 'application/ld+json' <<< "$article_html" || fail "les données structurées sont absentes de l'article $article_slug."
+  grep --fixed-strings --quiet 'Publié par' <<< "$article_html" || fail "le gabarit éditorial est absent de l'article $article_slug."
+done
+
 robots_txt=$(curl --fail --silent --show-error "$WORDPRESS_SITE_URL/robots.txt")
 grep --fixed-strings --quiet "Sitemap: $WORDPRESS_SITE_URL/wp-sitemap.xml" <<< "$robots_txt" || fail "robots.txt ne référence pas le sitemap WordPress."
 
 sitemap_xml=$(curl --fail --silent --show-error "$WORDPRESS_SITE_URL/wp-sitemap.xml")
 grep --fixed-strings --quiet "$WORDPRESS_SITE_URL/wp-sitemap-posts-page-1.xml" <<< "$sitemap_xml" || fail "l'index de sitemap WordPress ne contient pas les pages."
+grep --fixed-strings --quiet "$WORDPRESS_SITE_URL/wp-sitemap-posts-post-1.xml" <<< "$sitemap_xml" || fail "l'index de sitemap WordPress ne contient pas les articles."
 
 printf 'Site WordPress SonoRiva déployé : %s\n' "$WORDPRESS_SITE_URL"
