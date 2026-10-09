@@ -32,6 +32,19 @@ function sonoriva_marketing_migrate_home_content(string $content): string
         $content = $cleaned;
     }
 
+    $hero_logo_count = 0;
+    $normalized = preg_replace_callback(
+        '~(?:<!-- wp:html -->\s*)?<figure class="sr-hero-logo"[^>]*>.*?</figure>(?:\s*<!-- /wp:html -->)?~s',
+        static function (array $matches) use (&$hero_logo_count): string {
+            $hero_logo_count += 1;
+            return $hero_logo_count === 1 ? $matches[0] : '';
+        },
+        $content
+    );
+    if (is_string($normalized)) {
+        $content = $normalized;
+    }
+
     if (str_contains($content, 'data-hero-logo')) {
         return $content;
     }

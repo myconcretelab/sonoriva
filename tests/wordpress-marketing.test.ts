@@ -37,6 +37,8 @@ describe('site de présentation WordPress', () => {
     expect(deploy).toContain("post_content) === ''");
     expect(deploy).toContain('sonoriva_marketing_classic_content_to_blocks');
     expect(deploy).toContain('!has_blocks');
+    expect(themeFile('inc/home-content.php')).toContain('preg_replace_callback');
+    expect(themeFile('inc/home-content.php')).toContain("$hero_logo_count === 1");
   });
 
   it('utilise le nouveau logo et protège le menu mobile du contenu de page', () => {
