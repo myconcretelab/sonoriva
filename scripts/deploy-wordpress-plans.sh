@@ -82,12 +82,13 @@ for attempt in 1 2 3 4 5; do
 done
 
 card_count=$(grep -o 'class="pricing-card[^"]*"' <<< "$wordpress_html" | wc -l | tr -d ' ' || true)
+wordpress_text=$(php -r 'echo html_entity_decode(strip_tags(stream_get_contents(STDIN)), ENT_QUOTES | ENT_HTML5, "UTF-8");' <<< "$wordpress_html")
 [[ "$card_count" -eq "$expected_card_count" ]] || fail "le site WordPress affiche $card_count forfait(s), alors que l’API en publie $expected_card_count."
 grep --fixed-strings --quiet 'SonoRiva Bridge pour macOS et Windows' <<< "$wordpress_html" || fail "le site WordPress n’affiche pas l’information SonoRiva Bridge."
 grep --fixed-strings --quiet 'Démarrer maintenant' <<< "$wordpress_html" || fail "le forfait gratuit n’affiche pas son nouveau bouton."
 grep --fixed-strings --quiet 'Choisir ce forfait' <<< "$wordpress_html" || fail "les forfaits payants n’affichent pas leur nouveau bouton."
 grep --fixed-strings --quiet 'Essayer maintenant' <<< "$wordpress_html" || fail "le header WordPress ne renvoie pas vers la démonstration."
-grep --fixed-strings --quiet 'Votre soundboard pour le théâtre et le spectacle vivant' <<< "$wordpress_html" || fail "le contenu Gutenberg de la page d'accueil n'est pas publié."
+grep --fixed-strings --quiet 'Votre soundboard pour le théâtre et le spectacle vivant' <<< "$wordpress_text" || fail "le contenu Gutenberg de la page d'accueil n'est pas publié."
 grep --fixed-strings --quiet 'data-hero-logo' <<< "$wordpress_html" || fail "le logo animé est absent du Hero."
 grep --fixed-strings --quiet 'logo-anime-hero-transparent.svg' <<< "$wordpress_html" || fail "le fichier du logo animé n'est pas relié au Hero."
 grep --fixed-strings --quiet '<html lang="fr-FR">' <<< "$wordpress_html" || fail "la langue du site WordPress n'est pas déclarée en français."

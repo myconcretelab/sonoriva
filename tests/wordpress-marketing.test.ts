@@ -37,6 +37,7 @@ describe('site de présentation WordPress', () => {
     expect(deploy).toContain("post_content) === ''");
     expect(deploy).toContain('sonoriva_marketing_classic_content_to_blocks');
     expect(deploy).toContain('!has_blocks');
+    expect(deploy).toContain('wordpress_text=$(php -r');
     expect(themeFile('inc/home-content.php')).toContain('preg_replace_callback');
     expect(themeFile('inc/home-content.php')).toContain("$hero_logo_count === 1");
     expect(readFileSync(new URL('../scripts/update-wordpress-soundboard.php', import.meta.url), 'utf8')).toContain('wp_strip_all_tags');
