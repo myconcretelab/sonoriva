@@ -76,5 +76,6 @@ describe('site de présentation WordPress', () => {
     expect(functions).toContain("'datePublished'");
     expect(publisher).toContain("update_option('page_for_posts'");
     expect(publisher).toContain("'_sonoriva_editorial_source'");
+    expect(readFileSync(new URL('../scripts/deploy-wordpress-plans.sh', import.meta.url), 'utf8')).toContain('post-sitemap1');
   });
 });

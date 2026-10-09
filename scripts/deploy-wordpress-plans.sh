@@ -122,8 +122,8 @@ done
 robots_txt=$(curl --fail --silent --show-error "$WORDPRESS_SITE_URL/robots.txt")
 grep --fixed-strings --quiet "Sitemap: $WORDPRESS_SITE_URL/wp-sitemap.xml" <<< "$robots_txt" || fail "robots.txt ne référence pas le sitemap WordPress."
 
-sitemap_xml=$(curl --fail --silent --show-error "$WORDPRESS_SITE_URL/wp-sitemap.xml")
-grep --fixed-strings --quiet "$WORDPRESS_SITE_URL/wp-sitemap-posts-page-1.xml" <<< "$sitemap_xml" || fail "l'index de sitemap WordPress ne contient pas les pages."
-grep --fixed-strings --quiet "$WORDPRESS_SITE_URL/wp-sitemap-posts-post-1.xml" <<< "$sitemap_xml" || fail "l'index de sitemap WordPress ne contient pas les articles."
+sitemap_xml=$(curl --fail --location --silent --show-error "$WORDPRESS_SITE_URL/wp-sitemap.xml")
+grep --extended-regexp --quiet "$WORDPRESS_SITE_URL/(wp-sitemap-posts-page-1|page-sitemap1)\.xml" <<< "$sitemap_xml" || fail "l'index de sitemap WordPress ne contient pas les pages."
+grep --extended-regexp --quiet "$WORDPRESS_SITE_URL/(wp-sitemap-posts-post-1|post-sitemap1)\.xml" <<< "$sitemap_xml" || fail "l'index de sitemap WordPress ne contient pas les articles."
 
 printf 'Site WordPress SonoRiva déployé : %s\n' "$WORDPRESS_SITE_URL"
