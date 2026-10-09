@@ -74,6 +74,9 @@ describe('site de présentation WordPress', () => {
     expect(single).toContain("the_content()");
     expect(functions).toContain("'@type' => $is_blog_post ? 'Article'");
     expect(functions).toContain("'datePublished'");
+    expect(functions).toContain("8 => 'août'");
+    expect(archive).toContain('sonoriva_marketing_article_date');
+    expect(single).toContain('sonoriva_marketing_article_date');
     expect(publisher).toContain("update_option('page_for_posts'");
     expect(publisher).toContain("'_sonoriva_editorial_source'");
     expect(readFileSync(new URL('../scripts/deploy-wordpress-plans.sh', import.meta.url), 'utf8')).toContain('post-sitemap1');

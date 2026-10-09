@@ -17,7 +17,7 @@ get_header();
                 </nav>
                 <div class="blog-meta">
                     <span><?php echo esc_html(get_the_category()[0]->name ?? 'Régie son'); ?></span>
-                    <time datetime="<?php echo esc_attr(get_the_date('c')); ?>"><?php echo esc_html(get_the_date('j F Y')); ?></time>
+                    <time datetime="<?php echo esc_attr(get_the_date('c')); ?>"><?php echo esc_html(sonoriva_marketing_article_date(get_the_ID())); ?></time>
                 </div>
                 <h1><?php the_title(); ?></h1>
                 <p class="blog-excerpt"><?php echo esc_html(get_the_excerpt()); ?></p>

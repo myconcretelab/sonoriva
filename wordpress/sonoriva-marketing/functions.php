@@ -98,6 +98,18 @@ function sonoriva_marketing_blog_image(string $slug): array
     ];
 }
 
+/** Format an article date in French independently from installed language packs. */
+function sonoriva_marketing_article_date(int $post_id = 0): string
+{
+    $months = [
+        1 => 'janvier', 2 => 'février', 3 => 'mars', 4 => 'avril',
+        5 => 'mai', 6 => 'juin', 7 => 'juillet', 8 => 'août',
+        9 => 'septembre', 10 => 'octobre', 11 => 'novembre', 12 => 'décembre',
+    ];
+    $month = (int) get_the_date('n', $post_id);
+    return get_the_date('j', $post_id) . ' ' . $months[$month] . ' ' . get_the_date('Y', $post_id);
+}
+
 function sonoriva_marketing_seo_head(): void
 {
     if (!is_front_page() && !is_page('alternative-soundshow') && !is_home() && !is_singular('post')) {
