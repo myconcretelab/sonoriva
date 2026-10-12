@@ -11,9 +11,10 @@ import { ProjectionConsole } from './components/ProjectionConsole';
 import { isVideoTrack, videoEngine } from './lib/video-engine';
 import { RetroActionSelector } from './components/RetroActionSelector';
 import { RotaryVolume } from './components/RotaryVolume';
+import { CrossfadeDurationControl } from './components/CrossfadeDurationControl';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
-  Rocket, ArrowUpDown, AudioLines, AudioWaveform, CircleCheck, Clock3, Columns3, Download, FolderInput, FolderPlus, GripVertical, History, LayoutDashboard, LifeBuoy, ListMusic, ListPlus, LoaderCircle, Menu, MonitorPlay, MoreHorizontal, Move, Pause, Pencil, Play, Plus, Radio,
+  Rocket, ArrowUpDown, AudioLines, AudioWaveform, CircleCheck, Clock3, Columns3, Download, FolderInput, FolderPlus, GripVertical, History, LayoutDashboard, LifeBuoy, Link2, ListMusic, ListPlus, LoaderCircle, Menu, MonitorPlay, MoreHorizontal, Move, Pause, Pencil, Play, Plus, Radio,
   LockKeyhole, LogIn, RefreshCcw, Repeat2, RotateCcw, Scan, Search, Settings, Settings2, SlidersHorizontal, Square, Timer, Trash2, Upload, Volume2, VolumeX, Waves, Wifi, WifiOff, X,
 } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
@@ -51,6 +52,7 @@ import { contrastColor } from './lib/color-contrast';
 import { droppedFilesHaveSubfolders, droppedFolderNames, droppedFolderTags, firstFolderName, readDroppedAudioFiles, titleFromAudioFilename, type DroppedAudioFile, type FolderImportMode } from './lib/file-import';
 import { formatShortcut, projectShortcut, projectShortcutDefinitions, resolvePrimaryShortcut, shortcutFromKeyboardEvent, shortcutMainKey, shortcutMatchesKeyboardEvent, shortcutModifierKeys, trackIndexFromKeyboardEvent, trackShortcutLabel } from './lib/keyboard-shortcuts';
 import { mobileTrackAutoScrollDelta, type ClientPoint } from './lib/mobile-track-reorder';
+import { linkedVolumeForTotal } from './lib/linked-volume';
 import { subscribeOfflineCache, cachedTrackIds, cacheTrackOffline, deleteCachedTracks, deleteOfflineAudio } from './lib/offline-audio';
 import { movePlaylistItem as repositionPlaylistItem, playlistEntries, playlistQueueItems, playlistRows as groupPlaylistItems, type PlaylistItemPlacement, type PlaylistQueueItem } from './lib/playlist-rows';
 import { categoryIsFavorites, parseStopwatchState, playlistIsVisible, resolveCategoryId } from './lib/session-state';
@@ -140,6 +142,7 @@ export default function App() {
   const [mediaFilter, setMediaFilter] = useState<'all' | 'audio' | 'video'>('all');
   const [searchScopes, setSearchScopes] = useState<Set<SearchScope>>(() => new Set(['name']));
   const [activePlaybacks, setActivePlaybacks] = useState<ActivePlayback[]>([]);
+  const [linkedVolumes, setLinkedVolumes] = useState<{ playbackIds: readonly [string, string]; total: number }>();
   const [playbackHistory, setPlaybackHistory] = useState<Map<string, number>>(new Map());
   const [downloads, setDownloads] = useState<Map<string, DownloadProgress>>(new Map());
   const [offlineTrackIds, setOfflineTrackIds] = useState<Set<string>>(new Set());
@@ -689,18 +692,18 @@ export default function App() {
       const currentTracks = detail?.tracks ?? [];
       if (command.type === 'stop-all' || command.type === 'stop-all-immediate') {
         window.dispatchEvent(new Event('sonoriva:stop-temporary-audio'));
-        return audioEngine.stopAll(currentTracks, command.type === 'stop-all-immediate' ? 0 : undefined);
+        return audioEngine.stopAll(currentTracks, command.type === 'stop-all-immediate' ? 0 : command.fadeOutMs);
       }
       if (command.type === 'stop-last') return audioEngine.stopLast(currentTracks, command.immediate);
       const track = currentTracks.find((candidate) => candidate.id === command.trackId);
       if (!track) return;
-      if (command.type === 'run-action') audioEngine.runAction(command.action, track, currentTracks, command.volumeMultiplier, command.outputId, command.soundboard ? soundboardInterruptionRef.current(command.action) : undefined).catch((cause) => setError(cause.message));
+      if (command.type === 'run-action') audioEngine.runAction(command.action, track, currentTracks, command.volumeMultiplier, command.outputId, command.soundboard ? soundboardInterruptionRef.current(command.action) : undefined, command.crossfadeDurationMs ?? detail?.project.crossfadeDurationMs).catch((cause) => setError(cause.message));
       else if (command.type === 'preload') audioEngine.preload(track).catch((cause) => setError(cause.message));
-      else if (command.type === 'play') audioEngine.play(track, track.fadeInMs, command.volumeMultiplier, command.outputId).catch((cause) => setError(cause.message));
+      else if (command.type === 'play') audioEngine.play(track, command.fadeInMs ?? track.fadeInMs, command.volumeMultiplier, command.outputId).catch((cause) => setError(cause.message));
       else audioEngine.stop(track.id, track.fadeOutMs);
     });
     return () => { connection.disconnect(); setSocket(undefined); setConnected(false); };
-  }, [selectedProjectId, user, remote, detail?.tracks]);
+  }, [selectedProjectId, user, remote, detail?.tracks, detail?.project.crossfadeDurationMs]);
 
   const normalizedSearch = search.trim().toLocaleLowerCase('fr');
   const isSearching = normalizedSearch.length > 0;
@@ -752,6 +755,9 @@ export default function App() {
       return [{ playback, track }];
     });
   }, [activePlaybacks, detail?.tracks]);
+  const volumeLinkAvailable = playingTracks.length === 2 && playingTracks.every(({ playback }) => !playback.fadingOut);
+  const volumeLinkActive = volumeLinkAvailable && Boolean(linkedVolumes
+    && playingTracks.every(({ playback }) => linkedVolumes.playbackIds.includes(playback.id)));
 
   useEffect(() => () => {
     if (subcategoryOpenTimerRef.current) window.clearTimeout(subcategoryOpenTimerRef.current.timer);
@@ -878,12 +884,12 @@ export default function App() {
       clearPlaylistAdvanceTimer();
       setPlaylistPlaybackIds([]);
       window.dispatchEvent(new Event('sonoriva:stop-temporary-audio'));
-      audioEngine.stopAll(detail?.tracks ?? [], preparedCommand.type === 'stop-all-immediate' ? 0 : undefined);
+      audioEngine.stopAll(detail?.tracks ?? [], preparedCommand.type === 'stop-all-immediate' ? 0 : preparedCommand.fadeOutMs);
     }
     else if (preparedCommand.type === 'stop-last') audioEngine.stopLast(detail?.tracks ?? [], preparedCommand.immediate);
     else if (preparedCommand.type === 'stop' && track) audioEngine.stop(track.id, track.fadeOutMs);
     else if (preparedCommand.type === 'play' && track) {
-      const run = () => audioEngine.play(track, track.fadeInMs, preparedCommand.volumeMultiplier, preparedCommand.outputId ?? shortcutLaunchOutputId());
+      const run = () => audioEngine.play(track, preparedCommand.fadeInMs ?? track.fadeInMs, preparedCommand.volumeMultiplier, preparedCommand.outputId ?? shortcutLaunchOutputId());
       if (isVideoTrack(track) && !videoEngine.getState().connected) {
         setPendingVideo({ title: track.title, run });
         setProjectionOpen(true);
@@ -901,17 +907,19 @@ export default function App() {
         // Prepare the whole group before stopping once: its members must not replace each other.
         if (!remote) expiresAtMs = await audioEngine.preparePlayback(tracks);
       } catch (cause) { setError(cause instanceof Error ? cause.message : 'Préparation impossible.'); return []; }
-      sendOrRun({ type: action === 'replace' ? 'stop-all-immediate' : 'stop-all' });
+      sendOrRun({ type: action === 'replace' ? 'stop-all-immediate' : 'stop-all', ...(action === 'crossfade' ? { fadeOutMs: detail?.project.crossfadeDurationMs ?? 2_000 } : {}) });
     }
     const volumeMultiplier = action === 'stop' ? 1 : consumeNextTrackVolume();
     const outputId = shortcutLaunchOutputId();
     const results = await Promise.all(tracks.map(async (track) => {
       try {
         if (remote && detail) {
-          socket?.emit('remote-command', { projectId: detail.project.id, command: { type: 'run-action', trackId: track.id, action: replacesPlayback ? 'start' : action, volumeMultiplier, outputId } satisfies RemoteCommand });
+          socket?.emit('remote-command', { projectId: detail.project.id, command: replacesPlayback
+            ? { type: 'play', trackId: track.id, fadeInMs: action === 'crossfade' ? detail.project.crossfadeDurationMs : track.fadeInMs, volumeMultiplier, outputId }
+            : { type: 'run-action', trackId: track.id, action, volumeMultiplier, outputId } satisfies RemoteCommand });
         } else if (replacesPlayback) {
-          await audioEngine.play(track, track.fadeInMs, volumeMultiplier, outputId, expiresAtMs);
-        } else await audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, outputId);
+          await audioEngine.play(track, action === 'crossfade' ? detail?.project.crossfadeDurationMs ?? 2_000 : track.fadeInMs, volumeMultiplier, outputId, expiresAtMs);
+        } else await audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, outputId, undefined, detail?.project.crossfadeDurationMs);
         return action === 'stop' ? undefined : track.id;
       } catch (cause) { setError(cause instanceof Error ? cause.message : 'Lancement impossible.'); return undefined; }
     }));
@@ -936,10 +944,10 @@ export default function App() {
     const startsPlayback = action === 'start' || action === 'crossfade' || action === 'fade-in' || action === 'replace';
     const volumeMultiplier = startsPlayback ? consumeNextTrackVolume() : undefined;
     if (remote && detail) {
-      socket?.emit('remote-command', { projectId: detail.project.id, command: { type: 'run-action', trackId: track.id, action, volumeMultiplier, soundboard: true } satisfies RemoteCommand });
+      socket?.emit('remote-command', { projectId: detail.project.id, command: { type: 'run-action', trackId: track.id, action, crossfadeDurationMs: detail.project.crossfadeDurationMs, volumeMultiplier, soundboard: true } satisfies RemoteCommand });
       return;
     }
-    const run = () => audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, shortcutLaunchOutputId(), interruptPlaylistForSoundboard(action));
+    const run = () => audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, shortcutLaunchOutputId(), interruptPlaylistForSoundboard(action), detail?.project.crossfadeDurationMs);
     if (startsPlayback && isVideoTrack(track) && !videoEngine.getState().connected) {
       setPendingVideo({ title: track.title, run });
       setProjectionOpen(true);
@@ -1587,13 +1595,13 @@ export default function App() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Configuration des playlists impossible.'); }
   }
 
-  async function updatePlaybackSettings(input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number }) {
+  async function updatePlaybackSettings(input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number }) {
     if (!detail) return;
     try {
       const { project } = await api.updateProjectActions(detail.project.id, input);
       setDetail((current) => current ? { ...current, project } : current);
       setProjects((current) => current.map((candidate) => candidate.id === project.id ? project : candidate));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Configuration de la colonne de lecture impossible.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Configuration de la lecture impossible.'); }
   }
 
   async function reorderTrack(trackId: string, categoryId: string | null, beforeTrackId?: string, subcategoryId: string | null = null) {
@@ -2387,16 +2395,35 @@ export default function App() {
 
   function renderActionsContent() {
     if (!detail) return null;
+    const mouseCrossfadeSelected = detail.project.leftClickAction === 'crossfade' || detail.project.rightClickAction === 'crossfade';
     return <section className="mouse-actions">
       <div className="side-label"><span>Actions de déclenchement</span></div>
       {appSkin === 'tape' ? <div className="retro-action-row"><span><i>G</i>Clic gauche</span><RetroActionSelector label="Clic gauche" value={detail.project.leftClickAction ?? 'start'} options={mouseActions} onChange={(action) => updateMouseAction('left', action)} /></div> : <label><span><i>G</i>Clic gauche</span><select value={detail.project.leftClickAction ?? 'start'} onChange={(event) => updateMouseAction('left', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
       {appSkin === 'tape' ? <div className="retro-action-row"><span><i>D</i>Clic droit</span><RetroActionSelector label="Clic droit" value={detail.project.rightClickAction ?? 'crossfade'} options={mouseActions} onChange={(action) => updateMouseAction('right', action)} /></div> : <label><span><i>D</i>Clic droit</span><select value={detail.project.rightClickAction ?? 'crossfade'} onChange={(event) => updateMouseAction('right', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
       {appSkin === 'tape' ? <div className="retro-action-row"><span><i>K</i>Clavier</span><RetroActionSelector label="Clavier" value={detail.project.keyboardAction ?? 'start'} options={mouseActions} onChange={(action) => updateMouseAction('keyboard', action)} /></div> : <label><span><i>K</i>Clavier</span><select value={detail.project.keyboardAction ?? 'start'} onChange={(event) => updateMouseAction('keyboard', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
+      {mouseCrossfadeSelected && <CrossfadeDurationControl className="mouse-crossfade-duration" value={detail.project.crossfadeDurationMs ?? 2_000} onCommit={(crossfadeDurationMs) => updatePlaybackSettings({ crossfadeDurationMs })} />}
     </section>;
   }
 
   function renderPlayersContent() {
-    return <><div className={`side-label player-heading ${playingTracks.length >= maxActivePlaybacks ? 'is-at-limit' : ''}`}><span>En lecture</span><em title={`${playingTracks.length} lecture${playingTracks.length !== 1 ? 's' : ''} sur ${maxActivePlaybacks} maximum`}>{playingTracks.length}/{maxActivePlaybacks}</em>{playingTracks.length > 0 && <button onClick={() => sendOrRun({ type: 'stop-all' })} aria-label="Tout arrêter"><Square size={13} fill="currentColor" /></button>}</div>
+    function toggleVolumeLink() {
+      if (!volumeLinkAvailable) return;
+      if (volumeLinkActive) {
+        setLinkedVolumes(undefined);
+        return;
+      }
+      const [first, second] = playingTracks.map(({ playback }) => playback);
+      setLinkedVolumes({ playbackIds: [first.id, second.id], total: playbackVolumeAt(first) + playbackVolumeAt(second) });
+    }
+
+    function changePlaybackVolume(playbackId: string, nextVolume: number) {
+      audioEngine.setInstanceVolume(playbackId, nextVolume);
+      if (!volumeLinkActive || !linkedVolumes?.playbackIds.includes(playbackId)) return;
+      const companionId = linkedVolumes.playbackIds.find((id) => id !== playbackId);
+      if (companionId) audioEngine.setInstanceVolume(companionId, linkedVolumeForTotal(linkedVolumes.total, nextVolume));
+    }
+
+    return <><div className={`side-label player-heading ${playingTracks.length >= maxActivePlaybacks ? 'is-at-limit' : ''}`}><span>En lecture</span><em title={`${playingTracks.length} lecture${playingTracks.length !== 1 ? 's' : ''} sur ${maxActivePlaybacks} maximum`}>{playingTracks.length}/{maxActivePlaybacks}</em>{playingTracks.length === 2 && <button type="button" className={`volume-link-button ${volumeLinkActive ? 'active' : ''}`} disabled={!volumeLinkAvailable} aria-pressed={volumeLinkActive} onClick={toggleVolumeLink} aria-label={volumeLinkActive ? 'Délier les volumes' : 'Lier les volumes'} title={volumeLinkActive ? 'Volumes liés : une variation est compensée par l’autre lecteur' : 'Lier les volumes des deux lecteurs'}><Link2 size={13} /></button>}{playingTracks.length > 0 && <button type="button" className="stop-all-button" onClick={() => sendOrRun({ type: 'stop-all' })} aria-label="Tout arrêter"><Square size={13} fill="currentColor" /></button>}</div>
       <div className={`now-playing-list ${compactPlayerCards ? 'is-compact' : ''}`}>
         {playingTracks.length === 0 ? <div className="players-empty"><AudioWaveform size={24} /><strong>Aucun son en lecture</strong><span>Les lecteurs actifs apparaîtront ici.</span></div> : playingTracks.map(({ playback, track }) => {
           const category = detail?.categories.find((item) => item.id === track.categoryId);
@@ -2404,7 +2431,7 @@ export default function App() {
           return <article className={`player-card ${playback.paused ? 'is-paused' : ''}`} key={playback.id} style={{ '--track-color': color } as React.CSSProperties}>
             <div className="player-card-main"><div className="player-card-copy"><strong>{track.title}</strong><PlaybackOutputSelector title={track.title} outputId={playback.outputId} outputs={isVideoTrack(track) ? [] : routedBridgeOutputs} disabled={playback.fadingOut} onChange={(outputId) => audioEngine.setInstanceOutput(playback.id, outputId).catch((cause) => setError(cause instanceof Error ? cause.message : 'Impossible de changer la sortie audio.'))} /></div>
               <PlaybackPositionControl playback={playback} title={track.title} />
-              <PlaybackVolumeControl playback={playback} title={track.title} rotary={appSkin === 'tape'} />
+              <PlaybackVolumeControl playback={playback} title={track.title} rotary={appSkin === 'tape'} onChange={(nextVolume) => changePlaybackVolume(playback.id, nextVolume)} />
             </div>
             <div className="player-card-controls">
               <button className={playback.loop ? 'active' : ''} disabled={playback.fadingOut} onClick={() => audioEngine.setInstanceLoop(playback.id, !playback.loop)} aria-label={playback.loop ? `Désactiver la boucle de ${track.title}` : `Jouer ${track.title} en boucle`} title="Boucle"><Repeat2 size={15} /></button>
@@ -2888,7 +2915,7 @@ const PlaybackPositionControl = memo(function PlaybackPositionControl({ playback
   </div>;
 });
 
-function PlaybackVolumeControl({ playback, title, rotary }: { playback: ActivePlayback; title: string; rotary: boolean }) {
+function PlaybackVolumeControl({ playback, title, rotary, onChange }: { playback: ActivePlayback; title: string; rotary: boolean; onChange: (volume: number) => void }) {
   const [displayVolume, setDisplayVolume] = useState(() => playbackVolumeAt(playback));
   const { id, volume, volumeFrom, volumeTransitionDurationMs, volumeTransitionStartedAtMs } = playback;
 
@@ -2909,7 +2936,7 @@ function PlaybackVolumeControl({ playback, title, rotary }: { playback: ActivePl
   function changeVolume(value: number) {
     const nextVolume = value / 100;
     setDisplayVolume(nextVolume);
-    audioEngine.setInstanceVolume(playback.id, nextVolume);
+    onChange(nextVolume);
   }
   return <label className={`player-card-volume${rotary ? ' has-rotary' : ''}`}><Volume2 size={14} />{rotary
     ? <RotaryVolume value={percentage} disabled={playback.fadingOut} label={`Volume de ${title}`} onChange={changeVolume} />

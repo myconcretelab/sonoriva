@@ -31,7 +31,7 @@ describe('client API', () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ project: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', fetcher);
     const projectId = '11111111-1111-4111-8111-111111111111';
-    const input = { maxActivePlaybacks: 8, compactPlaybackThreshold: 5 };
+    const input = { maxActivePlaybacks: 8, compactPlaybackThreshold: 5, crossfadeDurationMs: 2_000 };
 
     await api.updateProjectActions(projectId, input);
 

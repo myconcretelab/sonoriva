@@ -102,7 +102,7 @@ export const api = {
   }),
   deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
   project: (id: string) => request<ProjectDetail>(`/api/projects/${id}`),
-  updateProjectActions: (projectId: string, input: { leftClickAction?: MouseAction; rightClickAction?: MouseAction; keyboardAction?: MouseAction; escapeKeyAction?: KeyAction; backspaceKeyAction?: KeyAction; shiftBackspaceKeyAction?: KeyAction; spaceKeyAction?: KeyAction; maxPlaylistGroupSize?: number; maxActivePlaybacks?: number; compactPlaybackThreshold?: number } & Partial<ProjectKeyboardShortcuts>) =>
+  updateProjectActions: (projectId: string, input: { leftClickAction?: MouseAction; rightClickAction?: MouseAction; keyboardAction?: MouseAction; escapeKeyAction?: KeyAction; backspaceKeyAction?: KeyAction; shiftBackspaceKeyAction?: KeyAction; spaceKeyAction?: KeyAction; maxPlaylistGroupSize?: number; maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number } & Partial<ProjectKeyboardShortcuts>) =>
     request<{ project: Project }>(`/api/projects/${projectId}/mouse-actions`, { method: 'PATCH', body: JSON.stringify(input) }),
   createProjectColor: (projectId: string, color: string) => request<{ projectColor: ProjectColor }>(`/api/projects/${projectId}/colors`, {
     method: 'POST', body: JSON.stringify({ color }),

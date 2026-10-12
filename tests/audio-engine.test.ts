@@ -222,15 +222,29 @@ describe('audio player instance controls', () => {
     const playlistId = await audioEngine.play(track, 0);
     const otherId = await audioEngine.play(track, 0);
     const protectedIds = new Set([playlistId]);
-    await audioEngine.runAction(action, track, [track], 1, undefined, protectedIds);
+    await audioEngine.runAction(action, track, [track], 1, undefined, protectedIds, 0);
     expect(latest.some(item => item.id === playlistId && !item.paused)).toBe(true);
     expect(latest.some(item => item.id === otherId)).toBe(false);
     audioEngine.togglePauseInstance(playlistId);
-    await audioEngine.runAction(action, track, [track], 1, undefined, protectedIds);
+    await audioEngine.runAction(action, track, [track], 1, undefined, protectedIds, 0);
     expect(latest.some(item => item.id === playlistId && item.paused)).toBe(true);
     audioEngine.togglePauseInstance(playlistId);
     expect(latest.some(item => item.id === playlistId && !item.paused)).toBe(true);
     audioEngine.stopAll([track], 0);
+  });
+
+  it('applique la même durée aux deux côtés du fondu enchaîné', async () => {
+    const nextTrack = { ...track, id: '44444444-4444-4444-8444-444444444444', title: 'Entrée' };
+    const outgoingId = await audioEngine.play(track, 0);
+
+    const incomingId = await audioEngine.runAction('crossfade', nextTrack, [track, nextTrack], 1, undefined, undefined, 3_500);
+    const outgoing = latest.find((playback) => playback.id === outgoingId);
+    const incoming = latest.find((playback) => playback.trackId === nextTrack.id);
+
+    expect(incomingId).toBeUndefined();
+    expect(outgoing).toMatchObject({ fadingOut: true, volume: 0, volumeTransitionDurationMs: 3_500 });
+    expect(incoming).toMatchObject({ volume: 1, volumeFrom: 0, volumeTransitionDurationMs: 3_500 });
+    audioEngine.stopAll([track, nextTrack], 0);
   });
 
   it('notifie les contrôles de régie lorsque la sortie change', async () => {

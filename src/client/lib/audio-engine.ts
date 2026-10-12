@@ -690,7 +690,7 @@ class AudioEngine {
     this.resetHistory([...trackIds]);
   }
 
-  async runAction(action: MouseAction, track: Track, projectTracks: Track[], volumeMultiplier = 1, outputId?: string, protectedPlaybackIds?: ReadonlySet<string>): Promise<void> {
+  async runAction(action: MouseAction, track: Track, projectTracks: Track[], volumeMultiplier = 1, outputId?: string, protectedPlaybackIds?: ReadonlySet<string>, crossfadeDurationMs = 2_000): Promise<void> {
     if (action === 'none') return;
     if (isVideoTrack(track)) {
       if (action === 'stop') this.stop(track.id, track.fadeOutMs);
@@ -704,11 +704,11 @@ class AudioEngine {
     const expiresAtMs = await this.preparePlayback([track]);
     if (protectedPlaybackIds) {
       for (const playback of this.getActivePlaybacks()) {
-        if (!protectedPlaybackIds.has(playback.id)) this.stopInstance(playback.id, action === 'replace' ? 0 : projectTracks.find((item) => item.id === playback.trackId)?.fadeOutMs ?? 250);
+        if (!protectedPlaybackIds.has(playback.id)) this.stopInstance(playback.id, action === 'replace' ? 0 : crossfadeDurationMs);
       }
     } else if (action === 'replace') this.stopAll(projectTracks, 0);
-    else this.stopAll(projectTracks);
-    await this.play(track, track.fadeInMs, volumeMultiplier, outputId, expiresAtMs);
+    else this.stopAll(projectTracks, crossfadeDurationMs);
+    await this.play(track, action === 'crossfade' ? crossfadeDurationMs : track.fadeInMs, volumeMultiplier, outputId, expiresAtMs);
   }
 
   private findPlayback(playbackId: string): Playback | undefined {

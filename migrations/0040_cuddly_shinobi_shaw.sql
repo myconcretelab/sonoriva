@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "crossfade_duration_ms" integer DEFAULT 2000 NOT NULL;

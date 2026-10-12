@@ -148,6 +148,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       maxPlaylistGroupSize: z.number().int().min(2).max(8).optional(),
       maxActivePlaybacks: z.number().int().min(1).max(16).optional(),
       compactPlaybackThreshold: z.number().int().min(1).max(16).optional(),
+      crossfadeDurationMs: z.number().int().min(0).max(20_000).optional(),
     }).refine((value) => Object.keys(value).length > 0, { message: 'Sélectionnez une action.' }).parse(request.body);
     if (input.maxPlaylistGroupSize !== undefined && !(await userCanUsePlaylists(user.id, id))) {
       return reply.code(403).send({ error: 'Les playlists ne sont pas incluses dans votre forfait.' });

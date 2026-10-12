@@ -1,5 +1,6 @@
 import { ProjectSharingPanel } from './ProjectSharingPanel';
 import { AccountMembersPanel } from './AccountMembersPanel';
+import { CrossfadeDurationControl } from './CrossfadeDurationControl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioWaveform, BookOpen, Cable, CloudDownload, CreditCard, FileArchive, FolderPlus, Gift, GripVertical, HardDrive, Keyboard, LifeBuoy, ListMusic, LoaderCircle, LogIn, LogOut, Palette, Plus, RefreshCcw, Settings2, ShieldCheck, Speaker, Smartphone, Trash2, Waves, X } from 'lucide-react';
 import { api } from '../lib/api';
@@ -45,7 +46,7 @@ interface Props {
   onUpdateKeyAction: (key: 'escape' | 'backspace' | 'shift-backspace' | 'space', action: KeyAction) => void;
   onUpdateKeyboardShortcut: (key: ProjectKeyboardShortcutKey, shortcut: string) => void;
   onUpdatePlaylistGroupLimit: (limit: number) => void;
-  onUpdatePlaybackSettings: (input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number }) => void;
+  onUpdatePlaybackSettings: (input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number }) => void;
   onLogout: () => void;
   onLogin: () => void;
   onClose: () => void;
@@ -575,6 +576,10 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
             />
           </div>)}
         </div>
+      </section>
+      <section className="settings-section" hidden={activeTab !== 'controls'}>
+        <div className="settings-section-title"><AudioWaveform size={16} /><div><strong>Fondu enchaîné</strong><span>Durée commune de disparition des lectures en cours et d’apparition du nouveau morceau.</span></div></div>
+        <CrossfadeDurationControl className="settings-crossfade-duration" value={selectedProject?.crossfadeDurationMs ?? 2_000} disabled={!selectedProject} onCommit={(crossfadeDurationMs) => onUpdatePlaybackSettings({ crossfadeDurationMs })} />
       </section>
       {activeTab === 'account' && account && !user.isDemo && <AccountMembersPanel account={account} user={user} />}
       <section className="settings-section settings-section-wide" ref={billingSectionRef} hidden={activeTab !== 'account'}>

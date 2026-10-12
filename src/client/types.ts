@@ -72,6 +72,7 @@ export interface Project extends ProjectKeyboardShortcuts {
   maxPlaylistGroupSize: number;
   maxActivePlaybacks: number;
   compactPlaybackThreshold: number;
+  crossfadeDurationMs: number;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -439,12 +440,12 @@ export interface OpenverseSearchResult {
 
 export type RemoteCommand =
   | { type: 'preload'; trackId: string }
-  | { type: 'play'; trackId: string; volumeMultiplier?: number; outputId?: string }
+  | { type: 'play'; trackId: string; fadeInMs?: number; volumeMultiplier?: number; outputId?: string }
   | { type: 'stop'; trackId: string }
-  | { type: 'stop-all' }
+  | { type: 'stop-all'; fadeOutMs?: number }
   | { type: 'stop-all-immediate' }
   | { type: 'stop-last'; immediate: boolean }
-  | { type: 'run-action'; soundboard?: boolean; trackId: string; action: MouseAction; volumeMultiplier?: number; outputId?: string };
+  | { type: 'run-action'; soundboard?: boolean; trackId: string; action: MouseAction; crossfadeDurationMs?: number; volumeMultiplier?: number; outputId?: string };
 
 export interface AccountMember {
   id: string;

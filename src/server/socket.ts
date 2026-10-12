@@ -8,9 +8,9 @@ import { accountForUserProject } from './services/accounts.js';
 import { planFeatures } from './services/commercial-plans.js';
 
 const commandSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('play'), trackId: z.string().uuid(), volumeMultiplier: z.number().min(0).max(1).optional(), outputId: z.string().min(1).max(500).optional() }),
+  z.object({ type: z.literal('play'), trackId: z.string().uuid(), fadeInMs: z.number().int().min(0).max(20_000).optional(), volumeMultiplier: z.number().min(0).max(1).optional(), outputId: z.string().min(1).max(500).optional() }),
   z.object({ type: z.literal('stop'), trackId: z.string().uuid() }),
-  z.object({ type: z.literal('stop-all') }),
+  z.object({ type: z.literal('stop-all'), fadeOutMs: z.number().int().min(0).max(20_000).optional() }),
   z.object({ type: z.literal('stop-all-immediate') }),
   z.object({ type: z.literal('preload'), trackId: z.string().uuid() }),
   z.object({ type: z.literal('stop-last'), immediate: z.boolean() }),
@@ -19,6 +19,7 @@ const commandSchema = z.discriminatedUnion('type', [
     soundboard: z.boolean().optional(),
     trackId: z.string().uuid(),
     action: z.enum(['start', 'crossfade', 'fade-in', 'replace', 'stop', 'none']),
+    crossfadeDurationMs: z.number().int().min(0).max(20_000).optional(),
     volumeMultiplier: z.number().min(0).max(1).optional(),
     outputId: z.string().min(1).max(500).optional(),
   }),
