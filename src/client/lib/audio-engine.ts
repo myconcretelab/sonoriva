@@ -304,9 +304,9 @@ class AudioEngine {
         loop: playback.loopPlayback,
         paused: playback.paused,
         volume: playback.volume,
-        volumeFrom: playback.volume,
-        volumeTransitionStartedAtMs: now,
-        volumeTransitionDurationMs: 0,
+        volumeFrom: playback.volumeFrom ?? playback.volume,
+        volumeTransitionStartedAtMs: playback.volumeTransitionStartedAtMs ?? now,
+        volumeTransitionDurationMs: playback.volumeTransitionDurationMs ?? 0,
         fadingOut: playback.fadingOut,
         outputId: playback.outputId,
       }));

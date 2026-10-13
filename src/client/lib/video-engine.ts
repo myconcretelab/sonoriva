@@ -27,6 +27,7 @@ class VideoEngine {
   private lastTickNotification = 0;
   private fade?: { from: number; to: number; start: number; duration: number; stop: boolean };
   private gain = 1;
+  private baseVolume = 1;
   private listeners = new Set<() => void>();
   private black = false;
   private error = '';
@@ -133,11 +134,12 @@ class VideoEngine {
       video.loop = false;
       this.gain = fadeInMs > 0 ? 0 : 1;
       const volume = Math.min(1, Math.max(0, track.volume * multiplier));
-      video.volume = volume * this.master * this.gain;
+      this.baseVolume = volume;
+      video.volume = this.baseVolume * this.master * this.gain;
       await video.play();
       if (generation !== this.generation) throw new Error('Lecture vidéo annulée.');
       const now = performance.now();
-      this.playback = { id: `video:${track.id}:${sequence}`, trackId: track.id, sequence, startedAtMs: now, resumedAtMs: now, elapsedMs: 0, durationMs: (this.end - this.start) * 1000, loop: track.loop, paused: false, volume, volumeFrom: volume, volumeTransitionStartedAtMs: now, volumeTransitionDurationMs: 0, fadingOut: false };
+      this.playback = { id: `video:${track.id}:${sequence}`, trackId: track.id, sequence, startedAtMs: now, resumedAtMs: now, elapsedMs: 0, durationMs: (this.end - this.start) * 1000, loop: track.loop, paused: false, volume, volumeFrom: fadeInMs > 0 ? 0 : volume, volumeTransitionStartedAtMs: now, volumeTransitionDurationMs: fadeInMs, fadingOut: false };
       this.fade = fadeInMs > 0 ? { from: 0, to: 1, start: now, duration: fadeInMs, stop: false } : undefined;
       video.style.visibility = this.black ? 'hidden' : 'visible';
       this.notify();
@@ -156,7 +158,7 @@ class VideoEngine {
       this.gain = this.fade.from + (this.fade.to - this.fade.from) * progress;
       if (progress >= 1) { const stop = this.fade.stop; this.fade = undefined; if (stop) { this.stop(); return; } }
     }
-    video.volume = Math.min(1, playback.volume * this.master * this.gain);
+    video.volume = Math.min(1, this.baseVolume * this.master * this.gain);
     video.style.opacity = String(this.gain);
     if (video.currentTime >= this.end - .015) { this.finish(); return; }
     playback.elapsedMs = Math.max(0, (video.currentTime - this.start) * 1000);
@@ -178,8 +180,13 @@ class VideoEngine {
   }
   stop(fadeMs = 0) {
     if (fadeMs > 0 && this.playback) {
+      const now = performance.now();
       this.playback.fadingOut = true;
-      this.fade = { from: this.gain, to: 0, start: performance.now(), duration: fadeMs, stop: true };
+      this.playback.volume = 0;
+      this.playback.volumeFrom = this.baseVolume * this.gain;
+      this.playback.volumeTransitionStartedAtMs = now;
+      this.playback.volumeTransitionDurationMs = fadeMs;
+      this.fade = { from: this.gain, to: 0, start: now, duration: fadeMs, stop: true };
       this.notify(); return;
     }
     this.generation++;
@@ -189,7 +196,7 @@ class VideoEngine {
   }
   togglePause() { if (!this.video || !this.playback) return; if (this.video.paused) void this.video.play().catch(() => this.fail('Reprise de la vidéo refusée.')); else this.video.pause(); this.tick(); }
   seek(progress: number) { if (this.video && this.playback) { this.video.currentTime = this.start + Math.min(.999999, Math.max(0, progress)) * (this.end - this.start); this.tick(); } }
-  setVolume(volume: number) { if (this.playback) { this.playback.volume = Math.min(1, Math.max(0, volume)); this.tick(); } }
+  setVolume(volume: number) { if (this.playback) { this.baseVolume = Math.min(1, Math.max(0, volume)); this.playback.volume = this.baseVolume; this.tick(); } }
   setLoop(loop: boolean) { if (this.playback) { this.playback.loop = loop; this.notify(); } }
   setMasterVolume(volume: number) { this.master = volume; this.tick(); }
   toggleBlack() { this.black = !this.black; if (this.video) this.video.style.visibility = this.black || !this.track ? 'hidden' : 'visible'; this.notify(); }

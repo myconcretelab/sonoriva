@@ -74,6 +74,14 @@ describe('projection vidéo', () => {
     expect(videoEngine.getPlaybacks()).toEqual([]);
     expect(videoEngine.getElement()?.hasAttribute('src')).toBe(false);
   });
+  it('expose la progression visuelle des fondus de volume', async () => {
+    videoEngine.open(); await vi.advanceTimersByTimeAsync(50);
+    await videoEngine.play(track, 1, 2_000, 1);
+    expect(videoEngine.getPlaybacks()[0]).toMatchObject({ volume: .8, volumeFrom: 0, volumeTransitionDurationMs: 2_000, fadingOut: false });
+    await vi.advanceTimersByTimeAsync(1_000);
+    videoEngine.stop(1_000);
+    expect(videoEngine.getPlaybacks()[0]).toMatchObject({ volume: 0, volumeFrom: .4, volumeTransitionDurationMs: 1_000, fadingOut: true });
+  });
   it('boucle sur la sélection puis conserve la dernière image si demandé', async () => {
     videoEngine.open(); await vi.advanceTimersByTimeAsync(50);
     await videoEngine.play({ ...track, loop: true, videoEndBehavior: 'hold' }, 1, 0, 1);

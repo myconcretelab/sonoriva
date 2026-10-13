@@ -28,9 +28,20 @@ export interface BridgePlayback {
   loopPlayback: boolean;
   paused: boolean;
   volume: number;
+  volumeFrom?: number;
+  volumeTransitionStartedAtMs?: number;
+  volumeTransitionDurationMs?: number;
   fadingOut: boolean;
   channel: 'main' | 'preview';
   outputId?: string;
+}
+
+interface BridgeVolumeTransition {
+  from: number;
+  to: number;
+  startedAtMs: number;
+  durationMs: number;
+  fadingOut: boolean;
 }
 
 interface BridgeAssociation {
@@ -61,6 +72,7 @@ export class BridgeClient {
   private association = readAssociation();
   private mode: AudioPlaybackMode = readMode();
   private playbacks: BridgePlayback[] = [];
+  private volumeTransitions = new Map<string, BridgeVolumeTransition>();
   private cachedTrackIds = new Set<string>();
   private playbackListeners = new Set<PlaybackListener>();
   private cacheListeners = new Set<CacheListener>();
@@ -76,7 +88,22 @@ export class BridgeClient {
   isEnabled(): boolean { return this.mode === 'bridge' && Boolean(this.association); }
   isAssociated(): boolean { return Boolean(this.association); }
   getDeviceId(): string | null { return this.association?.deviceId ?? null; }
-  getPlaybacks(): BridgePlayback[] { return this.playbacks.map((playback) => ({ ...playback })); }
+  getPlaybacks(): BridgePlayback[] {
+    const activeIds = new Set(this.playbacks.map((playback) => playback.id));
+    for (const id of this.volumeTransitions.keys()) if (!activeIds.has(id)) this.volumeTransitions.delete(id);
+    return this.playbacks.map((playback) => {
+      const transition = this.volumeTransitions.get(playback.id);
+      if (!transition) return { ...playback };
+      return {
+        ...playback,
+        volume: transition.to,
+        volumeFrom: transition.from,
+        volumeTransitionStartedAtMs: transition.startedAtMs,
+        volumeTransitionDurationMs: transition.durationMs,
+        fadingOut: playback.fadingOut || transition.fadingOut,
+      };
+    });
+  }
   getCachedTrackIds(): Set<string> { return new Set(this.cachedTrackIds); }
 
   async cachedAudio(track: Track, signal?: AbortSignal): Promise<Response> {
@@ -101,6 +128,7 @@ export class BridgeClient {
     this.stopPolling();
     this.mode = 'browser';
     this.playbacks = [];
+    this.volumeTransitions.clear();
     this.cachedTrackIds.clear();
     localStorage.setItem(modeStorageKey, 'browser');
     this.notifyPlaybacks();
@@ -120,6 +148,7 @@ export class BridgeClient {
     this.association = undefined;
     this.mode = 'browser';
     this.playbacks = [];
+    this.volumeTransitions.clear();
     this.cachedTrackIds.clear();
     localStorage.removeItem(associationStorageKey);
     localStorage.setItem(modeStorageKey, 'browser');
@@ -209,6 +238,15 @@ export class BridgeClient {
         this.cachedTrackIds.add(track.id);
         this.notifyCache();
       }
+      if (fadeInMs > 0) {
+        this.volumeTransitions.set(result.playbackId, {
+          from: 0,
+          to: Math.min(1, Math.max(0, track.volume * volumeMultiplier)),
+          startedAtMs: performance.now(),
+          durationMs: fadeInMs,
+          fadingOut: false,
+        });
+      }
       await this.refreshPlaybacks(launchSignal);
       return result.playbackId;
     } catch (cause) {
@@ -251,7 +289,15 @@ export class BridgeClient {
   }
 
   togglePause(id: string): void { this.send(`/v1/playbacks/${encodeURIComponent(id)}/pause`, 'POST'); }
-  setVolume(id: string, volume: number): void { this.send(`/v1/playbacks/${encodeURIComponent(id)}/volume`, 'PUT', { volume }); }
+  setVolume(id: string, volume: number): void {
+    this.volumeTransitions.delete(id);
+    const playback = this.playbacks.find((candidate) => candidate.id === id);
+    if (playback) {
+      playback.volume = Math.min(1, Math.max(0, volume));
+      this.notifyPlaybacks();
+    }
+    this.send(`/v1/playbacks/${encodeURIComponent(id)}/volume`, 'PUT', { volume });
+  }
   setMasterVolume(volume: number): void { this.send('/v1/master-volume', 'PUT', { volume }); }
   setLoop(id: string, loop: boolean): void { this.send(`/v1/playbacks/${encodeURIComponent(id)}/loop`, 'PUT', { loop }); }
   seek(id: string, progress: number): void { this.send(`/v1/playbacks/${encodeURIComponent(id)}/seek`, 'PUT', { progress }); }
@@ -259,9 +305,34 @@ export class BridgeClient {
     await this.request(`/v1/playbacks/${encodeURIComponent(id)}/output`, { method: 'PUT', body: JSON.stringify({ deviceId }) });
     await this.refreshPlaybacks();
   }
-  stop(id: string, fadeOutMs: number): void { this.send(`/v1/playbacks/${encodeURIComponent(id)}/stop`, 'POST', { fadeOutMs }); }
-  stopTrack(trackId: string, fadeOutMs: number): void { this.send('/v1/stop-track', 'POST', { trackId, fadeOutMs }); }
-  stopAll(fadeOutMs: number): void { this.send('/v1/stop-all', 'POST', { fadeOutMs }); }
+  stop(id: string, fadeOutMs: number): void {
+    this.beginFadeOut((playback) => playback.id === id, fadeOutMs);
+    this.send(`/v1/playbacks/${encodeURIComponent(id)}/stop`, 'POST', { fadeOutMs });
+  }
+  stopTrack(trackId: string, fadeOutMs: number): void {
+    this.beginFadeOut((playback) => playback.trackId === trackId, fadeOutMs);
+    this.send('/v1/stop-track', 'POST', { trackId, fadeOutMs });
+  }
+  stopAll(fadeOutMs: number): void {
+    this.beginFadeOut(() => true, fadeOutMs);
+    this.send('/v1/stop-all', 'POST', { fadeOutMs });
+  }
+
+  private beginFadeOut(matches: (playback: BridgePlayback) => boolean, durationMs: number): void {
+    if (durationMs <= 0) return;
+    const now = performance.now();
+    for (const playback of this.getPlaybacks()) {
+      if (!matches(playback)) continue;
+      this.volumeTransitions.set(playback.id, {
+        from: bridgePlaybackVolumeAt(playback, now),
+        to: 0,
+        startedAtMs: now,
+        durationMs,
+        fadingOut: true,
+      });
+    }
+    this.notifyPlaybacks();
+  }
 
   subscribe(listener: PlaybackListener): () => void {
     this.playbackListeners.add(listener);
@@ -408,6 +479,15 @@ export function remotePreviewBridgeId(id: string): number {
   let hash = 0;
   for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) % 1_000_000_000;
   return hash;
+}
+
+function bridgePlaybackVolumeAt(playback: BridgePlayback, atMs: number): number {
+  const durationMs = playback.volumeTransitionDurationMs ?? 0;
+  const startedAtMs = playback.volumeTransitionStartedAtMs ?? atMs;
+  const from = playback.volumeFrom ?? playback.volume;
+  if (durationMs <= 0) return playback.volume;
+  const progress = Math.min(1, Math.max(0, (atMs - startedAtMs) / durationMs));
+  return from + (playback.volume - from) * progress;
 }
 
 function readAssociation(): BridgeAssociation | undefined {

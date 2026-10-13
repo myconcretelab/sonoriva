@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest';
 
 describe('commandes de lecture et préférences de session', () => {
   const source = readFileSync(new URL('../src/client/App.tsx', import.meta.url), 'utf8');
+  const playbackVolumeSource = readFileSync(new URL('../src/client/components/PlaybackVolumeControl.tsx', import.meta.url), 'utf8');
   const trackPadSource = readFileSync(new URL('../src/client/components/TrackPad.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/client/styles.css', import.meta.url), 'utf8');
 
   it('laisse les raccourcis globaux actifs pendant le réglage d’un curseur', () => {
     expect(source).toContain("event.target.type !== 'range'");
-    expect(source).toContain('onPointerUp={(event) => event.currentTarget.blur()}');
+    expect(playbackVolumeSource).toContain('onPointerUp={(event) => event.currentTarget.blur()}');
   });
 
   it('donne le focus à la recherche avec son raccourci', () => {
