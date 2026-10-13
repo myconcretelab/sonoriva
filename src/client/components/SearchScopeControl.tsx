@@ -42,7 +42,6 @@ export function SearchScopeControl({ scopes, onToggle, children }: { scopes: Set
     }
     if (event.key === 'Escape' && open) {
       event.preventDefault();
-      event.stopPropagation();
       anchor.current?.querySelector('input')?.focus();
       setOpen(false);
     }
