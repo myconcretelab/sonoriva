@@ -2,7 +2,7 @@ import { BackgroundImageField } from './BackgroundImageField';
 import { isVideoTrack } from '../lib/video-engine';
 import { VideoEditor } from './VideoEditor';
 import { useState, type FormEvent } from 'react';
-import { LoaderCircle, Plus, Save, Trash2, X } from 'lucide-react';
+import { Copy, LoaderCircle, Plus, Save, Trash2, X } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Category, ProjectColor, Track } from '../types';
 import { TrackTagsInput } from './TrackTagsInput';
@@ -14,6 +14,7 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
   const [backgroundImage, setBackgroundImage] = useState(track.backgroundImage ?? null);
   const [preparingImage, setPreparingImage] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [aliasing, setAliasing] = useState(false);
   const [savingColor, setSavingColor] = useState(false);
   const [error, setError] = useState('');
   const [startTimeMs, setStartTimeMs] = useState(track.startTimeMs);
@@ -24,7 +25,7 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
   const colorIsPreset = projectColors.some((item) => item.color.toLowerCase() === color.toLowerCase());
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (preparingImage || loading) return; setLoading(true); setError('');
+    event.preventDefault(); if (preparingImage || loading || aliasing) return; setLoading(true); setError('');
     const data = new FormData(event.currentTarget);
     try {
       await api.updateTrack(track.id, {
@@ -52,6 +53,13 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Suppression impossible.'); setLoading(false); }
   }
 
+  async function createAlias() {
+    if (loading || aliasing) return;
+    setAliasing(true); setError('');
+    try { await api.createTrackAlias(track.id); onChanged(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Création de l’alias impossible."); setAliasing(false); }
+  }
+
   async function saveColorToProject() {
     setSavingColor(true); setError('');
     try { await onAddProjectColor(color); }
@@ -61,7 +69,7 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
 
   return <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <form className="dialog track-dialog" onSubmit={submit}>
-      <header><div><p className="eyebrow">{isVideoTrack(track) ? 'Réglages de la vidéo' : 'Réglages du son'}</p><h2>{track.title}</h2></div><div className="track-dialog-header-actions"><button type="submit" className="button primary" disabled={loading || preparingImage} aria-label="Enregistrer">{loading ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}<span>Enregistrer</span></button><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer les réglages"><X /></button></div></header>
+      <header><div><p className="eyebrow">{isVideoTrack(track) ? 'Réglages de la vidéo' : 'Réglages du son'}</p><h2>{track.title}</h2></div><div className="track-dialog-header-actions"><button type="button" className="button ghost" disabled={loading || aliasing} onClick={createAlias} aria-label="Créer un alias" title="Créer un autre morceau utilisant le même fichier">{aliasing ? <LoaderCircle className="spin" size={17} /> : <Copy size={17} />}<span>Alias</span></button><button type="submit" className="button primary" disabled={loading || aliasing || preparingImage} aria-label="Enregistrer">{loading ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}<span>Enregistrer</span></button><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer les réglages"><X /></button></div></header>
       <div className="track-title-color-row">
         <label>Titre<input name="title" defaultValue={track.title} required /></label>
         <label className="track-color-field">Couleur<input name="color" type="color" value={color} onChange={(event) => setColor(event.target.value)} aria-label="Couleur personnalisée du morceau" /></label>
@@ -82,7 +90,7 @@ export function TrackDialog({ track, categories, projectColors, onAddProjectColo
       <div className="field-row"><label>Fondu d’entrée (ms)<input name="fadeInMs" type="number" min="0" max="60000" defaultValue={track.fadeInMs} /></label><label>Fondu de sortie (ms)<input name="fadeOutMs" type="number" min="0" max="60000" defaultValue={track.fadeOutMs} /></label></div>
       <label className="check"><input name="loop" type="checkbox" defaultChecked={track.loop} /> Jouer en boucle</label>
       {error && <p className="form-error">{error}</p>}
-      <footer className="spread"><button type="button" className="button danger" onClick={remove}><Trash2 size={17} />Supprimer</button><span><button type="button" className="button ghost" onClick={onClose}>Annuler</button><button className="button primary" disabled={loading || preparingImage}>{loading && <LoaderCircle className="spin" size={18} />}Enregistrer</button></span></footer>
+      <footer className="spread"><button type="button" className="button danger" disabled={loading || aliasing} onClick={remove}><Trash2 size={17} />Supprimer</button><span><button type="button" className="button ghost" onClick={onClose}>Annuler</button><button className="button primary" disabled={loading || aliasing || preparingImage}>{loading && <LoaderCircle className="spin" size={18} />}Enregistrer</button></span></footer>
     </form>
   </div>;
 }

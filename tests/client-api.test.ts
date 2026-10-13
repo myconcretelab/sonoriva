@@ -142,6 +142,17 @@ describe('client API', () => {
     }));
   });
 
+  it('crée un alias de morceau sans envoyer de nouveau fichier', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ track: {} }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetcher);
+    const trackId = '22222222-2222-4222-8222-222222222222';
+
+    await api.createTrackAlias(trackId);
+
+    expect(fetcher).toHaveBeenCalledWith(`/api/tracks/${trackId}/alias`, expect.objectContaining({ method: 'POST' }));
+    expect(fetcher.mock.calls[0]?.[1]).not.toHaveProperty('body');
+  });
+
   it('crée puis met à jour une playlist avec ses options', async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ playlist: { id: 'playlist-id' } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', fetcher);

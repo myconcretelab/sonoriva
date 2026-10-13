@@ -321,6 +321,7 @@ export interface Track {
   subcategoryId: string | null;
   title: string;
   originalFilename: string;
+  storageKey?: string;
   mimeType: string;
   videoEndBehavior?: 'black' | 'hold';
   sizeBytes: number;

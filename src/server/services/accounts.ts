@@ -87,6 +87,21 @@ export async function requireWritableAccount(userId: string): Promise<AccountCon
   return context;
 }
 
+export async function requireWritableProjectAccount(userId: string, projectId: string): Promise<AccountContext> {
+  const context = await accountForUserProject(userId, projectId);
+  if (!context) throw new Error('Projet introuvable.');
+  const allowance = evaluateStorageAllowance({
+    accessStatus: context.account.accessStatus,
+    trialEndsAt: context.account.trialEndsAt,
+    gracePeriodEndsAt: context.account.gracePeriodEndsAt,
+    storageQuotaBytes: context.storageQuotaBytes,
+    usedBytes: 0,
+    incomingBytes: 0,
+  });
+  if (!allowance.allowed) throw new AccountStorageError('read-only');
+  return context;
+}
+
 export async function insertTrackWithinQuota(userId: string, values: typeof tracks.$inferInsert): Promise<Track> {
   return db.transaction(async (transaction) => {
     const [membership] = await transaction.select({ account: accounts, plan: plans, projectId: projects.id, isDemo: users.isDemo })

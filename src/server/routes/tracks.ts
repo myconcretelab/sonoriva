@@ -7,12 +7,12 @@ import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { db } from '../db/index.js';
 import { accountMemberships, categories, projects, tracks, trackSubcategories } from '../db/schema.js';
-import { DemoUploadError, insertTrackWithinQuota } from '../services/accounts.js';
+import { DemoUploadError, insertTrackWithinQuota, requireWritableProjectAccount } from '../services/accounts.js';
 import { requireUser } from '../services/auth.js';
 import { demoLimitsForUser } from '../services/demo.js';
 import { canAccessProject, projectAccessCondition } from '../services/ownership.js';
@@ -377,6 +377,27 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
     }
     const [track] = await db.update(tracks).set({ ...input, ...(input.categoryId !== undefined && input.categoryId !== existingTrack.categoryId ? { subcategoryId: null } : {}) }).where(eq(tracks.id, id)).returning();
     return { track };
+  });
+
+  app.post('/api/tracks/:id/alias', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return;
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const existingTrack = await ownedTrack(user.id, id);
+    if (!existingTrack) return reply.code(404).send({ error: 'Son introuvable.' });
+    await requireWritableProjectAccount(user.id, existingTrack.projectId);
+    const track = await db.transaction(async (transaction) => {
+      await transaction.update(tracks).set({ position: sql`${tracks.position} + 1` })
+        .where(and(eq(tracks.projectId, existingTrack.projectId), gt(tracks.position, existingTrack.position)));
+      const [created] = await transaction.insert(tracks).values({
+        ...existingTrack,
+        id: randomUUID(),
+        position: existingTrack.position + 1,
+        createdAt: new Date(),
+      }).returning();
+      return created;
+    });
+    return reply.code(201).send({ track });
   });
 
   app.patch('/api/tracks/:id/reorder', async (request, reply) => {

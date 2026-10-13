@@ -100,6 +100,16 @@ describe.skipIf(process.env.SONORIVA_INTEGRATION_DB !== '1')('compte multiutilis
     expect((await call('POST', '/api/account/copy-tracks', { trackIds: [sourceId], projectId: foreignProject })).statusCode).toBe(403);
   });
 
+  it('crée un alias au quota plein sans recopier le fichier', async () => {
+    const response = await call('POST', `/api/tracks/${sourceId}/alias`);
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().track).toMatchObject({ projectId: ownerProject, storageKey, title: 'Original', sizeBytes: 10 });
+    expect(response.json().track.id).not.toBe(sourceId);
+    expect((await call('GET', '/api/account')).json().account.storageUsedBytes).toBe(10);
+    const detail = await call('GET', `/api/projects/${ownerProject}`);
+    expect(detail.json().tracks.filter((track: { storageKey: string }) => track.storageKey === storageKey)).toHaveLength(2);
+  });
+
   it('révoque la session précédente et protège les spectacles et les sons', async () => {
     const previous = cookie;
     await login(memberEmail);

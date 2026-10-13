@@ -135,6 +135,7 @@ export const api = {
   uploadTrack: (form: FormData) => request<{ track: Track }>('/api/tracks/upload', { method: 'POST', body: form }),
   updateTrack: (id: string, input: Partial<Pick<Track, 'title' | 'categoryId' | 'volume' | 'loop' | 'fadeInMs' | 'fadeOutMs' | 'startTimeMs' | 'endTimeMs' | 'color' | 'tags' | 'backgroundImage'>>) =>
     request<{ track: Track }>(`/api/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  createTrackAlias: (id: string) => request<{ track: Track }>(`/api/tracks/${id}/alias`, { method: 'POST' }),
   batchUpdateTracks: (input: BatchTrackUpdateInput) => request<{ tracks: Track[] }>('/api/tracks/batch', {
     method: 'PATCH', body: JSON.stringify(input),
   }),

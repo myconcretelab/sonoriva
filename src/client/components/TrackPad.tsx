@@ -2,7 +2,7 @@ import type { DownloadProgress } from '../lib/download-state';
 import { VideoThumbnail } from './VideoThumbnail';
 import { isVideoTrack } from '../lib/video-engine';
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
-import { Download, Video, AudioWaveform, CircleCheck, Infinity as InfinityIcon, MoreHorizontal, Play } from 'lucide-react';
+import { Copy, Download, Video, AudioWaveform, CircleCheck, Infinity as InfinityIcon, MoreHorizontal, Play } from 'lucide-react';
 import type { ActivePlayback } from '../lib/audio-engine';
 import type { RoutedBridgeOutput } from '../lib/bridge-output-routing';
 import { contrastColor } from '../lib/color-contrast';
@@ -12,6 +12,7 @@ import type { Track } from '../types';
 interface Props {
   track: Track;
   color: string;
+  aliasCount?: number;
   active: boolean;
   playbacks: ActivePlayback[];
   historyProgress: number;
@@ -44,7 +45,7 @@ interface Props {
   onMobileDragEnd?: (point: ClientPoint, cancelled: boolean) => void;
 }
 
-export function TrackPad({ track, color, active, playbacks, historyProgress, loaded, greyPlayed = false, download, dragEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
+export function TrackPad({ track, color, aliasCount = 1, active, playbacks, historyProgress, loaded, greyPlayed = false, download, dragEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
   const mainOutput = (isVideoTrack(track) ? [] : bridgeOutputs).find((output) => output.id === mainBridgeOutputId);
   const alternateOutputs = mainOutput ? bridgeOutputs.filter((output) => output.id !== mainOutput.id) : [];
   const pointerDrag = useRef<{ pointerId: number; start: ClientPoint; started: boolean } | undefined>(undefined);
@@ -120,7 +121,7 @@ export function TrackPad({ track, color, active, playbacks, historyProgress, loa
       <span className="track-download-marker"><Download size={12} /><span>{download.total ? `${Math.min(100, Math.round(download.received / download.total * 100))} %` : '…'}</span></span>
     </span>}
     <div className="track-meta" data-track-drag-handle draggable={canDrag} title={canDrag ? (selectionMode ? 'Glisser pour déplacer les morceaux sélectionnés' : 'Glisser pour déplacer ce morceau') : undefined}>
-      <span className="track-duration">{loaded && <span className="track-loaded" title="Disponible hors ligne" aria-label="Disponible hors ligne"><CircleCheck size={13} /></span>}{isVideoTrack(track) && 'Vidéo · '}{track.durationMs ? formatDuration((track.endTimeMs ?? track.durationMs) - track.startTimeMs) : '—:—'}</span>
+      <span className="track-duration">{loaded && <span className="track-loaded" title="Disponible hors ligne" aria-label="Disponible hors ligne"><CircleCheck size={13} /></span>}{aliasCount > 1 && <span className="track-alias-count" title={`${aliasCount} exemplaires utilisent le même fichier dans ce spectacle`} aria-label={`${aliasCount} exemplaires du même fichier`}><Copy size={10} /><b>{aliasCount}</b></span>}{isVideoTrack(track) && 'Vidéo · '}{track.durationMs ? formatDuration((track.endTimeMs ?? track.durationMs) - track.startTimeMs) : '—:—'}</span>
       <span className="track-card-secondary">{track.loop && <InfinityIcon size={15} />}{shortcut ? `Touche ${shortcut}` : `${Math.min(100, Math.round(track.volume * 100))} %`}</span>
       <span className="track-list-shortcut" title={shortcut ? `Raccourci ${shortcut}` : 'Aucun raccourci'}>{track.loop && <InfinityIcon size={15} />}{shortcut ?? '—'}</span>
     </div>
