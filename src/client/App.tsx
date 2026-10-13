@@ -897,6 +897,20 @@ export default function App() {
     }
   }, [consumeNextTrackVolume, detail, remote, shortcutLaunchOutputId, socket]);
 
+  const resetCrossfadeDurationAfterUse = useCallback(() => {
+    const project = detail?.project;
+    if (!project?.crossfadeResetAfterUse) return;
+    const crossfadeDurationMs = project.crossfadeResetDurationMs ?? 2_000;
+    if (project.crossfadeDurationMs === crossfadeDurationMs) return;
+    const optimisticProject = { ...project, crossfadeDurationMs };
+    setDetail((current) => current?.project.id === project.id ? { ...current, project: optimisticProject } : current);
+    setProjects((current) => current.map((candidate) => candidate.id === project.id ? optimisticProject : candidate));
+    api.updateProjectActions(project.id, { crossfadeDurationMs }).then(({ project: savedProject }) => {
+      setDetail((current) => current?.project.id === savedProject.id ? { ...current, project: savedProject } : current);
+      setProjects((current) => current.map((candidate) => candidate.id === savedProject.id ? savedProject : candidate));
+    }).catch((cause) => setError(cause instanceof Error ? cause.message : 'Réinitialisation du fondu impossible.'));
+  }, [detail]);
+
   const playQuickLaunchTracks = useCallback(async (tracks: Track[], action: MouseAction): Promise<string[]> => {
     if (action === 'none') return [];
     if (remote && !socket?.connected) { setError('Télécommande déconnectée.'); return []; }
@@ -923,8 +937,10 @@ export default function App() {
         return action === 'stop' ? undefined : track.id;
       } catch (cause) { setError(cause instanceof Error ? cause.message : 'Lancement impossible.'); return undefined; }
     }));
-    return results.filter((id): id is string => Boolean(id));
-  }, [consumeNextTrackVolume, detail, remote, sendOrRun, shortcutLaunchOutputId, socket]);
+    const playedTrackIds = results.filter((id): id is string => Boolean(id));
+    if (action === 'crossfade' && playedTrackIds.length > 0) resetCrossfadeDurationAfterUse();
+    return playedTrackIds;
+  }, [consumeNextTrackVolume, detail, remote, resetCrossfadeDurationAfterUse, sendOrRun, shortcutLaunchOutputId, socket]);
   const prepareQuickLaunchTracks = useCallback(async (tracks: Track[]) => {
     if (remote) {
       if (!detail || !socket?.connected) throw new Error('Télécommande déconnectée : préchargement impossible.');
@@ -945,16 +961,19 @@ export default function App() {
     const volumeMultiplier = startsPlayback ? consumeNextTrackVolume() : undefined;
     if (remote && detail) {
       socket?.emit('remote-command', { projectId: detail.project.id, command: { type: 'run-action', trackId: track.id, action, crossfadeDurationMs: detail.project.crossfadeDurationMs, volumeMultiplier, soundboard: true } satisfies RemoteCommand });
+      if (action === 'crossfade') resetCrossfadeDurationAfterUse();
       return;
     }
-    const run = () => audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, shortcutLaunchOutputId(), interruptPlaylistForSoundboard(action), detail?.project.crossfadeDurationMs);
+    const run = () => audioEngine.runAction(action, track, detail?.tracks ?? [], volumeMultiplier, shortcutLaunchOutputId(), interruptPlaylistForSoundboard(action), detail?.project.crossfadeDurationMs).then(() => {
+      if (action === 'crossfade') resetCrossfadeDurationAfterUse();
+    });
     if (startsPlayback && isVideoTrack(track) && !videoEngine.getState().connected) {
       setPendingVideo({ title: track.title, run });
       setProjectionOpen(true);
       return;
     }
     run().catch((cause) => setError(cause.message));
-  }, [consumeNextTrackVolume, detail, interruptPlaylistForSoundboard, remote, shortcutLaunchOutputId, socket]);
+  }, [consumeNextTrackVolume, detail, interruptPlaylistForSoundboard, remote, resetCrossfadeDurationAfterUse, shortcutLaunchOutputId, socket]);
 
   const playTrackOnOutput = useCallback((track: Track, outputId: string) => {
     if (remote || !routedBridgeOutputs.some((output) => output.id === outputId)) return;
@@ -1595,7 +1614,7 @@ export default function App() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Configuration des playlists impossible.'); }
   }
 
-  async function updatePlaybackSettings(input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number }) {
+  async function updatePlaybackSettings(input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number; crossfadeResetAfterUse?: boolean; crossfadeResetDurationMs?: number }) {
     if (!detail) return;
     try {
       const { project } = await api.updateProjectActions(detail.project.id, input);
@@ -2395,13 +2414,11 @@ export default function App() {
 
   function renderActionsContent() {
     if (!detail) return null;
-    const mouseCrossfadeSelected = detail.project.leftClickAction === 'crossfade' || detail.project.rightClickAction === 'crossfade';
     return <section className="mouse-actions">
       <div className="side-label"><span>Actions de déclenchement</span></div>
       {appSkin === 'tape' ? <div className="retro-action-row"><span><i>G</i>Clic gauche</span><RetroActionSelector label="Clic gauche" value={detail.project.leftClickAction ?? 'start'} options={mouseActions} onChange={(action) => updateMouseAction('left', action)} /></div> : <label><span><i>G</i>Clic gauche</span><select value={detail.project.leftClickAction ?? 'start'} onChange={(event) => updateMouseAction('left', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
       {appSkin === 'tape' ? <div className="retro-action-row"><span><i>D</i>Clic droit</span><RetroActionSelector label="Clic droit" value={detail.project.rightClickAction ?? 'crossfade'} options={mouseActions} onChange={(action) => updateMouseAction('right', action)} /></div> : <label><span><i>D</i>Clic droit</span><select value={detail.project.rightClickAction ?? 'crossfade'} onChange={(event) => updateMouseAction('right', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
       {appSkin === 'tape' ? <div className="retro-action-row"><span><i>K</i>Clavier</span><RetroActionSelector label="Clavier" value={detail.project.keyboardAction ?? 'start'} options={mouseActions} onChange={(action) => updateMouseAction('keyboard', action)} /></div> : <label><span><i>K</i>Clavier</span><select value={detail.project.keyboardAction ?? 'start'} onChange={(event) => updateMouseAction('keyboard', event.target.value as MouseAction)}>{mouseActions.map((action) => <option key={action.value} value={action.value}>{action.label}</option>)}</select></label>}
-      {mouseCrossfadeSelected && <CrossfadeDurationControl className="mouse-crossfade-duration" value={detail.project.crossfadeDurationMs ?? 2_000} onCommit={(crossfadeDurationMs) => updatePlaybackSettings({ crossfadeDurationMs })} />}
     </section>;
   }
 
@@ -2423,7 +2440,10 @@ export default function App() {
       if (companionId) audioEngine.setInstanceVolume(companionId, linkedVolumeForTotal(linkedVolumes.total, nextVolume));
     }
 
+    const mouseCrossfadeSelected = detail?.project.leftClickAction === 'crossfade' || detail?.project.rightClickAction === 'crossfade';
+
     return <><div className={`side-label player-heading ${playingTracks.length >= maxActivePlaybacks ? 'is-at-limit' : ''}`}><span>En lecture</span><em title={`${playingTracks.length} lecture${playingTracks.length !== 1 ? 's' : ''} sur ${maxActivePlaybacks} maximum`}>{playingTracks.length}/{maxActivePlaybacks}</em>{playingTracks.length === 2 && <button type="button" className={`volume-link-button ${volumeLinkActive ? 'active' : ''}`} disabled={!volumeLinkAvailable} aria-pressed={volumeLinkActive} onClick={toggleVolumeLink} aria-label={volumeLinkActive ? 'Délier les volumes' : 'Lier les volumes'} title={volumeLinkActive ? 'Volumes liés : une variation est compensée par l’autre lecteur' : 'Lier les volumes des deux lecteurs'}><Link2 size={13} /></button>}{playingTracks.length > 0 && <button type="button" className="stop-all-button" onClick={() => sendOrRun({ type: 'stop-all' })} aria-label="Tout arrêter"><Square size={13} fill="currentColor" /></button>}</div>
+      {mouseCrossfadeSelected && <CrossfadeDurationControl className="players-crossfade-duration" value={detail?.project.crossfadeDurationMs ?? 2_000} resetAfterUse={detail?.project.crossfadeResetAfterUse ?? false} onResetAfterUseChange={(crossfadeResetAfterUse) => updatePlaybackSettings({ crossfadeResetAfterUse })} onCommit={(crossfadeDurationMs) => updatePlaybackSettings({ crossfadeDurationMs })} />}
       <div className={`now-playing-list ${compactPlayerCards ? 'is-compact' : ''}`}>
         {playingTracks.length === 0 ? <div className="players-empty"><AudioWaveform size={24} /><strong>Aucun son en lecture</strong><span>Les lecteurs actifs apparaîtront ici.</span></div> : playingTracks.map(({ playback, track }) => {
           const category = detail?.categories.find((item) => item.id === track.categoryId);

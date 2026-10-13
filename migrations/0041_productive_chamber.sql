@@ -1,0 +1,2 @@
+ALTER TABLE "projects" ADD COLUMN "crossfade_reset_after_use" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "projects" ADD COLUMN "crossfade_reset_duration_ms" integer DEFAULT 2000 NOT NULL;

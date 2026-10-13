@@ -50,6 +50,6 @@ Le clic gauche, le clic droit et le déclenchement clavier possèdent chacun un 
 | Arrêter | Arrête les instances actives de la piste |
 | Aucune action | Ignore le clic correspondant |
 
-Les trois sélecteurs sont affichés dans la barre latérale du lecteur principal. Quand le clic gauche ou le clic droit utilise **Fondu enchaîné**, une réglette de 0 à 20 secondes apparaît sous les sélecteurs. La même durée se règle dans **Paramètres → Commandes → Fondu enchaîné**.
+Les trois sélecteurs sont affichés dans la barre latérale du lecteur principal. Quand le clic gauche ou le clic droit utilise **Fondu enchaîné**, une réglette de 0 à 20 secondes apparaît en haut de la section **En lecture**. Elle avance par paliers de 0,5 seconde et affiche sa valeur pendant le réglage. Son interrupteur peut replacer automatiquement la durée sur une valeur définie après chaque fondu enchaîné. La durée courante, l’activation de cette réinitialisation et sa valeur de retour — 2 secondes initialement — se règlent aussi dans **Paramètres → Commandes → Fondu enchaîné**.
 
 Lorsque deux lecteurs sont actifs, l’icône de chaîne de la section **En lecture** lie leurs volumes. La somme de leurs niveaux au moment de l’activation est conservée dans la limite de 0 à 100 % par lecteur : baisser l’un augmente l’autre. L’icône permet aussi de rompre le lien.

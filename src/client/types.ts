@@ -73,6 +73,8 @@ export interface Project extends ProjectKeyboardShortcuts {
   maxActivePlaybacks: number;
   compactPlaybackThreshold: number;
   crossfadeDurationMs: number;
+  crossfadeResetAfterUse: boolean;
+  crossfadeResetDurationMs: number;
   position: number;
   createdAt: string;
   updatedAt: string;

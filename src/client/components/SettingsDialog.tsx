@@ -46,7 +46,7 @@ interface Props {
   onUpdateKeyAction: (key: 'escape' | 'backspace' | 'shift-backspace' | 'space', action: KeyAction) => void;
   onUpdateKeyboardShortcut: (key: ProjectKeyboardShortcutKey, shortcut: string) => void;
   onUpdatePlaylistGroupLimit: (limit: number) => void;
-  onUpdatePlaybackSettings: (input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number }) => void;
+  onUpdatePlaybackSettings: (input: { maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number; crossfadeResetAfterUse?: boolean; crossfadeResetDurationMs?: number }) => void;
   onLogout: () => void;
   onLogin: () => void;
   onClose: () => void;
@@ -580,6 +580,10 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
       <section className="settings-section" hidden={activeTab !== 'controls'}>
         <div className="settings-section-title"><AudioWaveform size={16} /><div><strong>Fondu enchaîné</strong><span>Durée commune de disparition des lectures en cours et d’apparition du nouveau morceau.</span></div></div>
         <CrossfadeDurationControl className="settings-crossfade-duration" value={selectedProject?.crossfadeDurationMs ?? 2_000} disabled={!selectedProject} onCommit={(crossfadeDurationMs) => onUpdatePlaybackSettings({ crossfadeDurationMs })} />
+        <div className="settings-crossfade-reset">
+          <label className="settings-crossfade-reset-switch"><input type="checkbox" checked={selectedProject?.crossfadeResetAfterUse ?? false} disabled={!selectedProject} onChange={(event) => onUpdatePlaybackSettings({ crossfadeResetAfterUse: event.target.checked })} /><span><strong>Réinitialiser après utilisation</strong><small>Replace la durée du fondu sur la valeur ci-dessous après chaque lancement.</small></span></label>
+          <CrossfadeDurationControl label="Retour" value={selectedProject?.crossfadeResetDurationMs ?? 2_000} disabled={!selectedProject} onCommit={(crossfadeResetDurationMs) => onUpdatePlaybackSettings({ crossfadeResetDurationMs })} />
+        </div>
       </section>
       {activeTab === 'account' && account && !user.isDemo && <AccountMembersPanel account={account} user={user} />}
       <section className="settings-section settings-section-wide" ref={billingSectionRef} hidden={activeTab !== 'account'}>

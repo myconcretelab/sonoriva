@@ -251,8 +251,12 @@ html[data-skin='tape'] .next-volume-control > .console-volume-lock { grid-column
 .retro-action-detents { display: flex; justify-content: center; gap: 3px; }
 .retro-action-detents i { width: 4px; height: 3px; background: #5e5844; border-radius: 1px; }
 .retro-action-detents i.active { background: #ffce76; box-shadow: 0 0 3px #f7b95177; }
-html[data-skin='tape'] .mouse-actions .mouse-crossfade-duration { margin-inline: 7px; border-color: #655c48; color: #d1c4a6; }
-html[data-skin='tape'] .crossfade-duration-control output { color: #f8dda2; font-family: 'Courier New', monospace; }
+html[data-skin='tape'] .players-crossfade-duration { color: #d1c4a6; }
+html[data-skin='tape'] .crossfade-duration-popover { color: #f8dda2; border-color: #655c48; background: #24251f; font-family: 'Courier New', monospace; }
+html[data-skin='tape'] .crossfade-duration-popover::after { border-color: #655c48; background: #24251f; }
+html[data-skin='tape'] .crossfade-reset-toggle > span { border-color: #655c48; background: #24251f; }
+html[data-skin='tape'] .crossfade-reset-toggle input:checked + span { border-color: #d5ae65; background: #4a3a20; }
+html[data-skin='tape'] .crossfade-reset-toggle input:checked + span::after { background: #ffe0a1; }
 html[data-skin='tape'] .player-heading .volume-link-button.active { border-color: #d5ae65; color: #ffe0a1; background: #4a3a20; }
 
 html[data-skin='tape'] .next-volume-control > strong,

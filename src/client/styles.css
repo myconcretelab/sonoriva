@@ -120,15 +120,29 @@ kbd { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; col
 .mouse-actions label > span { display: flex; align-items: center; gap: 6px; }
 .mouse-actions label i { width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 6px; color: var(--ui-ink-soft, #d4d4d8); background: var(--surface-2); font-size: .6rem; font-style: normal; font-weight: 800; }
 .mouse-actions select { height: 32px; padding: 0 8px; border-radius: 8px; color: var(--ui-ink-soft, #d4d4d8); font-size: .68rem; }
-.crossfade-duration-control { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 42px; align-items: center; gap: 3px 7px; color: var(--ui-secondary, #a1a1aa); font-size: .65rem; }
-.crossfade-duration-control > span { display: flex; align-items: center; gap: 6px; }
-.crossfade-duration-control input { grid-column: 1; min-width: 0; height: 16px; cursor: pointer; }
-.crossfade-duration-control output { grid-column: 2; grid-row: 1 / 3; color: var(--ui-ink-soft, #d4d4d8); font: .62rem ui-monospace, monospace; text-align: right; }
-.crossfade-duration-control input:disabled { opacity: .45; cursor: default; }
-.mouse-actions .mouse-crossfade-duration { margin: 2px 9px 0; padding: 7px 8px 2px; grid-template-columns: auto minmax(44px, 1fr) 38px; gap: 7px; border-top: 1px solid var(--border); }
-.mouse-actions .mouse-crossfade-duration input { grid-column: 2; grid-row: 1; }
-.mouse-actions .mouse-crossfade-duration output { grid-column: 3; grid-row: 1; }
-.settings-crossfade-duration { padding-top: 4px; }
+.crossfade-duration-control { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--ui-secondary, #a1a1aa); font-size: .65rem; }
+.crossfade-duration-label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.crossfade-duration-slider { position: relative; min-width: 0; display: flex; align-items: center; }
+.crossfade-duration-slider input { width: 100%; min-width: 0; height: 20px; cursor: pointer; }
+.crossfade-duration-popover { position: absolute; z-index: 3; bottom: calc(100% + 2px); left: clamp(18px, var(--crossfade-progress), calc(100% - 18px)); min-width: 32px; padding: 3px 5px; transform: translateX(-50%); border: 1px solid var(--border); border-radius: 5px; color: var(--ui-ink, #fafafa); background: var(--ui-raised, #27272a); box-shadow: 0 5px 12px rgba(0,0,0,.28); font: .58rem ui-monospace, monospace; text-align: center; pointer-events: none; }
+.crossfade-duration-popover::after { position: absolute; top: 100%; left: 50%; width: 5px; height: 5px; content: ''; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--ui-raised, #27272a); transform: translate(-50%, -3px) rotate(45deg); }
+.crossfade-duration-slider input:disabled { opacity: .45; cursor: default; }
+.crossfade-reset-toggle { position: relative; width: 25px; height: 14px; display: block; flex: 0 0 25px; cursor: pointer; }
+.crossfade-reset-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.crossfade-reset-toggle > span { position: absolute; inset: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--ui-control, #18181b); transition: border-color .15s, background .15s; }
+.crossfade-reset-toggle > span::after { position: absolute; top: 2px; left: 2px; width: 8px; height: 8px; content: ''; border-radius: 50%; background: var(--ui-muted, #71717a); transition: transform .15s, background .15s; }
+.crossfade-reset-toggle input:checked + span { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: var(--accent-soft); }
+.crossfade-reset-toggle input:checked + span::after { background: var(--accent); transform: translateX(11px); }
+.crossfade-reset-toggle input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.crossfade-reset-toggle input:disabled + span { opacity: .45; cursor: default; }
+.players-crossfade-duration { flex: 0 0 auto; margin: 0 9px 9px; padding: 3px 4px 5px; }
+.settings-crossfade-duration { grid-template-columns: auto minmax(0, 1fr); padding-top: 4px; }
+.settings-crossfade-reset { margin-top: 10px; padding-top: 10px; display: grid; gap: 9px; border-top: 1px solid var(--border); }
+.settings-crossfade-reset-switch { display: flex; align-items: center; gap: 8px; color: var(--ui-secondary, #a1a1aa); cursor: pointer; }
+.settings-crossfade-reset-switch > input { width: 15px; height: 15px; flex: 0 0 auto; accent-color: var(--accent); }
+.settings-crossfade-reset-switch > span { display: grid; gap: 1px; }
+.settings-crossfade-reset-switch strong { color: var(--ui-ink-soft, #d4d4d8); font-size: .64rem; }
+.settings-crossfade-reset-switch small { color: var(--ui-muted, #71717a); font-size: .55rem; line-height: 1.3; }
 .now-playing-list { flex: 1; min-height: 120px; padding: 0 9px 14px; display: grid; align-content: start; gap: 8px; overflow: auto; }
 .players-empty { min-height: 105px; padding: 14px; display: grid; place-content: center; justify-items: center; gap: 6px; border: 1px dashed var(--border); border-radius: 12px; color: #55555d; text-align: center; }
 .players-empty strong { color: #898991; font-size: .75rem; }

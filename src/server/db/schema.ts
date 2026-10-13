@@ -231,6 +231,8 @@ export const projects = pgTable('projects', {
   maxActivePlaybacks: integer('max_active_playbacks').notNull().default(8),
   compactPlaybackThreshold: integer('compact_playback_threshold').notNull().default(5),
   crossfadeDurationMs: integer('crossfade_duration_ms').notNull().default(2_000),
+  crossfadeResetAfterUse: boolean('crossfade_reset_after_use').notNull().default(false),
+  crossfadeResetDurationMs: integer('crossfade_reset_duration_ms').notNull().default(2_000),
   position: integer('position').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
