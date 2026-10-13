@@ -1331,8 +1331,12 @@ export default function App() {
         searchInputRef.current?.select();
         return;
       }
-      if ((event.target instanceof HTMLInputElement && event.target.type !== 'range') || event.target instanceof HTMLSelectElement || event.target instanceof HTMLTextAreaElement || (event.target instanceof HTMLElement && event.target.isContentEditable)) return;
-      if (selectionMode) {
+      const textInputHasFocus = (event.target instanceof HTMLInputElement && event.target.type !== 'range')
+        || event.target instanceof HTMLSelectElement
+        || event.target instanceof HTMLTextAreaElement
+        || (event.target instanceof HTMLElement && event.target.isContentEditable);
+      if (textInputHasFocus && event.key !== 'Escape') return;
+      if (selectionMode && !textInputHasFocus) {
         if (event.key === 'Escape') {
           event.preventDefault();
           setSelectionMode(false);
