@@ -42,6 +42,12 @@ export function playbackPositionAt(playback: PlaybackPosition, atMs = performanc
   return Math.min(elapsedMs, playback.durationMs);
 }
 
+function fadeInDurationForAction(action: MouseAction, track: Track, crossfadeDurationMs: number): number {
+  if (action === 'crossfade') return crossfadeDurationMs;
+  if (action === 'fade-in') return track.fadeInMs > 0 ? track.fadeInMs : 1_200;
+  return track.fadeInMs;
+}
+
 interface Playback extends ActivePlayback {
   source?: AudioBufferSourceNode;
   gain: GainNode;
@@ -694,12 +700,14 @@ class AudioEngine {
     if (action === 'none') return;
     if (isVideoTrack(track)) {
       if (action === 'stop') this.stop(track.id, track.fadeOutMs);
-      else await this.play(track, action === 'fade-in' ? track.fadeInMs || 1200 : track.fadeInMs, volumeMultiplier);
+      else await this.play(track, fadeInDurationForAction(action, track, crossfadeDurationMs), volumeMultiplier);
       return;
     }
     if (action === 'stop') return this.stop(track.id, track.fadeOutMs);
-    if (action === 'start') { await this.play(track, track.fadeInMs, volumeMultiplier, outputId); return; }
-    if (action === 'fade-in') { await this.play(track, track.fadeInMs > 0 ? track.fadeInMs : 1_200, volumeMultiplier, outputId); return; }
+    if (action === 'start' || action === 'fade-in') {
+      await this.play(track, fadeInDurationForAction(action, track, crossfadeDurationMs), volumeMultiplier, outputId);
+      return;
+    }
     if (!protectedPlaybackIds) this.launches.cancel();
     const expiresAtMs = await this.preparePlayback([track]);
     if (protectedPlaybackIds) {
@@ -708,7 +716,7 @@ class AudioEngine {
       }
     } else if (action === 'replace') this.stopAll(projectTracks, 0);
     else this.stopAll(projectTracks, crossfadeDurationMs);
-    await this.play(track, action === 'crossfade' ? crossfadeDurationMs : track.fadeInMs, volumeMultiplier, outputId, expiresAtMs);
+    await this.play(track, fadeInDurationForAction(action, track, crossfadeDurationMs), volumeMultiplier, outputId, expiresAtMs);
   }
 
   private findPlayback(playbackId: string): Playback | undefined {

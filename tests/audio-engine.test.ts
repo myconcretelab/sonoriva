@@ -247,6 +247,20 @@ describe('audio player instance controls', () => {
     audioEngine.stopAll([track, nextTrack], 0);
   });
 
+  it('fait entrer le premier son depuis le silence pendant toute la durée du fondu enchaîné', async () => {
+    const firstTrack = { ...track, id: '55555555-5555-4555-8555-555555555555', title: 'Première entrée' };
+    audioEngine.stopAll([track], 0);
+
+    await audioEngine.runAction('crossfade', firstTrack, [firstTrack], 1, undefined, undefined, 4_000);
+    const incoming = latest.find((playback) => playback.trackId === firstTrack.id);
+
+    expect(incoming).toMatchObject({ volume: 1, volumeFrom: 0, volumeTransitionDurationMs: 4_000 });
+    expect(playbackVolumeAt(incoming!, incoming!.volumeTransitionStartedAtMs)).toBe(0);
+    expect(playbackVolumeAt(incoming!, incoming!.volumeTransitionStartedAtMs + 2_000)).toBeCloseTo(.5);
+    expect(playbackVolumeAt(incoming!, incoming!.volumeTransitionStartedAtMs + 4_000)).toBe(1);
+    audioEngine.stopAll([firstTrack], 0);
+  });
+
   it('notifie les contrôles de régie lorsque la sortie change', async () => {
     let notifications = 0;
     const unsubscribeRouting = audioEngine.subscribeRouting(() => { notifications += 1; });
