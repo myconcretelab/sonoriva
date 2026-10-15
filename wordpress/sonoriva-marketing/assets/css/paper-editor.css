@@ -25,5 +25,6 @@
 .editor-styles-wrapper.sr-paper-home .is-root-container > .wp-block:nth-of-type(4n+3) .sr-section:not(.sr-hero){background-color:var(--paper-blue)}
 @media(max-width:781px){
   .editor-styles-wrapper.sr-paper-home .sr-hero{padding-top:66px!important}
+  .editor-styles-wrapper.sr-paper-home .sr-hero-grid > .wp-block-column:first-child{padding-inline:clamp(16px,3.5vw,24px)}
   .editor-styles-wrapper.sr-paper-home .sr-landing .sr-section:not(.sr-hero){background-size:75px auto,75px auto,auto}
 }
