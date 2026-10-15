@@ -50,6 +50,7 @@ body.sr-paper-home .header-actions .button:hover{transform:translateY(-2px) rota
   --sr-copy:var(--paper-muted);
   color:var(--paper-ink);
   background:var(--paper) url("../images/cardboard-texture.avif") repeat;
+  overflow-x:clip;
 }
 .sr-paper-home .sr-landing .sr-section{position:relative;isolation:isolate;padding-block:78px;border:0}
 .sr-paper-home .sr-landing .sr-section:not(.sr-hero),
@@ -183,7 +184,8 @@ body.sr-paper-home .header-actions .button:hover{transform:translateY(-2px) rota
   body.sr-paper-home .site-header,body.sr-paper-home .site-header.is-scrolled{height:64px}
   .sr-paper-home .sr-landing .sr-hero{padding-top:82px!important}
   .sr-paper-home .sr-hero-grid > .wp-block-column:first-child{padding-top:65px}
-  .sr-paper-home .sr-hero-logo{width:72px;padding:0;background:none;clip-path:none;filter:drop-shadow(1px 1px 0 #352c27) drop-shadow(-1px -1px 0 #352c27)}
+  .sr-paper-home .sr-hero-grid > .wp-block-column:last-child{top:-23px;right:15px;width:55px}
+  .sr-paper-home .sr-hero-logo{width:55px;padding:0;background:none;clip-path:none;filter:drop-shadow(1px 1px 0 #352c27) drop-shadow(-1px -1px 0 #352c27)}
   .sr-paper-home .sr-landing .sr-hero h1{font-size:clamp(2.35rem,11.5vw,3.4rem)}
   .sr-paper-home .sr-landing .sr-hero .sr-lead{font-size:.88rem}
   .sr-paper-home .sr-paper-stage{aspect-ratio:1.55}
