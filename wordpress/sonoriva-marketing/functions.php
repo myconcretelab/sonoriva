@@ -73,7 +73,7 @@ function sonoriva_marketing_assets(): void
 }
 add_action('wp_enqueue_scripts', 'sonoriva_marketing_assets');
 
-/** Keep the editable home blocks while adding the independent paper theatre. */
+/** Keep the editable home blocks while adding the original paper illustration. */
 function sonoriva_marketing_render_paper_stage(string $html, array $block): string
 {
     if (!is_front_page() || ($block['blockName'] ?? '') !== 'core/group') {
@@ -85,12 +85,8 @@ function sonoriva_marketing_render_paper_stage(string $html, array $block): stri
         return $html;
     }
 
-    $svg = file_get_contents(get_template_directory() . '/assets/images/paper-theatre.svg');
-    if ($svg === false) {
-        return $html;
-    }
-
-    $stage = '<div class="sr-paper-stage" data-paper-stage><div class="sr-paper-stage-art">' . $svg . '</div></div>';
+    $stage_url = esc_url(get_template_directory_uri() . '/assets/images/paper-spectacle-original.png');
+    $stage = '<figure class="sr-paper-stage"><img src="' . $stage_url . '" width="2048" height="768" alt="Comédiens en papier découpé sur scène, projecteurs, public et régisseur à la console" fetchpriority="high" decoding="async"></figure>';
     $last_close = strrpos($html, '</div>');
     if ($last_close === false) {
         return $html;
@@ -99,6 +95,38 @@ function sonoriva_marketing_render_paper_stage(string $html, array $block): stri
     return substr_replace($html, $stage, $last_close, 0);
 }
 add_filter('render_block', 'sonoriva_marketing_render_paper_stage', 10, 2);
+
+/** Scatter tactile paper props around the editable home sections. */
+function sonoriva_marketing_render_paper_decor(string $html, array $block): string
+{
+    if (!is_front_page() || ($block['blockName'] ?? '') !== 'core/group') {
+        return $html;
+    }
+
+    $classes = (string) ($block['attrs']['className'] ?? '');
+    if (!preg_match('/(?:^|\s)sr-section(?:\s|$)/', $classes) || preg_match('/(?:^|\s)sr-hero(?:\s|$)/', $classes)) {
+        return $html;
+    }
+
+    static $section_index = 0;
+    $props = ['paper-notes.webp', 'paper-speaker.webp', 'paper-microphone.webp'];
+    $first = esc_url(get_template_directory_uri() . '/assets/images/' . $props[$section_index % 3]);
+    $second = esc_url(get_template_directory_uri() . '/assets/images/' . $props[($section_index + 1) % 3]);
+    $variant = $section_index % 4;
+    $section_index++;
+
+    $decor = '<div class="sr-paper-decor sr-paper-decor--' . $variant . '" aria-hidden="true">'
+        . '<img class="sr-paper-decor-a" src="' . $first . '" alt="" loading="lazy" decoding="async">'
+        . '<img class="sr-paper-decor-b" src="' . $second . '" alt="" loading="lazy" decoding="async">'
+        . '</div>';
+    $last_close = strrpos($html, '</div>');
+    if ($last_close === false) {
+        return $html;
+    }
+
+    return substr_replace($html, $decor, $last_close, 0);
+}
+add_filter('render_block', 'sonoriva_marketing_render_paper_decor', 11, 2);
 
 function sonoriva_marketing_document_title(string $title): string
 {

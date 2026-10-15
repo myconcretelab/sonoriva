@@ -48,37 +48,6 @@
     window.addEventListener('load', startHeroLogo, { once: true });
   }
 
-  const paperStage = document.querySelector('[data-paper-stage]');
-  if (paperStage) {
-    const theatre = paperStage.querySelector('.paper-theatre');
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    let cueTimer;
-    let cue = 1;
-    let visible = false;
-    const syncStage = () => {
-      const playing = visible && !reducedMotion.matches;
-      paperStage.classList.toggle('is-playing', playing);
-      window.clearInterval(cueTimer);
-      if (!playing) {
-        theatre?.removeAttribute('data-cue');
-        return;
-      }
-      theatre?.setAttribute('data-cue', String(cue));
-      cueTimer = window.setInterval(() => {
-        cue = cue === 1 ? 2 : 1;
-        theatre?.setAttribute('data-cue', String(cue));
-      }, 3600);
-    };
-    const stageObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        visible = entry.isIntersecting;
-        syncStage();
-      });
-    }, { threshold: 0.08 });
-    stageObserver.observe(paperStage);
-    reducedMotion.addEventListener('change', syncStage);
-  }
-
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {

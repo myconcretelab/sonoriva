@@ -4,7 +4,7 @@ Le thème rend les pages et leurs blocs WordPress. Le contenu édité est enregi
 
 ## Accueil
 
-La page d’accueil conserve ses blocs éditables. Le rendu du bloc `sr-hero` y insère la scène SVG `assets/images/paper-theatre.svg` avec un fond transparent. `assets/css/paper-home.css` définit les couleurs carton, les typographies, les éléments découpés et les animations de cette seule page. `assets/js/site.js` anime la scène lorsqu’elle est visible et laisse les éléments fixes lorsque la réduction des mouvements est activée. Le logo animé reste dans son bloc Gutenberg.
+La page d’accueil conserve ses blocs éditables. Le rendu du bloc `sr-hero` y insère l’illustration statique `assets/images/paper-spectacle-original.png`. `assets/css/paper-home.css` applique la texture `assets/images/cardboard-texture.avif` et les styles de cette seule page. Les sections affichent les découpes `paper-speaker.webp`, `paper-microphone.webp` et `paper-notes.webp`. Le logo animé reste dans son bloc Gutenberg.
 
 ## Listes
 
