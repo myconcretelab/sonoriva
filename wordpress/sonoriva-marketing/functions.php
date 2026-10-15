@@ -60,6 +60,9 @@ function sonoriva_marketing_assets(): void
     $version = $theme->get('Version') ?: '1.0.0';
     wp_enqueue_style('sonoriva-marketing', get_stylesheet_uri(), [], $version);
     wp_enqueue_style('sonoriva-editorial', get_template_directory_uri() . '/assets/css/editorial.css', ['sonoriva-marketing'], $version);
+    if (is_front_page()) {
+        wp_enqueue_style('sonoriva-paper-home', get_template_directory_uri() . '/assets/css/paper-home.css', ['sonoriva-editorial'], $version);
+    }
     wp_enqueue_script(
         'sonoriva-marketing',
         get_template_directory_uri() . '/assets/js/site.js',
@@ -69,6 +72,33 @@ function sonoriva_marketing_assets(): void
     );
 }
 add_action('wp_enqueue_scripts', 'sonoriva_marketing_assets');
+
+/** Keep the editable home blocks while adding the independent paper theatre. */
+function sonoriva_marketing_render_paper_stage(string $html, array $block): string
+{
+    if (!is_front_page() || ($block['blockName'] ?? '') !== 'core/group') {
+        return $html;
+    }
+
+    $classes = (string) ($block['attrs']['className'] ?? '');
+    if (!preg_match('/(?:^|\s)sr-hero(?:\s|$)/', $classes)) {
+        return $html;
+    }
+
+    $svg = file_get_contents(get_template_directory() . '/assets/images/paper-theatre.svg');
+    if ($svg === false) {
+        return $html;
+    }
+
+    $stage = '<div class="sr-paper-stage" data-paper-stage><div class="sr-paper-stage-art">' . $svg . '</div></div>';
+    $last_close = strrpos($html, '</div>');
+    if ($last_close === false) {
+        return $html;
+    }
+
+    return substr_replace($html, $stage, $last_close, 0);
+}
+add_filter('render_block', 'sonoriva_marketing_render_paper_stage', 10, 2);
 
 function sonoriva_marketing_document_title(string $title): string
 {
@@ -298,6 +328,9 @@ add_filter('pre_handle_404', 'sonoriva_marketing_sitemap_status', 10, 2);
 function sonoriva_marketing_body_classes(array $classes): array
 {
     $classes[] = 'sonoriva-site';
+    if (is_front_page()) {
+        $classes[] = 'sr-paper-home';
+    }
     if (is_page('alternative-soundshow')) {
         $classes[] = 'comparison-page-body';
     }

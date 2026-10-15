@@ -91,6 +91,8 @@ grep --fixed-strings --quiet 'Essayer maintenant' <<< "$wordpress_html" || fail 
 grep --fixed-strings --quiet 'Votre soundboard pour le théâtre et le spectacle vivant' <<< "$wordpress_text" || fail "le contenu Gutenberg de la page d'accueil n'est pas publié."
 grep --fixed-strings --quiet 'data-hero-logo' <<< "$wordpress_html" || fail "le logo animé est absent du Hero."
 grep --fixed-strings --quiet 'logo-anime-hero-transparent.svg' <<< "$wordpress_html" || fail "le fichier du logo animé n'est pas relié au Hero."
+grep --fixed-strings --quiet 'class="paper-theatre"' <<< "$wordpress_html" || fail "la scène en papier SVG est absente du Hero."
+grep --fixed-strings --quiet 'paper-home.css' <<< "$wordpress_html" || fail "les styles de la nouvelle page d'accueil ne sont pas chargés."
 grep --fixed-strings --quiet '<html lang="fr-FR">' <<< "$wordpress_html" || fail "la langue du site WordPress n'est pas déclarée en français."
 grep --fixed-strings --quiet 'application/ld+json' <<< "$wordpress_html" || fail "les données structurées sont absentes de la page d'accueil."
 grep --fixed-strings --quiet 'Alternative SoundShow' <<< "$wordpress_html" || fail "le lien vers la page alternative SoundShow est absent."

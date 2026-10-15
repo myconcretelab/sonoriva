@@ -2,6 +2,10 @@
 
 Le thème rend les pages et leurs blocs WordPress. Le contenu édité est enregistré dans la base de données du site.
 
+## Accueil
+
+La page d’accueil conserve ses blocs éditables. Le rendu du bloc `sr-hero` y insère la scène SVG `assets/images/paper-theatre.svg` avec un fond transparent. `assets/css/paper-home.css` définit les couleurs carton, les typographies, les éléments découpés et les animations de cette seule page. `assets/js/site.js` anime la scène lorsqu’elle est visible et laisse les éléments fixes lorsque la réduction des mouvements est activée. Le logo animé reste dans son bloc Gutenberg.
+
 ## Listes
 
 Les blocs Liste reçoivent automatiquement des séparateurs et des coches. Le deuxième niveau utilise de petites puces avec un filet vertical, puis les niveaux suivants des tirets. Les listes ordonnées conservent leur numérotation, leur nombre de départ et leur ordre inversé éventuel. Les listes des menus et les indicateurs de disponibilité des forfaits conservent leur présentation spécifique.
