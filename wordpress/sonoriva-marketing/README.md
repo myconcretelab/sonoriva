@@ -4,7 +4,7 @@ Le thème rend les pages et leurs blocs WordPress. Le contenu édité est enregi
 
 ## Accueil
 
-La page d’accueil conserve ses blocs éditables. Le rendu du bloc `sr-hero` y insère l’illustration statique `assets/images/paper-spectacle-original.png`. `assets/css/paper-home.css` applique la texture `assets/images/cardboard-texture.avif` et les styles de cette seule page. Les sections affichent les découpes `paper-speaker.webp`, `paper-microphone.webp` et `paper-notes.webp`. Le logo animé reste dans son bloc Gutenberg.
+La page d’accueil conserve ses blocs éditables. L’illustration `assets/images/paper-spectacle-original.png` est un bloc Image dans le groupe du hero. `assets/css/paper-home.css` applique la texture `assets/images/cardboard-texture.avif` et les styles de la page publiée ; `assets/css/paper-editor.css` et `assets/js/paper-editor.js` en affichent l’aperçu dans Gutenberg. Les sections affichent les découpes `paper-speaker.webp`, `paper-microphone.webp` et `paper-notes.webp`. Le logo animé reste dans son bloc Gutenberg. Le script de déploiement insère une fois le bloc Image dans la page d’accueil existante.
 
 ## Listes
 

@@ -1,0 +1,29 @@
+.editor-styles-wrapper.sr-paper-home .is-root-container.sr-landing{
+  max-width:none;
+  min-height:100vh;
+  margin:0;
+  padding:0;
+}
+.editor-styles-wrapper.sr-paper-home .sr-hero{padding-top:76px!important}
+.editor-styles-wrapper.sr-paper-home .sr-hero-logo img{visibility:visible!important}
+.editor-styles-wrapper.sr-paper-home .sr-paper-stage{max-width:none}
+.editor-styles-wrapper.sr-paper-home .sr-paper-stage img{max-width:none}
+.editor-styles-wrapper.sr-paper-home .sr-landing .sr-section:not(.sr-hero){
+  background-image:url("../images/paper-notes.webp"),url("../images/paper-speaker.webp"),url("../images/cardboard-texture.avif");
+  background-position:left 2% top 5%,right 2% bottom 6%,0 0;
+  background-size:clamp(80px,9vw,140px) auto,clamp(80px,9vw,140px) auto,auto;
+  background-repeat:no-repeat,no-repeat,repeat;
+  background-blend-mode:normal,normal,multiply;
+}
+.editor-styles-wrapper.sr-paper-home .is-root-container > .wp-block:nth-of-type(3n+1) .sr-section:not(.sr-hero){
+  background-image:url("../images/paper-microphone.webp"),url("../images/paper-notes.webp"),url("../images/cardboard-texture.avif");
+}
+.editor-styles-wrapper.sr-paper-home .is-root-container > .wp-block:nth-of-type(3n+2) .sr-section:not(.sr-hero){
+  background-image:url("../images/paper-speaker.webp"),url("../images/paper-microphone.webp"),url("../images/cardboard-texture.avif");
+}
+.editor-styles-wrapper.sr-paper-home .is-root-container > .wp-block:nth-of-type(4n+2) .sr-section:not(.sr-hero){background-color:var(--paper-pink)}
+.editor-styles-wrapper.sr-paper-home .is-root-container > .wp-block:nth-of-type(4n+3) .sr-section:not(.sr-hero){background-color:var(--paper-blue)}
+@media(max-width:781px){
+  .editor-styles-wrapper.sr-paper-home .sr-hero{padding-top:66px!important}
+  .editor-styles-wrapper.sr-paper-home .sr-landing .sr-section:not(.sr-hero){background-size:75px auto,75px auto,auto}
+}

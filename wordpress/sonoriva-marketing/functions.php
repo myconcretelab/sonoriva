@@ -21,7 +21,7 @@ function sonoriva_marketing_setup(): void
     add_theme_support('responsive-embeds');
     add_theme_support('align-wide');
     add_theme_support('editor-styles');
-    add_editor_style(['style.css', 'assets/css/editor.css', 'assets/css/editorial.css']);
+    add_editor_style(['style.css', 'assets/css/editor.css', 'assets/css/editorial.css', 'assets/css/paper-home.css', 'assets/css/paper-editor.css']);
     add_theme_support('html5', ['search-form', 'comment-form', 'comment-list', 'gallery', 'caption', 'style', 'script']);
     register_nav_menus([
         'primary' => __('Navigation principale', 'sonoriva-marketing'),
@@ -72,29 +72,6 @@ function sonoriva_marketing_assets(): void
     );
 }
 add_action('wp_enqueue_scripts', 'sonoriva_marketing_assets');
-
-/** Keep the editable home blocks while adding the original paper illustration. */
-function sonoriva_marketing_render_paper_stage(string $html, array $block): string
-{
-    if (!is_front_page() || ($block['blockName'] ?? '') !== 'core/group') {
-        return $html;
-    }
-
-    $classes = (string) ($block['attrs']['className'] ?? '');
-    if (!preg_match('/(?:^|\s)sr-hero(?:\s|$)/', $classes)) {
-        return $html;
-    }
-
-    $stage_url = esc_url(get_template_directory_uri() . '/assets/images/paper-spectacle-original.png');
-    $stage = '<figure class="sr-paper-stage"><img src="' . $stage_url . '" width="2048" height="768" alt="Comédiens en papier découpé sur scène, projecteurs, public et régisseur à la console" fetchpriority="high" decoding="async"></figure>';
-    $last_close = strrpos($html, '</div>');
-    if ($last_close === false) {
-        return $html;
-    }
-
-    return substr_replace($html, $stage, $last_close, 0);
-}
-add_filter('render_block', 'sonoriva_marketing_render_paper_stage', 10, 2);
 
 /** Scatter tactile paper props around the editable home sections. */
 function sonoriva_marketing_render_paper_decor(string $html, array $block): string
@@ -387,3 +364,22 @@ function sonoriva_marketing_editor_formats(): void
     );
 }
 add_action('enqueue_block_editor_assets', 'sonoriva_marketing_editor_formats');
+
+/** Match the published paper design inside the home page editor. */
+function sonoriva_marketing_home_editor_assets(): void
+{
+    $screen = get_current_screen();
+    $post_id = isset($_GET['post']) ? absint($_GET['post']) : 0;
+    if (!$screen || $screen->post_type !== 'page' || $post_id !== (int) get_option('page_on_front')) {
+        return;
+    }
+
+    wp_enqueue_script(
+        'sonoriva-paper-editor',
+        get_template_directory_uri() . '/assets/js/paper-editor.js',
+        ['wp-dom-ready'],
+        wp_get_theme()->get('Version'),
+        true
+    );
+}
+add_action('enqueue_block_editor_assets', 'sonoriva_marketing_home_editor_assets');

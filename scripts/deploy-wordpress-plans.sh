@@ -57,6 +57,8 @@ ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "
   php -r \"require 'wp-load.php'; require_once '$WORDPRESS_THEME_ROOT/inc/page-content.php'; require_once '$WORDPRESS_THEME_ROOT/inc/soundshow-content.php'; \\\$alternative = get_page_by_path('alternative-soundshow', OBJECT, 'page'); if (\\\$alternative && trim((string) \\\$alternative->post_content) === '') { wp_update_post(array('ID' => \\\$alternative->ID, 'post_content' => sonoriva_marketing_soundshow_block_content())); } foreach (get_pages(array('post_status' => 'publish')) as \\\$page) { if (trim((string) \\\$page->post_content) !== '' && !has_blocks(\\\$page->post_content)) { \\\$converted = sonoriva_marketing_classic_content_to_blocks(\\\$page->post_content); if (\\\$converted === \\\$page->post_content) { fwrite(STDERR, 'La page ' . \\\$page->post_name . ' ne peut pas etre convertie en blocs sans perte.' . PHP_EOL); exit(1); } wp_update_post(array('ID' => \\\$page->ID, 'post_content' => \\\$converted)); \\\$page = get_post(\\\$page->ID); } if (trim((string) \\\$page->post_content) !== '' && !has_blocks(\\\$page->post_content)) { fwrite(STDERR, 'La page ' . \\\$page->post_name . ' n est pas editable en blocs.' . PHP_EOL); exit(1); } }\"
 "
 
+ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "cd '$WORDPRESS_ROOT' && php" < "$repo_root/scripts/migrate-wordpress-home-stage.php"
+
 ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "cd '$WORDPRESS_ROOT' && php" < "$repo_root/scripts/update-wordpress-soundboard.php"
 ssh "$WORDPRESS_ACCOUNT@$WORDPRESS_SSH_HOST" "cd '$WORDPRESS_ROOT' && php" < "$repo_root/scripts/update-wordpress-blog.php"
 
@@ -91,7 +93,7 @@ grep --fixed-strings --quiet 'Essayer maintenant' <<< "$wordpress_html" || fail 
 grep --fixed-strings --quiet 'Votre soundboard pour le théâtre et le spectacle vivant' <<< "$wordpress_text" || fail "le contenu Gutenberg de la page d'accueil n'est pas publié."
 grep --fixed-strings --quiet 'data-hero-logo' <<< "$wordpress_html" || fail "le logo animé est absent du Hero."
 grep --fixed-strings --quiet 'logo-anime-hero-transparent.svg' <<< "$wordpress_html" || fail "le fichier du logo animé n'est pas relié au Hero."
-grep --fixed-strings --quiet 'paper-spectacle-original.png' <<< "$wordpress_html" || fail "l'illustration originale est absente du Hero."
+grep --fixed-strings --quiet 'sr-paper-stage' <<< "$wordpress_html" || fail "la scène Gutenberg est absente du Hero."
 grep --fixed-strings --quiet 'cardboard-texture.avif' "wordpress/sonoriva-marketing/assets/css/paper-home.css" || fail "la texture carton n'est pas appliquée à la page d'accueil."
 grep --fixed-strings --quiet 'paper-home.css' <<< "$wordpress_html" || fail "les styles de la nouvelle page d'accueil ne sont pas chargés."
 for paper_asset in cardboard-texture.avif paper-spectacle-original.png paper-speaker.webp paper-microphone.webp paper-notes.webp; do

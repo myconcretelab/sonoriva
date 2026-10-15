@@ -20,6 +20,36 @@ function sonoriva_marketing_home_hero_logo_block(): string
 HTML;
 }
 
+function sonoriva_marketing_home_paper_stage_block(): string
+{
+    $theme_uri = esc_url(set_url_scheme(get_template_directory_uri(), 'https'));
+
+    return <<<HTML
+<!-- wp:image {"sizeSlug":"full","linkDestination":"none","className":"sr-paper-stage"} -->
+<figure class="wp-block-image size-full sr-paper-stage"><img src="{$theme_uri}/assets/images/paper-spectacle-original.png" alt="Comédiens en papier découpé sur scène, projecteurs, public et régisseur à la console"/></figure>
+<!-- /wp:image -->
+HTML;
+}
+
+/** Add the editable stage image once, without rewriting the other home blocks. */
+function sonoriva_marketing_migrate_paper_stage_content(string $content): string
+{
+    if (str_contains($content, 'sr-paper-stage')) {
+        return $content;
+    }
+
+    $stage = sonoriva_marketing_home_paper_stage_block();
+    $pattern = '~(<!-- /wp:columns -->)\s*(</div>\s*<!-- /wp:group -->\s*<!-- wp:group \{[^\n]*"className":"sr-summary")~';
+    $migrated = preg_replace_callback(
+        $pattern,
+        static fn (array $matches): string => $matches[1] . "\n\n" . $stage . "\n" . $matches[2],
+        $content,
+        1
+    );
+
+    return is_string($migrated) ? $migrated : $content;
+}
+
 function sonoriva_marketing_migrate_home_content(string $content): string
 {
     $cleaned = preg_replace(
@@ -60,6 +90,7 @@ function sonoriva_marketing_home_block_content(): string
 {
     $theme_uri = esc_url(set_url_scheme(get_template_directory_uri(), 'https'));
     $hero_logo = sonoriva_marketing_home_hero_logo_block();
+    $paper_stage = sonoriva_marketing_home_paper_stage_block();
 
     return <<<HTML
 <!-- wp:group {"align":"full","className":"sr-section sr-hero","layout":{"type":"constrained"}} -->
@@ -95,7 +126,9 @@ function sonoriva_marketing_home_block_content(): string
 <!-- wp:column {"verticalAlignment":"center","width":"57%"} -->
 <div class="wp-block-column is-vertically-aligned-center" style="flex-basis:57%">{$hero_logo}</div>
 <!-- /wp:column --></div>
-<!-- /wp:columns --></div>
+<!-- /wp:columns -->
+
+{$paper_stage}</div>
 <!-- /wp:group -->
 
 <!-- wp:group {"align":"full","className":"sr-summary","layout":{"type":"constrained"}} -->
