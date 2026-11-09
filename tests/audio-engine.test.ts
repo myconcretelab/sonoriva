@@ -4,8 +4,8 @@ import type { Track } from '../src/client/types.js';
 
 class FakeAudioParam {
   value = 1;
-  setValueAtTime(value: number) { this.value = value; }
-  linearRampToValueAtTime(value: number) { this.value = value; }
+  setValueAtTime = vi.fn((value: number) => { this.value = value; });
+  linearRampToValueAtTime = vi.fn((value: number) => { this.value = value; });
   cancelScheduledValues() { /* Valeur conservée. */ }
 }
 
@@ -28,11 +28,12 @@ class FakeSourceNode {
 
 class FakeAudioContext {
   static lastSinkId = '';
+  static gains: FakeGainNode[] = [];
   state = 'running';
   currentTime = 0;
   destination = {};
   createBufferSource() { return new FakeSourceNode(); }
-  createGain() { return new FakeGainNode(); }
+  createGain() { const gain = new FakeGainNode(); FakeAudioContext.gains.push(gain); return gain; }
   async decodeAudioData() { return { duration: 60 }; }
   async resume() { this.state = 'running'; }
   async setSinkId(sinkId: string) { FakeAudioContext.lastSinkId = sinkId; }
@@ -257,8 +258,24 @@ describe('audio player instance controls', () => {
     expect(incoming).toMatchObject({ volume: 1, volumeFrom: 0, volumeTransitionDurationMs: 4_000 });
     expect(playbackVolumeAt(incoming!, incoming!.volumeTransitionStartedAtMs)).toBe(0);
     expect(playbackVolumeAt(incoming!, incoming!.volumeTransitionStartedAtMs + 2_000)).toBeCloseTo(.5);
-    expect(playbackVolumeAt(incoming!, incoming!.volumeTransitionStartedAtMs + 4_000)).toBe(1);
+    expect(playbackVolumeAt(incoming!, incoming!.volumeTransitionStartedAtMs + 4_000)).toBeCloseTo(1);
     audioEngine.stopAll([firstTrack], 0);
+  });
+
+  it.each(['crossfade', 'fade-in'] as const)('fait monter le son de 0 à 16 %% avec l’action %s', async (action) => {
+    const nextTrack = { ...track, fadeInMs: 2_000 };
+    audioEngine.stopAll([nextTrack], 0);
+    await audioEngine.runAction(action, nextTrack, [nextTrack], .16, undefined, undefined, 2_000);
+    const incoming = latest[0]!;
+    const gain = FakeAudioContext.gains.at(-1)!.gain;
+
+    expect(gain.setValueAtTime).toHaveBeenCalledWith(0, 0);
+    expect(gain.linearRampToValueAtTime).toHaveBeenCalledWith(.16, 2);
+    expect(playbackVolumeAt(incoming, incoming.volumeTransitionStartedAtMs)).toBe(0);
+    expect(playbackVolumeAt(incoming, incoming.volumeTransitionStartedAtMs + 1_000)).toBeCloseTo(.08);
+    expect(playbackVolumeAt(incoming, incoming.volumeTransitionStartedAtMs + 2_000)).toBeCloseTo(.16);
+    expect(playbackVolumeAt(incoming, incoming.volumeTransitionStartedAtMs + 3_000)).toBeCloseTo(.16);
+    audioEngine.stopAll([nextTrack], 0);
   });
 
   it('notifie les contrôles de régie lorsque la sortie change', async () => {

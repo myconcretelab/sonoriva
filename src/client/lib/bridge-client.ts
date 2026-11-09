@@ -90,7 +90,11 @@ export class BridgeClient {
   getDeviceId(): string | null { return this.association?.deviceId ?? null; }
   getPlaybacks(): BridgePlayback[] {
     const activeIds = new Set(this.playbacks.map((playback) => playback.id));
-    for (const id of this.volumeTransitions.keys()) if (!activeIds.has(id)) this.volumeTransitions.delete(id);
+    const now = performance.now();
+    for (const [id, transition] of this.volumeTransitions) {
+      // A status read may still omit a newly launched playback while its first refresh is pending.
+      if (!activeIds.has(id) && now >= transition.startedAtMs + transition.durationMs) this.volumeTransitions.delete(id);
+    }
     return this.playbacks.map((playback) => {
       const transition = this.volumeTransitions.get(playback.id);
       if (!transition) return { ...playback };

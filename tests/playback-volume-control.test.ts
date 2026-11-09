@@ -40,7 +40,7 @@ describe('volume visuel pendant un fondu', () => {
       durationMs: 10_000,
       loop: false,
       paused: false,
-      volume: 1,
+      volume: .16,
       volumeFrom: 0,
       volumeTransitionStartedAtMs: now,
       volumeTransitionDurationMs: 2_000,
@@ -53,13 +53,13 @@ describe('volume visuel pendant un fondu', () => {
 
     now = 2_000;
     act(() => nextFrame?.(now));
-    expect(slider.value).toBe('50');
-    expect(slider.style.getPropertyValue('--slider-progress')).toBe(rotary ? '' : '50%');
+    expect(slider.value).toBe('8');
+    expect(slider.style.getPropertyValue('--slider-progress')).toBe(rotary ? '' : '8%');
 
     now = 3_000;
     act(() => nextFrame?.(now));
-    expect(slider.value).toBe('100');
-    if (rotary) expect(slider.getAttribute('aria-valuetext')).toBe('100 %');
+    expect(slider.value).toBe('16');
+    if (rotary) expect(slider.getAttribute('aria-valuetext')).toBe('16 %');
 
     cleanups.push(() => { act(() => root.unmount()); container.remove(); });
   });
