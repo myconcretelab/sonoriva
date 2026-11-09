@@ -18,11 +18,11 @@ export async function prepareBridgeWorkspace(detail: ProjectDetail): Promise<voi
   let target = await bridgeClient.localConsoleRequest<LocalWorkspace | null>(`/workspaces/${detail.project.id}`);
   if (target && Object.entries(target.pending).some(([id, pending]) => !samePending(pending, source.pending[id]))) throw new Error('La régie locale contient des changements à synchroniser. Ouvrez-la pour les synchroniser avant de remplacer sa copie.');
   const mediaIds = new Set(target?.mediaIds ?? []);
+  const nativeOnly = (target?.detail?.tracks ?? []).filter((track) => mediaIds.has(track.id) && !source.detail.tracks.some((sourceTrack) => sourceTrack.id === track.id));
   const write = async (media?: { id: string; file: Blob }) => {
     if (media) mediaIds.add(media.id);
     // A new local import enters the native snapshot and journal together with its file.
     // Interrupted copies can be resumed without leaving an upload with no native file.
-    const nativeOnly = (target?.detail?.tracks ?? []).filter((track) => mediaIds.has(track.id) && !source.detail.tracks.some((sourceTrack) => sourceTrack.id === track.id));
     const tracks = [...source.detail.tracks.filter((track) => !source.mediaIds.includes(track.id) || mediaIds.has(track.id)).map((track) => mediaIds.has(track.id) ? { ...track, localMedia: true } : track), ...nativeOnly.map((track) => ({ ...track, localMedia: true }))];
     const visibleIds = new Set(tracks.map((track) => track.id));
     const workspace = { ...source, detail: { ...source.detail, tracks }, pending: Object.fromEntries(Object.entries(source.pending).filter(([id]) => visibleIds.has(id))), mediaIds: [...mediaIds].filter((id) => visibleIds.has(id)) };
