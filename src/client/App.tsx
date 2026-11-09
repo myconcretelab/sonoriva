@@ -1,6 +1,8 @@
 import { applyPlaylistSoundboardBehavior } from './lib/playlist-interruption';
 import { SearchScopeControl } from './components/SearchScopeControl';
 import { prepareOfflineTracks, type OfflinePreparation } from './lib/prepare-offline';
+import { prepareAppOffline } from './lib/app-offline';
+import { startWorkspaceSync } from './lib/local-workspace';
 import { OfflineStatusControl } from './components/OfflineStatusControl';
 import { PlayedSoundsControl } from './components/PlayedSoundsControl';
 import { QuickLaunchPanel } from './components/QuickLaunchPanel';
@@ -355,6 +357,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const cachedUser = readCache<User>('sonoriva-user');
+    if (cachedUser && !cachedUser.isDemo) setUser(cachedUser);
     bootstrapAuthentication().then(({ user: current }) => {
       localStorage.setItem('sonoriva-user', JSON.stringify(current));
       setUser(current);
@@ -371,7 +375,11 @@ export default function App() {
     });
   }, []);
 
+  useEffect(() => user && !user.isDemo ? startWorkspaceSync() : undefined, [user]);
+
   const loadProjects = useCallback(async () => {
+    const stored = readCache<{ projects: Project[] }>('sonoriva-projects');
+    if (stored) setProjects(stored.projects);
     let result: { projects: Project[] };
     try {
       result = await api.projects();
@@ -408,6 +416,8 @@ export default function App() {
   }, [workspaceUserId, workspaceLayout]);
   useEffect(() => {
     if (!user) return;
+    const storedAccount = readCache<AccountSummary>(`sonoriva-account:${user.id}`);
+    if (storedAccount) { setAccountSummary(storedAccount); setBridgeAvailable(storedAccount.bridgeAvailable); }
     api.account().then(({ account }) => {
       setAccountSummary(account);
       setBridgeAvailable(account.bridgeAvailable);
@@ -659,7 +669,7 @@ export default function App() {
       const currentRevision = ++revision;
       const target = bridgeClient.isEnabled() ? 'bridge' : 'browser';
       setDownloads(getDownloadProgress(target));
-      const browserTracks = detail?.tracks.filter((track) => target !== 'bridge' || isVideoTrack(track)) ?? [];
+      const browserTracks = detail?.tracks.filter((track) => target !== 'bridge' || isVideoTrack(track) || track.localMedia) ?? [];
       cachedTrackIds(browserTracks.map((track) => track.id)).catch(() => new Set<string>()).then((ids) => {
         if (target === 'bridge') {
           const bridgeIds = bridgeClient.getCachedTrackIds();
@@ -2042,6 +2052,7 @@ export default function App() {
     const projectId = detail.project.id;
     const mode = bridgeClient.getMode();
     try {
+      await prepareAppOffline();
       await prepareOfflineTracks(detail.tracks, offlineTrackIds, (done, total) => {
         setOfflinePreparation({ projectId, mode, done, total, running: true });
         setOfflineStatus(`${done}/${total}`);
@@ -2456,7 +2467,7 @@ export default function App() {
           const category = detail?.categories.find((item) => item.id === track.categoryId);
           const color = track.color ?? category?.color ?? '#71717a';
           return <article className={`player-card ${playback.paused ? 'is-paused' : ''}`} key={playback.id} style={{ '--track-color': color } as React.CSSProperties}>
-            <div className="player-card-main"><div className="player-card-copy"><strong>{track.title}</strong><PlaybackOutputSelector title={track.title} outputId={playback.outputId} outputs={isVideoTrack(track) ? [] : routedBridgeOutputs} disabled={playback.fadingOut} onChange={(outputId) => audioEngine.setInstanceOutput(playback.id, outputId).catch((cause) => setError(cause instanceof Error ? cause.message : 'Impossible de changer la sortie audio.'))} /></div>
+            <div className="player-card-main"><div className="player-card-copy"><strong>{track.title}</strong><PlaybackOutputSelector title={track.title} outputId={playback.outputId} outputs={isVideoTrack(track) || track.localMedia ? [] : routedBridgeOutputs} disabled={playback.fadingOut} onChange={(outputId) => audioEngine.setInstanceOutput(playback.id, outputId).catch((cause) => setError(cause instanceof Error ? cause.message : 'Impossible de changer la sortie audio.'))} /></div>
               <PlaybackPositionControl playback={playback} title={track.title} />
               <PlaybackVolumeControl playback={playback} title={track.title} rotary={appSkin === 'tape'} onChange={(nextVolume) => changePlaybackVolume(playback.id, nextVolume)} />
             </div>
@@ -2604,7 +2615,7 @@ export default function App() {
           <button className="icon-button support-button" onClick={() => setSupportOpen(true)} aria-label="Ouvrir le support" title="Support"><LifeBuoy size={19} />{supportUnreadCount > 0 && <i aria-label={`${supportUnreadCount} réponse${supportUnreadCount > 1 ? 's' : ''} non lue${supportUnreadCount > 1 ? 's' : ''}`}>{Math.min(supportUnreadCount, 9)}</i>}</button>
           <button className={`icon-button settings-button ${unseenReleases.length > 0 ? 'has-update' : ''}`} onClick={() => { setSettingsInitialSection(undefined); setSettingsOpen(true); }} aria-label="Ouvrir les paramètres" title="Paramètres"><Settings size={19} />{unseenReleases.length > 0 && <i aria-hidden="true" />}</button>
           {!remote && <button className="icon-button reset-show-button" onClick={resetCurrentProject} disabled={!detail} aria-label="Réinitialiser le spectacle en cours" title="Réinitialiser le spectacle"><RefreshCcw size={18} /></button>}
-          {!remote && <OfflineStatusControl tracks={detail?.tracks ?? []} cachedIds={offlineTrackIds} onPrepare={cacheOffline} busy={offlinePreparation?.running ?? false} preparation={offlinePreparation?.projectId === detail?.project.id && offlinePreparation?.mode === bridgeClient.getMode() ? offlinePreparation : undefined} />}
+          {!remote && <OfflineStatusControl projectId={detail?.project.id} tracks={detail?.tracks ?? []} cachedIds={offlineTrackIds} onPrepare={cacheOffline} busy={offlinePreparation?.running ?? false} preparation={offlinePreparation?.projectId === detail?.project.id && offlinePreparation?.mode === bridgeClient.getMode() ? offlinePreparation : undefined} />}
           {!remote && <button className="button primary" onClick={() => setUploadOpen(true)}><Upload size={17} />Ajouter un média</button>}
         </div>
       </header>

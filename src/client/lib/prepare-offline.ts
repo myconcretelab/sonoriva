@@ -17,7 +17,7 @@ export async function prepareOfflineTracks(tracks: Track[], cachedIds: Set<strin
   onProgress(done, tracks.length);
   for (const track of remaining) {
     if (bridgeClient.getMode() !== mode) throw new Error('Le moteur audio a changé. Relancez le téléchargement pour le stockage actuel.');
-    if (mode === 'bridge' && !isVideoTrack(track)) await bridgeClient.preload(track);
+    if (mode === 'bridge' && !isVideoTrack(track) && !track.localMedia) await bridgeClient.preload(track);
     else await cacheTrackOffline(track.id);
     if (bridgeClient.getMode() !== mode) throw new Error('Le moteur audio a changé. Relancez le téléchargement pour le stockage actuel.');
     onProgress(++done, tracks.length);

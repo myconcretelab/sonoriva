@@ -46,7 +46,7 @@ interface Props {
 }
 
 export function TrackPad({ track, color, aliasCount = 1, active, playbacks, historyProgress, loaded, greyPlayed = false, download, dragEnabled, selectionMode, selected, dropTarget, dropLabel, reorderPositionTarget, playlistPositionTarget, shortcut, bridgeOutputs, mainBridgeOutputId, onPrimary, onOutputPlay, onSecondary, onEdit, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, mobileDragEnabled = false, mobileDragSource = false, onMobileDragStart, onMobileDragMove, onMobileDragEnd }: Props) {
-  const mainOutput = (isVideoTrack(track) ? [] : bridgeOutputs).find((output) => output.id === mainBridgeOutputId);
+  const mainOutput = (isVideoTrack(track) || track.localMedia ? [] : bridgeOutputs).find((output) => output.id === mainBridgeOutputId);
   const alternateOutputs = mainOutput ? bridgeOutputs.filter((output) => output.id !== mainOutput.id) : [];
   const pointerDrag = useRef<{ pointerId: number; start: ClientPoint; started: boolean } | undefined>(undefined);
   const suppressClick = useRef(false);

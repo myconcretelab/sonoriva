@@ -115,6 +115,10 @@ export async function insertTrackWithinQuota(userId: string, values: typeof trac
     if (!membership) throw new Error('Projet introuvable.');
 
     await transaction.execute(sql`select ${accounts.id} from ${accounts} where ${accounts.id} = ${membership.account.id} for update`);
+    if (values.id) {
+      const [existing] = await transaction.select().from(tracks).where(and(eq(tracks.id, values.id), eq(tracks.projectId, values.projectId)));
+      if (existing) return existing;
+    }
     const [usage] = await transaction.select({
       usedBytes: sql<number>`(select coalesce(sum(files.size_bytes), 0)::bigint from (select distinct t.storage_key, t.size_bytes from tracks t join projects p on p.id = t.project_id where p.account_id = ${projects.accountId}) files)`,
       uploadedFiles: sql<number>`count(*) filter (where ${tracks.demoSeed} = false)::int`,

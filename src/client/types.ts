@@ -314,6 +314,8 @@ export interface Playlist {
 }
 
 export interface Track {
+  /** Media imported on this device; browser playback remains available before cloud upload. */
+  localMedia?: boolean;
   backgroundImage?: string | null;
   id: string;
   projectId: string;

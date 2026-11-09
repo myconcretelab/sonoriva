@@ -203,7 +203,7 @@ export function WaveformEditor({ track, startMs, endMs, onStartChange, onEndChan
   }
 
   async function togglePreview() {
-    if (bridgeClient.isEnabled()) {
+    if (bridgeClient.isEnabled() && !track.localMedia) {
       if (bridgePreviewId.current) {
         bridgeClient.togglePause(bridgePreviewId.current);
         return;

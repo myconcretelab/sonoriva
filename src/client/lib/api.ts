@@ -1,26 +1,7 @@
-import type { AccountMember, SharedLibrary, AccountSummary, AdminAccount, AdminOverview, AdminReleaseInfo, AdminSupportTicket, AdminUser, AuditEntry, BatchTrackUpdateInput, BridgeDevice, Category, CommercialPlan, FreesoundLicenseFilter, FreesoundSearchResult, KeyAction, MouseAction, OpenverseLicenseFilter, OpenverseSearchResult, OpenverseSource, Playlist, PlaylistEntry, Project, ProjectColor, ProjectDetail, ProjectKeyboardShortcuts, PublicDemo, PublicPlan, ReleaseInfo, SoundShowAnalysis, SubscriptionNotificationSettings, SupportMessage, SupportTicket, SupportTicketPriority, SupportTicketStatus, Track, TrackSubcategory, User } from '../types';
-
-export class ApiError extends Error {
-  constructor(message: string, public status: number) {
-    super(message);
-  }
-}
-
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const hasJsonBody = init?.body !== undefined && init.body !== null && !(init.body instanceof FormData);
-  const response = await fetch(url, {
-    credentials: 'include',
-    ...init,
-    headers: hasJsonBody ? { 'Content-Type': 'application/json', ...init?.headers } : init?.headers,
-  });
-  if (!response.ok) {
-    if (response.status === 401 && !url.startsWith('/api/auth/login') && typeof window !== 'undefined') window.dispatchEvent(new Event('sonoriva:session-revoked'));
-    const body = await response.json().catch(() => ({ error: 'La requête a échoué.' }));
-    throw new ApiError(body.error ?? 'La requête a échoué.', response.status);
-  }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
-}
+import type { AccountMember, SharedLibrary, AccountSummary, AdminAccount, AdminOverview, AdminReleaseInfo, AdminSupportTicket, AdminUser, AuditEntry, BatchTrackUpdateInput, BridgeDevice, Category, CommercialPlan, FreesoundLicenseFilter, FreesoundSearchResult, KeyAction, MouseAction, OpenverseLicenseFilter, OpenverseSearchResult, OpenverseSource, Playlist, PlaylistEntry, Project, ProjectColor, ProjectKeyboardShortcuts, PublicDemo, PublicPlan, ReleaseInfo, SoundShowAnalysis, SubscriptionNotificationSettings, SupportMessage, SupportTicket, SupportTicketPriority, SupportTicketStatus, Track, TrackSubcategory, User } from '../types';
+import { request } from './api-transport';
+import { editLocalTrack, importLocalTrack, localProject, localUser, projectsWithLocalChanges, requireSyncedProject, requireSyncedTrack } from './local-workspace';
+export { ApiError } from './api-transport';
 
 export const api = {
   appropriateProject: (id: string, name: string) => request<{ project: Project }>(`/api/projects/${id}/appropriate`, { method: 'POST', body: JSON.stringify({ name }) }),
@@ -33,7 +14,7 @@ export const api = {
   removeAccountMember: (id: string) => request<void>(`/api/account/members/${id}`, { method: 'DELETE' }),
   sharedLibrary: () => request<SharedLibrary>('/api/account/library'),
   copyAccountTracks: (input: { trackIds: string[]; projectId: string }) => request<{ tracks: Track[] }>('/api/account/copy-tracks', { method: 'POST', body: JSON.stringify(input) }),
-  me: () => request<{ user: User }>('/api/auth/me'),
+  me: () => request<{ user: User }>('/api/auth/me', { signal: AbortSignal.timeout(3_000) }),
   startDemo: () => request<{ user: User }>('/api/auth/demo', { method: 'POST' }),
   resetDemo: () => request<{ user: User }>('/api/auth/demo/reset', { method: 'POST' }),
   register: (input: { displayName: string; email: string; password: string; planCode: string; billingInterval: 'month' | 'year'; requestId: string }) =>
@@ -48,7 +29,12 @@ export const api = {
   version: () => request<{ version: string; releasedAt: string }>('/api/version'),
   releases: () => request<ReleaseInfo>('/api/releases'),
   markReleaseSeen: (version: string) => request<void>(`/api/releases/${encodeURIComponent(version)}/seen`, { method: 'POST' }),
-  account: () => request<{ account: AccountSummary }>('/api/account'),
+  account: async () => {
+    const result = await request<{ account: AccountSummary }>('/api/account');
+    const user = localUser();
+    if (user) localStorage.setItem(`sonoriva-account:${user.id}`, JSON.stringify(result.account));
+    return result;
+  },
   publicPlans: () => request<{ currency: string; signupUrl: string; plans: PublicPlan[] }>('/api/public/plans'),
   publicDemo: () => request<{ demo: PublicDemo | null }>('/api/public/demo'),
   createCheckout: (input: { planCode: string; billingInterval: 'month' | 'year'; requestId: string }) =>
@@ -93,15 +79,18 @@ export const api = {
   adminSupportTicket: (id: string) => request<{ ticket: AdminSupportTicket; messages: SupportMessage[] }>(`/api/admin/support/tickets/${id}`),
   replyToAdminSupportTicket: (id: string, input: { body: string; status: Extract<SupportTicketStatus, 'awaiting_user' | 'resolved' | 'closed'> }) => request<{ message: SupportMessage }>(`/api/admin/support/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify(input) }),
   updateAdminSupportTicket: (id: string, input: { status?: SupportTicketStatus; priority?: SupportTicketPriority }) => request<{ ticket: AdminSupportTicket }>(`/api/admin/support/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
-  projects: () => request<{ projects: Project[] }>('/api/projects'),
+  projects: async () => {
+    const result = await request<{ projects: Project[] }>('/api/projects', { signal: AbortSignal.timeout(3_000) });
+    return { projects: await projectsWithLocalChanges(result.projects) };
+  },
   createProject: (name: string) => request<{ project: Project }>('/api/projects', {
     method: 'POST', body: JSON.stringify({ name }),
   }),
   reorderProjects: (projectIds: string[]) => request<{ projects: Project[] }>('/api/projects/reorder', {
     method: 'PATCH', body: JSON.stringify({ projectIds }),
   }),
-  deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
-  project: (id: string) => request<ProjectDetail>(`/api/projects/${id}`),
+  deleteProject: async (id: string) => { await requireSyncedProject(id); return request<void>(`/api/projects/${id}`, { method: 'DELETE' }); },
+  project: (id: string) => localProject(id),
   updateProjectActions: (projectId: string, input: { leftClickAction?: MouseAction; rightClickAction?: MouseAction; keyboardAction?: MouseAction; escapeKeyAction?: KeyAction; backspaceKeyAction?: KeyAction; shiftBackspaceKeyAction?: KeyAction; spaceKeyAction?: KeyAction; maxPlaylistGroupSize?: number; maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number; crossfadeResetAfterUse?: boolean; crossfadeResetDurationMs?: number } & Partial<ProjectKeyboardShortcuts>) =>
     request<{ project: Project }>(`/api/projects/${projectId}/mouse-actions`, { method: 'PATCH', body: JSON.stringify(input) }),
   createProjectColor: (projectId: string, color: string) => request<{ projectColor: ProjectColor }>(`/api/projects/${projectId}/colors`, {
@@ -132,16 +121,16 @@ export const api = {
   }),
   updateCategoryBackground: (projectId: string, categoryId: string, backgroundImage: string | null) => request<{ category: Category }>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'PATCH', body: JSON.stringify({ backgroundImage }) }),
   deleteCategory: (projectId: string, categoryId: string) => request<void>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'DELETE' }),
-  uploadTrack: (form: FormData) => request<{ track: Track }>('/api/tracks/upload', { method: 'POST', body: form }),
-  updateTrack: (id: string, input: Partial<Pick<Track, 'title' | 'categoryId' | 'volume' | 'loop' | 'fadeInMs' | 'fadeOutMs' | 'startTimeMs' | 'endTimeMs' | 'color' | 'tags' | 'backgroundImage'>>) =>
-    request<{ track: Track }>(`/api/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
-  createTrackAlias: (id: string) => request<{ track: Track }>(`/api/tracks/${id}/alias`, { method: 'POST' }),
+  uploadTrack: async (form: FormData) => await importLocalTrack(form) ?? request<{ track: Track }>('/api/tracks/upload', { method: 'POST', body: form }),
+  updateTrack: async (id: string, input: Partial<Pick<Track, 'title' | 'categoryId' | 'volume' | 'loop' | 'fadeInMs' | 'fadeOutMs' | 'startTimeMs' | 'endTimeMs' | 'videoEndBehavior' | 'color' | 'tags' | 'backgroundImage'>>) =>
+    await editLocalTrack(id, input) ?? request<{ track: Track }>(`/api/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  createTrackAlias: async (id: string) => { await requireSyncedTrack(id); return request<{ track: Track }>(`/api/tracks/${id}/alias`, { method: 'POST' }); },
   batchUpdateTracks: (input: BatchTrackUpdateInput) => request<{ tracks: Track[] }>('/api/tracks/batch', {
     method: 'PATCH', body: JSON.stringify(input),
   }),
   reorderTrack: (id: string, input: { categoryId: string | null; beforeTrackId?: string | null; subcategoryId?: string | null }) =>
     request<{ tracks: Track[] }>(`/api/tracks/${id}/reorder`, { method: 'PATCH', body: JSON.stringify(input) }),
-  deleteTrack: (id: string) => request<void>(`/api/tracks/${id}`, { method: 'DELETE' }),
+  deleteTrack: async (id: string) => { await requireSyncedTrack(id); return request<void>(`/api/tracks/${id}`, { method: 'DELETE' }); },
   analyzeSoundShow: (file: File) => {
     const form = new FormData();
     form.append('file', file);

@@ -42,6 +42,7 @@ const trackTagsSchema = z.array(trackTagSchema).max(30).transform((tags) => {
 });
 
 const importedMetadataSchema = z.object({
+  clientTrackId: z.string().uuid().optional(),
   projectId: z.string().uuid(),
   categoryId: z.string().uuid().optional(),
   subcategoryId: z.string().uuid().optional(),
@@ -52,7 +53,7 @@ const importedMetadataSchema = z.object({
   fadeInMs: z.coerce.number().int().min(0).max(60_000).default(0),
   fadeOutMs: z.coerce.number().int().min(0).max(60_000).default(400),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  tags: z.preprocess((value) => typeof value === 'string' ? value.split(',') : value, trackTagsSchema).default([]),
+  tags: z.preprocess((value) => typeof value === 'string' ? value.split(',').filter((tag) => tag.trim()) : value, trackTagsSchema).default([]),
   description: z.string().max(5_000).optional(),
   copyrightText: z.string().max(20_000).optional(),
   sourceUrl: z.string().url().optional(),
@@ -150,6 +151,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const track = await insertTrackWithinQuota(user.id, {
+        ...(input.clientTrackId ? { id: input.clientTrackId } : {}),
         projectId: input.projectId,
         categoryId: input.categoryId,
         subcategoryId: input.subcategoryId,
@@ -172,6 +174,8 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
         mimeType: uploaded.mimeType,
         sizeBytes: uploaded.size,
       });
+      // A replay after a lost acknowledgement reuses the first import and removes its staged copy.
+      if (track.storageKey !== uploaded.key) await unlink(path.join(config.STORAGE_PATH, uploaded.key));
       return reply.code(201).send({ track });
     } catch (error) {
       const key = uploaded?.key ?? stagedKey;
@@ -353,7 +357,7 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const existingTrack = await ownedTrack(user.id, id);
     if (!existingTrack) return reply.code(404).send({ error: 'Son introuvable.' });
-    const input = z.object({
+    const updateSchema = z.object({
       title: z.string().trim().min(1).max(160).optional(),
       backgroundImage: backgroundImageSchema.optional(),
       categoryId: z.string().uuid().nullable().optional(),
@@ -366,7 +370,9 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
       videoEndBehavior: z.enum(['black', 'hold']).optional(),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
       tags: trackTagsSchema.optional(),
-    }).parse(request.body);
+    });
+    const input = updateSchema.parse(request.body);
+    const { offlineBase } = z.object({ offlineBase: updateSchema.optional() }).parse(request.body);
     if (input.categoryId && !(await categoryBelongsToProject(input.categoryId, existingTrack.projectId))) {
       return reply.code(400).send({ error: 'Catégorie invalide pour ce projet.' });
     }
@@ -375,7 +381,23 @@ export async function trackRoutes(app: FastifyInstance): Promise<void> {
     if (nextEndTimeMs !== null && nextEndTimeMs <= nextStartTimeMs) {
       return reply.code(400).send({ error: 'La fin du son doit être située après son début.' });
     }
-    const [track] = await db.update(tracks).set({ ...input, ...(input.categoryId !== undefined && input.categoryId !== existingTrack.categoryId ? { subcategoryId: null } : {}) }).where(eq(tracks.id, id)).returning();
+    const keys = Object.keys(input) as Array<keyof typeof input>;
+    if (offlineBase && keys.some((key) => !(key in offlineBase))) return reply.code(400).send({ error: 'La version de départ est incomplète.' });
+    // Replaying a successful PATCH is harmless, including after a lost HTTP response.
+    if (offlineBase && keys.every((key) => JSON.stringify(existingTrack[key] ?? null) === JSON.stringify(input[key] ?? null))) return { track: existingTrack };
+    const conditions = [eq(tracks.id, id)];
+    if (offlineBase) {
+      for (const key of keys) {
+        conditions.push(key === 'tags'
+          ? sql`${tracks.tags} = ${JSON.stringify(offlineBase.tags)}::jsonb`
+          : sql`${tracks[key]} IS NOT DISTINCT FROM ${offlineBase[key]}`);
+      }
+      // Validate points and group membership against the same row that is actually updated.
+      conditions.push(sql`${tracks.startTimeMs} = ${existingTrack.startTimeMs}`, sql`${tracks.endTimeMs} IS NOT DISTINCT FROM ${existingTrack.endTimeMs}`);
+      if (input.categoryId !== undefined) conditions.push(sql`${tracks.subcategoryId} IS NOT DISTINCT FROM ${existingTrack.subcategoryId}`);
+    }
+    const [track] = await db.update(tracks).set({ ...input, ...(input.categoryId !== undefined && input.categoryId !== existingTrack.categoryId ? { subcategoryId: null } : {}) }).where(and(...conditions)).returning();
+    if (!track) return reply.code(409).send({ error: 'Ce son a été modifié ailleurs. Votre version locale est conservée.', track: await ownedTrack(user.id, id) });
     return { track };
   });
 

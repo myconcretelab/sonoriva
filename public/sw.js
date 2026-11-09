@@ -1,16 +1,12 @@
 const AUDIO_CACHE = 'sonoriva-audio-v1';
 const BUILD_REVISION = '__SONORIVA_BUILD_REVISION__';
 const SHELL_CACHE = `sonoriva-shell-${BUILD_REVISION}`;
+const PRECACHE_URLS = '__SONORIVA_PRECACHE_URLS__';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll([
-    '/',
-    '/manifest.webmanifest',
-    '/projection.html',
-    '/icon.png',
-    '/icon.svg',
-    '/sonoriva-logo.svg',
-  ])));
+  event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(
+    PRECACHE_URLS.map((url) => new Request(url, { cache: 'reload' })),
+  )));
 });
 
 self.addEventListener('activate', (event) => {
@@ -24,6 +20,12 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'APP_SHELL_STATUS' && event.ports[0]) {
+    event.waitUntil(caches.open(SHELL_CACHE).then(async (cache) => {
+      const complete = await Promise.all(PRECACHE_URLS.map((url) => cache.match(url, { ignoreVary: true })));
+      event.ports[0].postMessage({ ready: complete.every(Boolean), revision: BUILD_REVISION });
+    }));
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -55,12 +57,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).catch(() => caches.match(url.pathname === '/projection.html' ? '/projection.html' : '/')));
+    event.respondWith(caches.open(SHELL_CACHE).then(async (cache) => {
+      const path = url.pathname === '/projection.html' ? '/projection.html' : '/';
+      if (['/', '/demo', '/projection.html'].includes(url.pathname)) {
+        const cached = await cache.match(path, { ignoreVary: true });
+        if (cached) return cached;
+      }
+      return fetch(event.request).catch(async () => await cache.match(path, { ignoreVary: true }) ?? Response.error());
+    }));
     return;
   }
   if (['style', 'script', 'font', 'image'].includes(event.request.destination)) {
     event.respondWith(caches.open(SHELL_CACHE).then(async (cache) => {
-      const cached = await cache.match(event.request);
+      const cached = await cache.match(event.request, { ignoreVary: true });
       if (cached) return cached;
       const response = await fetch(event.request);
       if (response.ok) await cache.put(event.request, response.clone());

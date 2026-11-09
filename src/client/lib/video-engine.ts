@@ -1,6 +1,6 @@
 import type { Track } from '../types';
 import type { ActivePlayback } from './audio-engine';
-import { trackStreamUrl } from './offline-audio';
+import { fetchTrackAudio, trackStreamUrl } from './offline-audio';
 
 export function isVideoTrack(track: Pick<Track, 'mimeType'>): boolean {
   return track.mimeType?.startsWith('video/') ?? false;
@@ -14,6 +14,7 @@ export function videoBounds(track: Pick<Track, 'startTimeMs' | 'endTimeMs'>, dur
 }
 
 class VideoEngine {
+  private localVideoUrl?: string;
   private projection?: Window;
   private video?: HTMLVideoElement;
   private playback?: ActivePlayback;
@@ -116,8 +117,13 @@ class VideoEngine {
     this.error = '';
     this.notify();
     video.style.visibility = 'hidden';
-    video.src = trackStreamUrl(track.id);
     try {
+      if (track.localMedia) {
+        const file = await (await fetchTrackAudio(track.id)).blob();
+        if (generation !== this.generation) throw new Error('Lecture vidéo annulée.');
+        this.localVideoUrl = URL.createObjectURL(file);
+      }
+      video.src = this.localVideoUrl ?? trackStreamUrl(track.id);
       await new Promise<void>((resolve, reject) => {
         const cleanup = () => { window.clearTimeout(timeout); video.removeEventListener('loadedmetadata', ready); video.removeEventListener('error', failed); };
         const ready = () => { cleanup(); resolve(); };
@@ -192,6 +198,7 @@ class VideoEngine {
     this.generation++;
     this.fade = undefined; this.playback = undefined; this.track = undefined;
     if (this.video) { this.video.pause(); this.video.removeAttribute('src'); this.video.load(); this.video.style.visibility = 'hidden'; }
+    if (this.localVideoUrl) { URL.revokeObjectURL(this.localVideoUrl); this.localVideoUrl = undefined; }
     this.notify();
   }
   togglePause() { if (!this.video || !this.playback) return; if (this.video.paused) void this.video.play().catch(() => this.fail('Reprise de la vidéo refusée.')); else this.video.pause(); this.tick(); }

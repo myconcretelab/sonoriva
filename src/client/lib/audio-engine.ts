@@ -126,7 +126,6 @@ class AudioEngine {
     videoEngine.setMasterVolume(this.masterVolume);
     if (bridgeClient.isEnabled()) {
       bridgeClient.setMasterVolume(this.masterVolume);
-      return;
     }
     if (!this.context || !this.masterGain) return;
     const now = this.context.currentTime;
@@ -238,7 +237,7 @@ class AudioEngine {
     const unsubscribeBridge = bridgeClient.subscribeCache(() => {
       if (bridgeClient.isEnabled()) this.notifyCache();
     });
-    listener(bridgeClient.isEnabled() ? bridgeClient.getCachedTrackIds() : new Set(this.buffers.keys()));
+    listener(new Set([...(bridgeClient.isEnabled() ? bridgeClient.getCachedTrackIds() : []), ...this.buffers.keys()]));
     return () => {
       this.cacheListeners.delete(listener);
       unsubscribeBridge();
@@ -282,6 +281,11 @@ class AudioEngine {
   }
 
   private getAudioPlaybacks(): ActivePlayback[] {
+    const browserPlaybacks = [...this.active.values()].flatMap((instances) => [...instances])
+      .map(({ id, trackId, sequence, startedAtMs, resumedAtMs, elapsedMs, durationMs, loop, paused, volume, volumeFrom, volumeTransitionStartedAtMs, volumeTransitionDurationMs, fadingOut }) => ({
+        id, trackId, sequence, startedAtMs, resumedAtMs, elapsedMs, durationMs, loop, paused, volume,
+        volumeFrom, volumeTransitionStartedAtMs, volumeTransitionDurationMs, fadingOut,
+      }));
     if (bridgeClient.isEnabled()) {
       const now = performance.now();
       const playbacks = bridgeClient.getPlaybacks().filter((playback) => playback.channel === 'main');
@@ -293,7 +297,7 @@ class AudioEngine {
         // A loop or seek changes position, never the launch order.
         if (!this.bridgeStartedAt.has(playback.id)) this.bridgeStartedAt.set(playback.id, now);
       }
-      return playbacks.map((playback) => ({
+      return [...browserPlaybacks, ...playbacks.map((playback) => ({
         id: playback.id,
         trackId: playback.trackId,
         sequence: playback.sequence,
@@ -309,16 +313,10 @@ class AudioEngine {
         volumeTransitionDurationMs: playback.volumeTransitionDurationMs ?? 0,
         fadingOut: playback.fadingOut,
         outputId: playback.outputId,
-      }));
+      }))];
     }
     this.bridgeStartedAt.clear();
-    return [...this.active.values()]
-      .flatMap((instances) => [...instances])
-      .map(({ id, trackId, sequence, startedAtMs, resumedAtMs, elapsedMs, durationMs, loop, paused, volume, volumeFrom, volumeTransitionStartedAtMs, volumeTransitionDurationMs, fadingOut }) => ({
-        id, trackId, sequence, startedAtMs, resumedAtMs, elapsedMs, durationMs, loop, paused, volume,
-        volumeFrom, volumeTransitionStartedAtMs, volumeTransitionDurationMs, fadingOut,
-      }))
-      .sort((a, b) => a.sequence - b.sequence);
+    return browserPlaybacks.sort((a, b) => a.sequence - b.sequence);
   }
 
   private notify(): void {
@@ -327,7 +325,7 @@ class AudioEngine {
   }
 
   private notifyCache(): void {
-    const ids = bridgeClient.isEnabled() ? bridgeClient.getCachedTrackIds() : new Set(this.buffers.keys());
+    const ids = new Set([...(bridgeClient.isEnabled() ? bridgeClient.getCachedTrackIds() : []), ...this.buffers.keys()]);
     this.cacheListeners.forEach((listener) => listener(ids));
   }
 
@@ -400,7 +398,7 @@ class AudioEngine {
 
   async preload(track: Track): Promise<void> {
     if (isVideoTrack(track)) return;
-    if (bridgeClient.isEnabled()) {
+    if (bridgeClient.isEnabled() && !track.localMedia) {
       try {
         return await bridgeClient.preload(track);
       } catch (cause) {
@@ -433,7 +431,7 @@ class AudioEngine {
     const launch = this.launches.begin(track.id, expiresAtMs, signal);
     this.pendingMainPlaybacks += 1;
     try {
-      if (bridgeClient.isEnabled()) {
+      if (bridgeClient.isEnabled() && !track.localMedia) {
         try {
           const playbackId = await launch.wait(bridgeClient.play(track, fadeInMs, volumeMultiplier, 'main', outputId, launch.signal, launch.expiresAtMs));
           // Short sounds may finish between two Bridge status polls.
@@ -499,7 +497,7 @@ class AudioEngine {
 
   togglePauseInstance(playbackId: string): void {
     if (videoEngine.owns(playbackId)) return videoEngine.togglePause();
-    if (bridgeClient.isEnabled()) return bridgeClient.togglePause(playbackId);
+    if (bridgeClient.isEnabled() && !this.findPlayback(playbackId)) return bridgeClient.togglePause(playbackId);
     const playback = this.findPlayback(playbackId);
     if (!playback || playback.stopping) return;
     if (playback.paused) {
@@ -518,7 +516,7 @@ class AudioEngine {
 
   setInstanceVolume(playbackId: string, volume: number): void {
     if (videoEngine.owns(playbackId)) return videoEngine.setVolume(volume);
-    if (bridgeClient.isEnabled()) return bridgeClient.setVolume(playbackId, volume);
+    if (bridgeClient.isEnabled() && !this.findPlayback(playbackId)) return bridgeClient.setVolume(playbackId, volume);
     const playback = this.findPlayback(playbackId);
     const context = this.context;
     if (!playback || !context || playback.stopping) return;
@@ -538,7 +536,7 @@ class AudioEngine {
 
   setInstanceLoop(playbackId: string, loop: boolean): void {
     if (videoEngine.owns(playbackId)) return videoEngine.setLoop(loop);
-    if (bridgeClient.isEnabled()) return bridgeClient.setLoop(playbackId, loop);
+    if (bridgeClient.isEnabled() && !this.findPlayback(playbackId)) return bridgeClient.setLoop(playbackId, loop);
     const playback = this.findPlayback(playbackId);
     if (!playback || playback.stopping || playback.loop === loop) return;
     if (!playback.paused) this.capturePosition(playback, true);
@@ -552,7 +550,7 @@ class AudioEngine {
 
   seekInstance(playbackId: string, progress: number): void {
     if (videoEngine.owns(playbackId)) return videoEngine.seek(progress);
-    if (bridgeClient.isEnabled()) return bridgeClient.seek(playbackId, progress);
+    if (bridgeClient.isEnabled() && !this.findPlayback(playbackId)) return bridgeClient.seek(playbackId, progress);
     const playback = this.findPlayback(playbackId);
     if (!playback || playback.stopping) return;
     const boundedProgress = Math.min(1, Math.max(0, progress));
@@ -575,6 +573,7 @@ class AudioEngine {
 
   async setInstanceOutput(playbackId: string, outputId: string): Promise<void> {
     if (videoEngine.owns(playbackId)) throw new Error('Le son de la vidéo utilise la sortie système du navigateur.');
+    if (this.findPlayback(playbackId)) throw new Error('Ce fichier local utilise la sortie du navigateur.');
     if (!bridgeClient.isEnabled()) throw new Error('Le changement de sortie en cours de lecture nécessite SonoRiva Bridge.');
     await bridgeClient.setPlaybackOutput(playbackId, outputId);
   }
@@ -582,7 +581,7 @@ class AudioEngine {
   stop(trackId: string, fadeOutMs = 250): void {
     this.launches.cancel(trackId);
     if (videoEngine.getState().trackId === trackId) videoEngine.stop(fadeOutMs);
-    if (bridgeClient.isEnabled()) return bridgeClient.stopTrack(trackId, fadeOutMs);
+    if (bridgeClient.isEnabled()) bridgeClient.stopTrack(trackId, fadeOutMs);
     const context = this.context;
     const instances = this.active.get(trackId);
     if (!context || !instances) return;
@@ -591,7 +590,7 @@ class AudioEngine {
 
   stopInstance(playbackId: string, fadeOutMs = 250): void {
     if (videoEngine.owns(playbackId)) return videoEngine.stop(fadeOutMs);
-    if (bridgeClient.isEnabled()) return bridgeClient.stop(playbackId, fadeOutMs);
+    if (bridgeClient.isEnabled() && !this.findPlayback(playbackId)) return bridgeClient.stop(playbackId, fadeOutMs);
     const playback = this.findPlayback(playbackId);
     if (playback) this.stopPlayback(playback, fadeOutMs);
   }
@@ -665,9 +664,8 @@ class AudioEngine {
       for (const playback of bridgeClient.getPlaybacks()) {
         bridgeClient.stop(playback.id, fadeOutMs ?? fades.get(playback.trackId) ?? 250);
       }
-      return;
     }
-    for (const track of tracks) this.stop(track.id, fadeOutMs ?? track.fadeOutMs);
+    for (const track of tracks) for (const playback of this.active.get(track.id) ?? []) this.stopPlayback(playback, fadeOutMs ?? track.fadeOutMs);
   }
 
   stopLast(tracks: Track[], immediate: boolean): void {
@@ -685,7 +683,6 @@ class AudioEngine {
     if (bridgeClient.isEnabled()) {
       bridgeClient.stopAll(0);
       this.resetHistory(tracks.map((track) => track.id));
-      return;
     }
     const trackIds = new Set(tracks.map((track) => track.id));
     for (const [trackId, instances] of this.active) {

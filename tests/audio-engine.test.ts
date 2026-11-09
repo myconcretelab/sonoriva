@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { audioEngine, playbackPositionAt, playbackVolumeAt, type ActivePlayback } from '../src/client/lib/audio-engine.js';
 import type { Track } from '../src/client/types.js';
+import { bridgeClient, type BridgePlayback } from '../src/client/lib/bridge-client';
 
 class FakeAudioParam {
   value = 1;
@@ -288,6 +289,33 @@ describe('audio player instance controls', () => {
     expect(notifications).toBeGreaterThan(initialNotifications);
     unsubscribeRouting();
     await audioEngine.setAudioOutput('');
+  });
+
+  it('joue et contrôle un import local avec une lecture Bridge simultanée', async () => {
+    let native: BridgePlayback[] = [{ id: 'native', trackId: track.id, sequence: 100, positionMs: 0, durationMs: 60_000, loopPlayback: false, paused: false, volume: 1, fadingOut: false, channel: 'main' }];
+    const mocks = [
+      vi.spyOn(bridgeClient, 'isEnabled').mockReturnValue(true),
+      vi.spyOn(bridgeClient, 'getPlaybacks').mockImplementation(() => native),
+      vi.spyOn(bridgeClient, 'stop').mockImplementation(() => { native = []; }),
+      vi.spyOn(bridgeClient, 'setMasterVolume').mockImplementation(() => {}),
+      vi.spyOn(bridgeClient, 'play'),
+    ];
+    const local = { ...track, localMedia: true };
+    try {
+      const id = await audioEngine.play(local, 0);
+      expect(latest).toHaveLength(2);
+      expect(mocks[4]).not.toHaveBeenCalled();
+      audioEngine.togglePauseInstance(id);
+      audioEngine.setInstanceVolume(id, .16);
+      audioEngine.seekInstance(id, .5);
+      audioEngine.setInstanceLoop(id, true);
+      expect(latest.find((playback) => playback.id === id)).toMatchObject({ volume: .16, paused: true, elapsedMs: 30_000, loop: true });
+      audioEngine.setMasterVolume(.42);
+      expect(mocks[3]).toHaveBeenCalledWith(.42);
+      expect(FakeAudioContext.gains[0].gain.linearRampToValueAtTime).toHaveBeenCalledWith(.42, .03);
+      audioEngine.stopAll([local], 0);
+      expect(latest).toHaveLength(0);
+    } finally { native = []; audioEngine.stopAll([local], 0); mocks.forEach((mock) => mock.mockRestore()); audioEngine.setMasterVolume(1); }
   });
 });
 

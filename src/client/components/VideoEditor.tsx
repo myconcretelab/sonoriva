@@ -1,17 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Track } from '../types';
-import { trackStreamUrl } from '../lib/offline-audio';
+import { fetchTrackAudio, trackStreamUrl } from '../lib/offline-audio';
 
 export function VideoEditor({ track, startMs, endMs, onStartChange, onEndChange }: { track: Track; startMs: number; endMs: number | null; onStartChange: (value: number) => void; onEndChange: (value: number | null) => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState('');
   const [dimensions, setDimensions] = useState('');
+  const [source, setSource] = useState<string | undefined>(track.localMedia ? undefined : trackStreamUrl(track.id));
+  useEffect(() => {
+    let disposed = false;
+    let objectUrl: string | undefined;
+    setError('');
+    if (!track.localMedia) setSource(trackStreamUrl(track.id));
+    else {
+      setSource(undefined);
+      void fetchTrackAudio(track.id).then((response) => response.blob()).then((blob) => {
+        if (disposed) return;
+        objectUrl = URL.createObjectURL(blob); setSource(objectUrl);
+      }).catch(() => { if (!disposed) setError('Le fichier vidéo local est inaccessible.'); });
+    }
+    return () => { disposed = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [track.id, track.localMedia]);
   useEffect(() => {
     const stop = () => ref.current?.pause();
     window.addEventListener('sonoriva:stop-temporary-audio', stop);
     return () => window.removeEventListener('sonoriva:stop-temporary-audio', stop);
   }, []);
-  return <section className="video-editor"><strong>Prévisualisation privée</strong><video ref={ref} src={trackStreamUrl(track.id)} controls playsInline preload="metadata" onError={() => setError('Cette vidéo ne peut pas être lue dans ce navigateur.')} onLoadedMetadata={(event) => { const video = event.currentTarget; setDimensions(`${video.videoWidth} × ${video.videoHeight}`); video.currentTime = startMs / 1000; }} onTimeUpdate={(event) => {
+  return <section className="video-editor"><strong>Prévisualisation privée</strong><video ref={ref} src={source} controls playsInline preload="metadata" onError={() => setError('Cette vidéo ne peut pas être lue dans ce navigateur.')} onLoadedMetadata={(event) => { const video = event.currentTarget; setDimensions(`${video.videoWidth} × ${video.videoHeight}`); video.currentTime = startMs / 1000; }} onTimeUpdate={(event) => {
     const video = event.currentTarget;
     if (endMs && video.currentTime >= endMs / 1000 && !video.paused) video.pause();
   }} /><small>{dimensions} · Cet aperçu ne modifie pas la projection.</small>

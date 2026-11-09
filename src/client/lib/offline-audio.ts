@@ -1,4 +1,5 @@
 import { setDownloadProgress } from './download-state';
+import { localMediaIds, localMediaResponse } from './local-workspace';
 export const audioCacheName = 'sonoriva-audio-v1';
 
 export function trackStreamUrl(trackId: string): string {
@@ -6,10 +7,11 @@ export function trackStreamUrl(trackId: string): string {
 }
 
 export async function cachedTrackIds(trackIds: string[]): Promise<Set<string>> {
-  if (!('caches' in globalThis)) return new Set();
+  const local = await localMediaIds();
+  if (!('caches' in globalThis)) return new Set(trackIds.filter((id) => local.has(id)));
   const cache = await caches.open(audioCacheName);
   const matches = await Promise.all(trackIds.map(async (trackId) => [trackId, Boolean(await cache.match(trackStreamUrl(trackId), { ignoreVary: true }))] as const));
-  return new Set(matches.flatMap(([trackId, cached]) => cached ? [trackId] : []));
+  return new Set(matches.flatMap(([trackId, cached]) => cached || local.has(trackId) ? [trackId] : []));
 }
 
 const pending = new Map<string, Promise<Response>>();
@@ -38,6 +40,8 @@ export async function fetchTrackAudio(trackId: string, requireStorage = false): 
 }
 
 async function downloadTrack(trackId: string, requireStorage: boolean): Promise<Response> {
+  const local = await localMediaResponse(trackId);
+  if (local) return local;
   const url = trackStreamUrl(trackId);
   const cache = 'caches' in globalThis ? await caches.open(audioCacheName).catch(() => undefined) : undefined;
   const cached = await cache?.match(url, { ignoreVary: true });
