@@ -1,3 +1,4 @@
+import { desktopHost, desktopBaseUrl } from './desktop';
 import { getDownloadProgress, setDownloadProgress } from './download-state';
 import type { Track } from '../types';
 
@@ -53,7 +54,7 @@ type PlaybackListener = (playbacks: BridgePlayback[]) => void;
 type CacheListener = (trackIds: Set<string>) => void;
 type RoutingListener = () => void;
 
-const bridgeBaseUrl = 'http://127.0.0.1:43821';
+const bridgeBaseUrl = desktopBaseUrl;
 const associationStorageKey = 'sonoriva-bridge-association-v1';
 const modeStorageKey = 'sonoriva-audio-mode-v1';
 
@@ -109,6 +110,10 @@ export class BridgeClient {
     });
   }
   getCachedTrackIds(): Set<string> { return new Set(this.cachedTrackIds); }
+
+  async localConsoleRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+    return this.request<T>(`/v1/desktop${path}`, init);
+  }
 
   async cachedAudio(track: Track, signal?: AbortSignal): Promise<Response> {
     return this.request<Response>('/v1/cache/audio', {
@@ -368,7 +373,7 @@ export class BridgeClient {
     }
     if (typeof WebSocket !== 'undefined' && this.association) {
       try {
-        const socket = new WebSocket('ws://127.0.0.1:43821/v1/events');
+        const socket = new WebSocket(`${bridgeBaseUrl.replace(/^http/, 'ws')}/v1/events`);
         this.socket = socket;
         socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'authenticate', token: this.association?.localToken })));
         socket.addEventListener('message', (event) => {
@@ -453,7 +458,7 @@ export class BridgeClient {
       response = await fetch(`${bridgeBaseUrl}${path}`, {
         ...init,
         headers: {
-          ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+          ...(init.body && !(init.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
           ...(authenticated ? { Authorization: `Bearer ${this.association!.localToken}` } : {}),
           ...init.headers,
         },
@@ -495,6 +500,8 @@ function bridgePlaybackVolumeAt(playback: BridgePlayback, atMs: number): number 
 }
 
 function readAssociation(): BridgeAssociation | undefined {
+  const native = desktopHost();
+  if (native) return { deviceId: native.deviceId, localToken: native.token };
   try {
     const parsed = JSON.parse(localStorage.getItem(associationStorageKey) ?? '{}') as Partial<BridgeAssociation>;
     if (typeof parsed.deviceId === 'string' && typeof parsed.localToken === 'string') {
@@ -505,6 +512,7 @@ function readAssociation(): BridgeAssociation | undefined {
 }
 
 function readMode(): AudioPlaybackMode {
+  if (desktopHost()) return 'bridge';
   try {
     return localStorage.getItem(modeStorageKey) === 'bridge' && readAssociation() ? 'bridge' : 'browser';
   } catch {

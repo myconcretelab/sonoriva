@@ -1,3 +1,4 @@
+import { desktopHost } from './desktop';
 import { ApiError, request } from './api-transport';
 import { changeWorkspace, listWorkspaces, mergeWorkspace, readLocalMedia, readWorkspace, trackChanges, type PendingTrack, type TrackChanges } from './local-workspace-store';
 import type { Project, ProjectDetail, Track, User } from '../types';
@@ -5,7 +6,7 @@ import type { Project, ProjectDetail, Track, User } from '../types';
 export function localUser(): User | undefined {
   try {
     const user = JSON.parse(localStorage.getItem('sonoriva-user') ?? 'null') as User | null;
-    return user && typeof user.id === 'string' && !user.isDemo && typeof indexedDB !== 'undefined' ? user : undefined;
+    return user && typeof user.id === 'string' && !user.isDemo && (Boolean(desktopHost()) || typeof indexedDB !== 'undefined') ? user : undefined;
   } catch { return undefined; }
 }
 

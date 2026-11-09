@@ -1,5 +1,8 @@
 mod audio;
 mod config;
+mod desktop;
+mod desktop_store;
+mod interface;
 mod local_api;
 mod models;
 mod runtime;
@@ -14,25 +17,39 @@ use url::Url;
 
 pub fn run() {
     let runtime = Runtime::load().expect("initialisation de SonoRiva Bridge impossible");
-    let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(
+    let isolated_test =
+        cfg!(debug_assertions) && std::env::var_os("SONORIVA_BRIDGE_TEST_DATA").is_some();
+    let mut builder = tauri::Builder::default();
+    if !isolated_test {
+        builder = builder.plugin(tauri_plugin_single_instance::init(
             |app, _arguments, _working_directory| {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
             },
-        ))
-        .plugin(tauri_plugin_updater::Builder::new().build());
+        ));
+    }
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     builder
         .plugin(tauri_plugin_deep_link::init())
         .manage(runtime.clone())
         .manage(updates::Updates::default())
         .invoke_handler(tauri::generate_handler![
             updates::bridge_update_status,
-            updates::check_bridge_update
+            updates::check_bridge_update,
+            desktop::open_local_console,
+            desktop::desktop_connection,
+            desktop::rollback_local_interface
         ])
         .setup(move |app| {
+            let embedded = app.asset_resolver().get("console/package.json".into()).ok_or("Interface locale absente : exécutez npm run build:bridge-ui avant de compiler le Bridge.")?;
+            let key = app.config().plugins.0.get("updater").and_then(|value|value.get("pubkey")).and_then(|value|value.as_str()).ok_or("Clé de mise à jour absente.")?;
+            runtime.interfaces.initialize(&embedded.bytes,key)?;
+            let interface_runtime = runtime.clone();
+            let interface_key = key.to_string();
+            tauri::async_runtime::spawn(async move { if let Err(error)=desktop::check_interface(&interface_runtime,&interface_key).await { interface_runtime.interfaces.set_error(error); } });
+
             let local_runtime = runtime.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = local_api::serve(local_runtime).await {
@@ -51,6 +68,7 @@ pub fn run() {
             let update_handle = app.handle().clone();
             let update_runtime = runtime.clone();
             tauri::async_runtime::spawn(async move {
+                if isolated_test { return; }
                 if let Err(error) = updates::run_update(update_handle, update_runtime, true).await {
                     eprintln!("Mise à jour automatique de SonoRiva Bridge impossible: {error}");
                 }

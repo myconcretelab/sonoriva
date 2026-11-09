@@ -1,3 +1,4 @@
+import { desktopHost, desktopRequest, DesktopError, desktopBaseUrl } from './desktop';
 import type { ProjectDetail, Track } from '../types';
 
 export const editableTrackKeys = ['title', 'categoryId', 'volume', 'loop', 'fadeInMs', 'fadeOutMs', 'startTimeMs', 'endTimeMs', 'videoEndBehavior', 'color', 'tags', 'backgroundImage'] as const;
@@ -54,6 +55,7 @@ async function transaction<T>(stores: string[], mode: IDBTransactionMode, work: 
 }
 
 export function readWorkspace(userId: string, projectId: string): Promise<LocalWorkspace | undefined> {
+  if (desktopHost()) return nativeWorkspace(userId, projectId);
   return transaction(['projects'], 'readonly', (tx, done) => {
     const read = tx.objectStore('projects').get(`${userId}:${projectId}`);
     read.onsuccess = () => done(read.result);
@@ -61,6 +63,7 @@ export function readWorkspace(userId: string, projectId: string): Promise<LocalW
 }
 
 export function listWorkspaces(userId: string): Promise<LocalWorkspace[]> {
+  if (desktopHost()) return desktopRequest<LocalWorkspace[]>('/v1/desktop/workspaces').then((records) => records.filter((record) => record.userId === userId));
   return transaction(['projects'], 'readonly', (tx, done) => {
     const read = tx.objectStore('projects').getAll();
     read.onsuccess = () => done((read.result as LocalWorkspace[]).filter((record) => record.userId === userId));
@@ -69,6 +72,7 @@ export function listWorkspaces(userId: string): Promise<LocalWorkspace[]> {
 
 // Read, journal change, project snapshot and optional file commit in one transaction.
 export function changeWorkspace(userId: string, projectId: string, change: (current: LocalWorkspace | undefined) => LocalWorkspace, media?: { id: string; file: Blob }): Promise<LocalWorkspace> {
+  if (desktopHost()) return changeNativeWorkspace(userId, projectId, change, media);
   return transaction(['projects', 'media'], 'readwrite', (tx, done, fail) => {
     const store = tx.objectStore('projects');
     const read = store.get(`${userId}:${projectId}`);
@@ -87,6 +91,7 @@ export function changeWorkspace(userId: string, projectId: string, change: (curr
 }
 
 export function readLocalMedia(userId: string, trackId: string): Promise<Blob | undefined> {
+  if (desktopHost()) return nativeMedia(userId, trackId);
   return transaction(['media'], 'readonly', (tx, done) => {
     const read = tx.objectStore('media').get(`${userId}:${trackId}`);
     read.onsuccess = () => done(read.result);
@@ -112,4 +117,30 @@ export async function mergeWorkspace(userId: string, detail: ProjectDetail, expe
     for (const operation of Object.values(pending)) if (!tracks.some((track) => track.id === operation.desired.id)) tracks.push(operation.desired);
     return { key: `${userId}:${detail.project.id}`, userId, detail: { ...detail, tracks }, pending, mediaIds };
   });
+}
+
+async function nativeWorkspace(userId: string, projectId: string): Promise<LocalWorkspace | undefined> {
+  if (desktopHost()?.userId !== userId) throw new Error('Le compte ne correspond pas au Bridge associé.');
+  return await desktopRequest<LocalWorkspace | null>(`/v1/desktop/workspaces/${encodeURIComponent(projectId)}`) ?? undefined;
+}
+async function changeNativeWorkspace(userId: string, projectId: string, change: (current: LocalWorkspace | undefined) => LocalWorkspace, media?: { id: string; file: Blob }): Promise<LocalWorkspace> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const current = await nativeWorkspace(userId, projectId);
+    const workspace = change(current);
+    const form = new FormData();
+    form.set('change', JSON.stringify({ expectedRevision: current?.revision ?? 0, workspace, mediaId: media?.id }));
+    if (media) form.set('file', media.file, media.id);
+    try { return await desktopRequest(`/v1/desktop/workspaces/${encodeURIComponent(projectId)}`, { method: 'PUT', body: form }); }
+    catch (cause) { if (!(cause instanceof DesktopError) || cause.status !== 409) throw cause; }
+  }
+  throw new Error('Le spectacle est modifié dans une autre fenêtre. Réessayez cette modification.');
+}
+async function nativeMedia(userId: string, trackId: string): Promise<Blob | undefined> {
+  if (desktopHost()?.userId !== userId) throw new Error('Le compte ne correspond pas au Bridge associé.');
+  const response = await fetch(`${desktopBaseUrl}/v1/desktop/media/${encodeURIComponent(trackId)}`, { headers: { Authorization: `Bearer ${desktopHost()!.token}` } });
+  if (response.status === 404) return undefined;
+  if (!response.ok) throw new Error('Lecture du fichier local impossible.');
+  const workspaces = await listWorkspaces(userId);
+  const track = workspaces.flatMap((record) => record.detail.tracks).find((track) => track.id === trackId);
+  return new Blob([await response.blob()], { type: track?.mimeType ?? 'application/octet-stream' });
 }

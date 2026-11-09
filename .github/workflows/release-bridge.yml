@@ -61,6 +61,10 @@ jobs:
           workspaces: bridge/src-tauri -> target
       - name: Installer les dépendances
         run: npm ci --prefix bridge --include=dev --include=optional
+      - name: Installer les dépendances de l’interface
+        run: npm ci
+      - name: Intégrer la régie locale
+        run: npm run build:bridge-ui
       - name: Tester le bridge
         run: cargo test --manifest-path bridge/src-tauri/Cargo.toml --target ${{ matrix.target }}
       - name: Compiler et publier le bridge

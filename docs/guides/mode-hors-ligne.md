@@ -23,9 +23,29 @@ La liste des spectacles et les dernières données consultées sont également c
 
 L’éditeur individuel conserve localement le titre, la catégorie, le volume, la boucle, les fondus, les points d’entrée et de sortie, la couleur, les tags, l’image de fond et le comportement de fin des vidéos. L’import d’un fichier depuis l’appareil copie son contenu dans le stockage local. Ces données restent présentes après fermeture de l’application.
 
-Les fichiers importés sur cet appareil sont lus par le navigateur, y compris lorsque le Bridge est sélectionné. Ils utilisent la sortie du navigateur. Les autres sons continuent à utiliser le Bridge. Cette version ne fournit pas encore de régie autonome dans le Bridge.
+Les fichiers importés sur cet appareil sont lus par le navigateur, y compris lorsque le Bridge est sélectionné. Ils utilisent la sortie du navigateur. Les autres sons continuent à utiliser le Bridge. La régie locale de Bridge 1.1.0 utilise directement le moteur natif pour ses imports audio.
 
 La création et la suppression des spectacles, des catégories et des playlists, les alias et les autres opérations non couvertes par l’éditeur individuel nécessitent encore une connexion. Les imports de dossiers qui créent des catégories ou sous-catégories nécessitent également une connexion.
+
+## Régie locale du Bridge
+
+Bridge 1.1.0 ou ultérieur dispose du bouton **Ouvrir la régie locale**. Cette fenêtre utilise la même interface que le site et les mêmes quatre thèmes. Elle peut être ouverte sans navigateur ni connexion Internet après préparation d’un spectacle.
+
+Dans le navigateur, le voyant réseau propose **Préparer la régie locale** lorsque le Bridge associé est ouvert et sélectionné comme moteur. La commande **Rendre disponible hors ligne** effectue également cette préparation. L’interface, les données du spectacle, ses vidéos et ses fichiers importés sont alors conservés dans le dossier de données du Bridge. Un spectacle contenant déjà des changements en attente dans la régie locale ne peut pas être remplacé par une copie du navigateur.
+
+Dans cette fenêtre, les modifications individuelles et les nouveaux fichiers sont enregistrés sur disque avant confirmation. Les imports audio utilisent les sorties du Bridge. Les vidéos sont lues par la fenêtre de régie à partir des fichiers du Bridge. Les playlists et catégories existantes sont consultables et utilisables hors ligne ; leur création et leur modification nécessitent une connexion.
+
+Les données de la régie locale sont indépendantes du stockage du navigateur. **Vider le cache audio** supprime les médias téléchargés, sans effacer les fichiers importés localement ni leurs modifications en attente. La suppression du dossier de données de l’application supprime ces données locales.
+
+Le Bridge conserve son accès local lorsque le serveur est injoignable ou que la session en ligne expire. La synchronisation nécessite un forfait Bridge actif, un appareil associé non révoqué et une session utilisateur active sur le serveur. Une reconnexion depuis le site rétablit cette session. La régie locale ne gère pas la facturation ni l’administration des utilisateurs. Les utilisateurs rattachés à plusieurs comptes ne peuvent pas synchroniser par ce mécanisme.
+
+## Mises à jour de la régie locale
+
+Le Bridge vérifie l’interface au démarrage ; la régie ouverte la vérifie également toutes les heures. Le téléchargement vérifie la signature du paquet, sa compatibilité et la présence de ses fichiers. Une interruption ou une signature refusée conserve l’interface installée.
+
+Une interface téléchargée s’active à la prochaine ouverture sans lecture en cours ou avec **Mettre à jour** dans la régie. Le bouton **Revenir à l’interface précédente** dans la fenêtre du Bridge rétablit la version précédente ; la fenêtre de régie doit ensuite être fermée puis rouverte. Une interface ainsi écartée n’est pas réactivée automatiquement.
+
+Une modification de l’interface compatible avec le moteur installé ne nécessite pas de nouvelle compilation du Bridge. Une modification du moteur ou de ses fonctions natives peut encore nécessiter une mise à jour du Bridge complet. L’installation initiale de ce mécanisme nécessite Bridge 1.1.0.
 
 ## Synchronisation
 

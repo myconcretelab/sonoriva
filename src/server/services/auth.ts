@@ -103,7 +103,11 @@ export function cookieValue(cookieHeader: string | undefined, name: string): str
 }
 
 export async function requireUser(request: FastifyRequest, reply: FastifyReply): Promise<User | null> {
-  const user = await userFromToken(request.cookies[sessionCookieName]);
+  let user = await userFromToken(request.cookies[sessionCookieName]);
+  if (!user && request.headers.authorization) {
+    const { bridgeConsoleRouteAllowed, userFromBridgeAuthorization } = await import('./bridge-auth.js');
+    if (bridgeConsoleRouteAllowed(request.method, request.url.split('?')[0])) user = await userFromBridgeAuthorization(request.headers.authorization);
+  }
   if (!user) {
     await reply.code(401).send({ error: 'Authentification requise.' });
     return null;

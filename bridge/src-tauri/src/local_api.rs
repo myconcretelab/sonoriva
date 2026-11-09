@@ -24,7 +24,13 @@ use tower_http::cors::CorsLayer;
 
 use crate::{audio::AudioEngine, models::BridgeTrack, runtime::Runtime};
 
-const PORT: u16 = 43_821;
+pub fn port() -> u16 {
+    #[cfg(debug_assertions)]
+    if std::env::var_os("SONORIVA_BRIDGE_TEST_DATA").is_some() {
+        return 43822;
+    }
+    43821
+}
 
 type ApiResult<T> = Result<T, ApiError>;
 
@@ -125,6 +131,7 @@ pub async fn serve(state: Arc<Runtime>) -> Result<(), String> {
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
     let router = Router::new()
+        .merge(crate::desktop::router())
         .route("/v1/status", get(status))
         .route("/v1/outputs", get(outputs))
         .route("/v1/outputs/{channel}", put(set_output))
@@ -150,7 +157,7 @@ pub async fn serve(state: Arc<Runtime>) -> Result<(), String> {
         .layer(cors)
         .layer(middleware::from_fn(private_network_headers))
         .with_state(state);
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", PORT))
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port()))
         .await
         .map_err(|error| error.to_string())?;
     axum::serve(listener, router)
@@ -177,7 +184,7 @@ async fn status(State(state): State<Arc<Runtime>>) -> Json<serde_json::Value> {
         "deviceId": config.device_id,
         "cachedTracks": cached_tracks,
         "cachedBytes": cached_bytes,
-        "capabilities": ["perPlaybackOutput", "remotePreview", "cacheInventory", "safePlayback", "cachedAudio"],
+        "capabilities": ["perPlaybackOutput", "remotePreview", "cacheInventory", "safePlayback", "cachedAudio", "localConsole"],
     }))
 }
 
@@ -393,16 +400,19 @@ async fn events(
     upgrade: WebSocketUpgrade,
 ) -> ApiResult<Response> {
     let origin = headers.get(ORIGIN).and_then(|value| value.to_str().ok());
-    if !matches!(
-        origin,
-        Some(
-            "https://app.sonoriva.fr"
-                | "http://localhost:5173"
-                | "http://127.0.0.1:5173"
-                | "tauri://localhost"
-                | "http://tauri.localhost"
+    if origin != Some(format!("http://127.0.0.1:{}", port()).as_str())
+        && !matches!(
+            origin,
+            Some(
+                "https://app.sonoriva.fr"
+                    | "http://localhost:5173"
+                    | "http://127.0.0.1:5173"
+                    | "tauri://localhost"
+                    | "http://tauri.localhost"
+                    | "http://127.0.0.1:43821"
+            )
         )
-    ) {
+    {
         return Err(ApiError(
             StatusCode::FORBIDDEN,
             "Origine locale non autorisée.".to_string(),
@@ -426,7 +436,9 @@ async fn event_stream(mut socket: WebSocket, state: Arc<Runtime>) {
         _ => None,
     };
     let expected = state.local_token.read().await.clone();
-    if supplied.is_none() || supplied != expected {
+    if supplied.is_none()
+        || (supplied != expected && supplied.as_deref() != Some(state.desktop_token.as_str()))
+    {
         let _ = socket.send(Message::Close(None)).await;
         return;
     }
@@ -597,6 +609,15 @@ async fn stop_all(
 }
 
 async fn authorize(headers: &HeaderMap, state: &Runtime, allow_native_ui: bool) -> ApiResult<()> {
+    if headers
+        .get(AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        == Some(state.desktop_token.as_str())
+    {
+        return Ok(());
+    }
+
     if allow_native_ui
         && headers
             .get(ORIGIN)

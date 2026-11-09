@@ -19,6 +19,14 @@
         <h1 id="status-title">Démarrage…</h1>
         <p id="status-message">Le serveur audio local se prépare.</p>
       </section>
+      <section class="surface update-panel">
+        <h2>Régie locale</h2>
+        <p id="console-status" role="status">L’interface et les spectacles préparés sont conservés sur cet ordinateur.</p>
+        <div class="update-actions">
+          <button id="open-console" type="button">Ouvrir la régie locale</button>
+          <button id="rollback-interface" type="button" hidden>Revenir à l’interface précédente</button>
+        </div>
+      </section>
       <div class="panels">
         <section class="panel surface">
           <h2>Sorties audio</h2>
@@ -39,7 +47,7 @@
           <button id="install-update" type="button" hidden>Installer et redémarrer</button>
         </div>
       </section>
-      <footer>SonoRiva Bridge <span id="bridge-version">1.0.10</span> · vérification au démarrage · localhost:43821</footer>
+      <footer>SonoRiva Bridge <span id="bridge-version">1.1.0</span> · vérification au démarrage · localhost:43821</footer>
     </main>
     <script src="./app.js"></script>
   </body>

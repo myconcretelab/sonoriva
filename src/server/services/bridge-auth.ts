@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../db/index.js';
-import { accounts, bridgeDevices, plans, sessions, users, type BridgeDevice } from '../db/schema.js';
+import { accountMemberships, accounts, bridgeDevices, plans, sessions, users, type BridgeDevice, type User } from '../db/schema.js';
 import { accountCanUseBridge } from './commercial-plans.js';
 
 export const bridgePairingLifetimeMs = 5 * 60 * 1000;
@@ -25,11 +25,10 @@ export function bearerToken(authorization: string | undefined): string | undefin
   return match?.[1];
 }
 
-export async function requireBridgeDevice(request: FastifyRequest, reply: FastifyReply): Promise<BridgeDevice | null> {
-  const token = bearerToken(request.headers.authorization);
+async function bridgeAuthentication(authorization: string | undefined): Promise<{ device: BridgeDevice; user: User } | { status: number; error: string }> {
+  const token = bearerToken(authorization);
   if (!token) {
-    await reply.code(401).send({ error: 'Jeton SonoRiva Bridge requis.' });
-    return null;
+    return { status: 401, error: 'Jeton SonoRiva Bridge requis.' };
   }
   const [context] = await db.select({
     device: bridgeDevices,
@@ -46,22 +45,41 @@ export async function requireBridgeDevice(request: FastifyRequest, reply: Fastif
     ))
     .limit(1);
   if (!context) {
-    await reply.code(401).send({ error: 'Ce bridge n’est pas associé ou a été révoqué.' });
-    return null;
+    return { status: 401, error: 'Ce bridge n’est pas associé ou a été révoqué.' };
   }
   if (!accountCanUseBridge(context)) {
-    await reply.code(403).send({ error: 'SonoRiva Bridge est réservé aux forfaits payants actifs.' });
-    return null;
+    return { status: 403, error: 'SonoRiva Bridge est réservé aux forfaits payants actifs.' };
   }
-  const [active] = await db.select({ id: users.id }).from(sessions).innerJoin(users, eq(users.id, sessions.userId))
+  const [active] = await db.select({ user: users }).from(sessions).innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.userId, context.device.userId), gt(sessions.expiresAt, new Date()), isNull(users.disabledAt))).limit(1);
   if (!active || !(await membershipAccess(context.device.userId))) {
-    await reply.code(401).send({ error: 'Connectez cet utilisateur pour utiliser son bridge.' });
-    return null;
+    return { status: 401, error: 'Connectez cet utilisateur pour synchroniser son bridge.' };
   }
   const now = new Date();
   await db.update(bridgeDevices)
     .set({ lastSeenAt: now, updatedAt: now })
     .where(eq(bridgeDevices.id, context.device.id));
-  return { ...context.device, lastSeenAt: now, updatedAt: now };
+  return { device: { ...context.device, lastSeenAt: now, updatedAt: now }, user: active.user };
+}
+
+export async function requireBridgeDevice(request: FastifyRequest, reply: FastifyReply): Promise<BridgeDevice | null> {
+  const result = await bridgeAuthentication(request.headers.authorization);
+  if ('error' in result) { await reply.code(result.status).send({ error: result.error }); return null; }
+  return result.device;
+}
+
+export async function userFromBridgeAuthorization(authorization: string | undefined): Promise<User | null> {
+  const result = await bridgeAuthentication(authorization);
+  if ('error' in result) return null;
+  // Workspace routes resolve the account from the user. Refuse ambiguous membership
+  // rather than allowing one paired device to access a different account.
+  const memberships = await db.select({ accountId: accountMemberships.accountId }).from(accountMemberships).where(eq(accountMemberships.userId, result.user.id));
+  if (memberships.length !== 1 || memberships[0].accountId !== result.device.accountId) return null;
+  return result.user;
+}
+
+export function bridgeConsoleRouteAllowed(method: string, path: string): boolean {
+  if (path.includes('%') || path.includes('..') || path.includes('\\')) return false;
+  if (method === 'GET' && ['/api/auth/me', '/api/account', '/api/health', '/api/version', '/api/releases'].includes(path)) return true;
+  return ['/api/projects', '/api/tracks', '/api/releases/', '/api/support/', '/api/openverse/', '/api/freesound/', '/api/imports/'].some((prefix) => path === prefix || (path.startsWith(prefix) && (prefix.endsWith('/') || path[prefix.length] === '/')));
 }

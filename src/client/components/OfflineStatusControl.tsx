@@ -1,3 +1,4 @@
+import { desktopHost } from '../lib/desktop';
 import { useEffect, useState } from 'react';
 import { CircleCheck, Download, LoaderCircle, RefreshCcw, Wifi, WifiOff } from 'lucide-react';
 import { bridgeClient } from '../lib/bridge-client';
@@ -22,6 +23,7 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
   const [online, setOnline] = useState<boolean>();
   const [bridgeReady, setBridgeReady] = useState<boolean>();
   const [bridgeMode, setBridgeMode] = useState(bridgeClient.isEnabled());
+  const [localConsoleAvailable, setLocalConsoleAvailable] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [checkedAt, setCheckedAt] = useState('');
   useEffect(() => {
@@ -51,12 +53,14 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
       controller = new AbortController();
       const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(3000)]);
       const enabled = bridgeClient.isEnabled();
-      const [server, local] = await Promise.all([
+      const [server, local, consoleAvailable] = await Promise.all([
         checkServerConnection(signal),
         enabled ? bridgeClient.outputs().then((result) => result.outputs.length > 0, () => false) : Promise.resolve(undefined),
+        enabled && !desktopHost() ? (bridgeClient.discover?.(signal) ?? Promise.resolve(undefined)).then((status) => status?.capabilities?.includes('localConsole') ?? false, () => false) : Promise.resolve(false),
       ]);
       if (!disposed) {
         setOnline(server);
+        setLocalConsoleAvailable(consoleAvailable);
         setBridgeMode(bridgeClient.isEnabled());
         setBridgeReady(enabled === bridgeClient.isEnabled() ? local : undefined);
         setCheckedAt(new Date().toLocaleTimeString('fr-FR'));
@@ -102,6 +106,7 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
         {busy ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}
         <span>{busy ? 'Téléchargement en cours…' : missing > 0 ? `Télécharger ${missing === 1 ? 'le morceau manquant' : `les ${missing} morceaux manquants`}` : 'Préparer l’application'}</span>
       </button>}
+      {bridgeMode && localConsoleAvailable && !desktopHost() && !busy && <button type="button" className="offline-prepare-button" onClick={onPrepare}><Download size={16} />Préparer la régie locale</button>}
       {preparation?.running && <div className="offline-preparation-progress" role="status">
         <span>Préparation : {preparation.done}/{preparation.total}</span>
         <progress value={preparation.done} max={preparation.total || 1} aria-label="Préparation hors ligne" />
@@ -125,8 +130,8 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
       <span>Serveur : {online === undefined ? 'vérification…' : online ? 'joignable' : 'injoignable'}</span>
       <span>{bridgeMode ? `Bridge local : ${bridgeReady === undefined ? 'vérification…' : bridgeReady ? 'joignable' : 'injoignable'}` : 'Lecture : navigateur'}</span>
       <span>{count}/{tracks.length} fichiers disponibles hors ligne</span>
-      <span>{bridgeMode ? 'Audio : cache du Bridge · vidéos : navigateur' : 'Cache du navigateur'}</span>
-      {bridgeMode && tracks.some((track) => track.localMedia) && <span>Les fichiers importés sur cet appareil utilisent la sortie du navigateur.</span>}
+      <span>{desktopHost() ? 'Fichiers et changements : disque du Bridge' : bridgeMode ? 'Audio : cache du Bridge · vidéos : navigateur' : 'Cache du navigateur'}</span>
+      {!desktopHost() && bridgeMode && tracks.some((track) => track.localMedia) && <span>Les fichiers importés sur cet appareil utilisent la sortie du navigateur.</span>}
       {incomplete && <span>Certains fichiers ou le moteur local ne sont pas disponibles.</span>}
       <small>Contrôle toutes les 5 s{checkedAt && ` · ${checkedAt}`}</small>
     </div>}

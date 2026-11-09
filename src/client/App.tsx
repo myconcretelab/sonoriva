@@ -1,3 +1,5 @@
+import { desktopHost, desktopRequest } from './lib/desktop';
+import { prepareBridgeWorkspace } from './lib/prepare-bridge-workspace';
 import { applyPlaylistSoundboardBehavior } from './lib/playlist-interruption';
 import { SearchScopeControl } from './components/SearchScopeControl';
 import { prepareOfflineTracks, type OfflinePreparation } from './lib/prepare-offline';
@@ -295,6 +297,15 @@ export default function App() {
     const timer = window.setInterval(refresh, 60_000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [supportOpen, user]);
+  useEffect(() => {
+    if (!desktopHost()) return;
+    const active = activePlaybacks.length > 0;
+    const send = () => { void desktopRequest('/v1/desktop/activity', { method: 'PUT', body: JSON.stringify({ active }) }).catch(() => undefined); };
+    send();
+    if (!active) return;
+    const timer = window.setInterval(send, 1000);
+    return () => window.clearInterval(timer);
+  }, [activePlaybacks.length]);
   useEffect(() => audioEngine.setMasterVolume(masterVolume / 100), [masterVolume]);
   useEffect(() => audioEngine.setMaxActivePlaybacks(detail?.project.maxActivePlaybacks ?? 8), [detail?.project.maxActivePlaybacks]);
   useEffect(() => audioEngine.subscribeHistory(setPlaybackHistory), []);
@@ -691,15 +702,15 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedProjectId || !user) return;
-    const connection = io({ withCredentials: true });
+    const connection = io({ withCredentials: true, ...(desktopHost() ? { transports: ['polling'], extraHeaders: { Authorization: `Bearer ${desktopHost()!.token}` } } : {}) });
     setSocket(connection);
     connection.on('connect', () => {
       setConnected(true);
       connection.emit('join-project', { projectId: selectedProjectId, role: remote ? 'controller' : 'player' });
     });
     connection.on('disconnect', () => setConnected(false));
-    connection.on('session-revoked', () => window.dispatchEvent(new Event('sonoriva:session-revoked')));
-    connection.on('connect_error', (cause) => { if (cause.message === 'unauthorized') window.dispatchEvent(new Event('sonoriva:session-revoked')); });
+    if (!desktopHost()) connection.on('session-revoked', () => window.dispatchEvent(new Event('sonoriva:session-revoked')));
+    connection.on('connect_error', (cause) => { if (!desktopHost() && cause.message === 'unauthorized') window.dispatchEvent(new Event('sonoriva:session-revoked')); });
     if (!remote) connection.on('remote-command', (command: RemoteCommand) => {
       const currentTracks = detail?.tracks ?? [];
       if (command.type === 'stop-all' || command.type === 'stop-all-immediate') {
@@ -2057,6 +2068,7 @@ export default function App() {
         setOfflinePreparation({ projectId, mode, done, total, running: true });
         setOfflineStatus(`${done}/${total}`);
       });
+      if (mode === 'bridge' && !desktopHost()) await prepareBridgeWorkspace(detail);
       setOfflinePreparation((current) => current ? { ...current, running: false } : current);
       setOfflineStatus('Spectacle disponible hors ligne');
     } catch (cause) {

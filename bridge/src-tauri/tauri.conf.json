@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SonoRiva Bridge",
-  "version": "1.0.10",
+  "version": "1.1.0",
   "identifier": "fr.sonoriva.bridge",
   "build": {
     "frontendDist": "../ui"
@@ -18,7 +18,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:43821; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'"
     }
   },
   "bundle": {
@@ -37,16 +37,27 @@
       "signingIdentity": "-",
       "dmg": {
         "background": "./images/dmg-background.png",
-        "windowSize": { "width": 768, "height": 512 },
-        "appPosition": { "x": 170, "y": 150 },
-        "applicationFolderPosition": { "x": 598, "y": 150 }
+        "windowSize": {
+          "width": 768,
+          "height": 512
+        },
+        "appPosition": {
+          "x": 170,
+          "y": 150
+        },
+        "applicationFolderPosition": {
+          "x": 598,
+          "y": 150
+        }
       }
     }
   },
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["sonoriva-bridge"]
+        "schemes": [
+          "sonoriva-bridge"
+        ]
       }
     },
     "updater": {

@@ -18,6 +18,7 @@ const SERVICE: &str = "fr.sonoriva.bridge";
 pub struct BridgeConfig {
     pub server_url: Option<String>,
     pub device_id: Option<String>,
+    pub user_id: Option<String>,
     pub main_output_id: Option<String>,
     pub preview_output_id: Option<String>,
 }
@@ -47,17 +48,36 @@ impl ConfigStore {
     }
 
     pub fn new() -> Result<Self, String> {
+        #[cfg(debug_assertions)]
+        if let Some(root) = std::env::var_os("SONORIVA_BRIDGE_TEST_DATA") {
+            let root = PathBuf::from(root);
+            fs::create_dir_all(root.join("audio")).map_err(|e| e.to_string())?;
+            return Ok(Self {
+                config_path: root.join("config.json"),
+                credentials_path: root.join("credentials.json"),
+                cache_dir: root.join("audio"),
+            });
+        }
+
         let project_dirs = ProjectDirs::from("fr", "SonoRiva", "SonoRiva Bridge")
             .ok_or_else(|| "Dossier de données utilisateur introuvable.".to_string())?;
         let data_dir = project_dirs.data_local_dir();
         fs::create_dir_all(data_dir).map_err(|error| error.to_string())?;
-        let cache_dir = project_dirs.cache_dir().join("audio");
+        let cache_dir = data_dir.join("audio");
+        migrate_audio_cache(&project_dirs.cache_dir().join("audio"), &cache_dir)?;
         fs::create_dir_all(&cache_dir).map_err(|error| error.to_string())?;
         Ok(Self {
             config_path: data_dir.join("config.json"),
             credentials_path: data_dir.join("credentials.json"),
             cache_dir,
         })
+    }
+
+    pub fn data_dir(&self) -> PathBuf {
+        self.config_path
+            .parent()
+            .expect("configuration directory")
+            .to_path_buf()
     }
 
     pub fn load(&self) -> BridgeConfig {
@@ -69,7 +89,7 @@ impl ConfigStore {
 
     pub fn save(&self, config: &BridgeConfig) -> Result<(), String> {
         let bytes = serde_json::to_vec_pretty(config).map_err(|error| error.to_string())?;
-        fs::write(&self.config_path, bytes).map_err(|error| error.to_string())
+        crate::desktop_store::atomic_write(&self.config_path, &bytes)
     }
 
     pub fn load_tokens(&self) -> (Option<String>, Option<String>) {
@@ -174,4 +194,34 @@ mod tests {
 
         fs::remove_dir_all(root).expect("temporary data removed");
     }
+}
+
+fn migrate_audio_cache(legacy: &Path, durable: &Path) -> Result<(), String> {
+    fs::create_dir_all(durable).map_err(|e| e.to_string())?;
+    if durable.join(".legacy-migrated").is_file() || legacy == durable || !legacy.is_dir() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(legacy).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        if entry.path().extension().and_then(|ext| ext.to_str()) != Some("audio") {
+            continue;
+        }
+        let target = durable.join(entry.file_name());
+        if target.is_file()
+            && fs::metadata(&target).map_err(|e| e.to_string())?.len()
+                == entry.metadata().map_err(|e| e.to_string())?.len()
+        {
+            continue;
+        }
+        let temporary = durable.join(format!(".migration-{}.part", uuid::Uuid::new_v4()));
+        fs::copy(entry.path(), &temporary)
+            .map_err(|e| format!("Migration du cache audio impossible : {e}"))?;
+        OpenOptions::new()
+            .write(true)
+            .open(&temporary)
+            .and_then(|file| file.sync_all())
+            .map_err(|e| e.to_string())?;
+        fs::rename(temporary, target).map_err(|e| e.to_string())?;
+    }
+    crate::desktop_store::atomic_write(&durable.join(".legacy-migrated"), b"1")
 }

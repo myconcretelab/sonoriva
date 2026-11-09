@@ -1,3 +1,6 @@
+import { desktopHost } from './desktop';
+import { bridgeClient } from './bridge-client';
+import { listWorkspaces } from './local-workspace-store';
 import { setDownloadProgress } from './download-state';
 import { localMediaIds, localMediaResponse } from './local-workspace';
 export const audioCacheName = 'sonoriva-audio-v1';
@@ -8,6 +11,10 @@ export function trackStreamUrl(trackId: string): string {
 
 export async function cachedTrackIds(trackIds: string[]): Promise<Set<string>> {
   const local = await localMediaIds();
+  if (desktopHost()) {
+    const native = bridgeClient.getCachedTrackIds();
+    return new Set(trackIds.filter((id) => local.has(id) || native.has(id)));
+  }
   if (!('caches' in globalThis)) return new Set(trackIds.filter((id) => local.has(id)));
   const cache = await caches.open(audioCacheName);
   const matches = await Promise.all(trackIds.map(async (trackId) => [trackId, Boolean(await cache.match(trackStreamUrl(trackId), { ignoreVary: true }))] as const));
@@ -22,7 +29,7 @@ export function subscribeOfflineCache(listener: () => void): () => void {
 }
 
 export async function cacheTrackOffline(trackId: string): Promise<void> {
-  if (!('caches' in globalThis)) throw new Error('Le stockage hors ligne est indisponible dans ce navigateur.');
+  if (!desktopHost() && !('caches' in globalThis)) throw new Error('Le stockage hors ligne est indisponible dans ce navigateur.');
   await fetchTrackAudio(trackId, true);
 }
 
@@ -42,6 +49,16 @@ export async function fetchTrackAudio(trackId: string, requireStorage = false): 
 async function downloadTrack(trackId: string, requireStorage: boolean): Promise<Response> {
   const local = await localMediaResponse(trackId);
   if (local) return local;
+  const native = desktopHost();
+  if (native) {
+    const workspaces = await listWorkspaces(native.userId);
+    const track = workspaces.flatMap((record) => record.detail.tracks).find((track) => track.id === trackId);
+    if (!track) throw new Error('Ce morceau est absent de la régie locale.');
+    await bridgeClient.preload(track);
+    const response = await bridgeClient.cachedAudio(track);
+    listeners.forEach((listener) => listener());
+    return new Response(response.body, { headers: { 'Content-Type': track.mimeType, 'Content-Length': String(track.sizeBytes) } });
+  }
   const url = trackStreamUrl(trackId);
   const cache = 'caches' in globalThis ? await caches.open(audioCacheName).catch(() => undefined) : undefined;
   const cached = await cache?.match(url, { ignoreVary: true });

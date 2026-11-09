@@ -1,4 +1,3 @@
-const baseUrl = 'http://127.0.0.1:43821';
 const title = document.querySelector('#status-title');
 const message = document.querySelector('#status-message');
 const dot = document.querySelector('#status-dot');
@@ -16,7 +15,8 @@ function setStatus(state) {
 }
 
 async function request(path, init) {
-  const response = await fetch(`${baseUrl}${path}`, init);
+  const { token, baseUrl } = await window.__TAURI__.core.invoke('desktop_connection');
+  const response = await fetch(`${baseUrl}${path}`, { ...init, headers: { ...init?.headers, Authorization: `Bearer ${token}` } });
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Requête impossible.');
   return response.status === 204 ? undefined : response.json();
 }
@@ -123,3 +123,26 @@ checkUpdate.addEventListener('click', () => runUpdate(false));
 installUpdate.addEventListener('click', () => runUpdate(true));
 refreshUpdateStatus();
 setInterval(refreshUpdateStatus, 1000);
+
+const consoleStatus = document.querySelector('#console-status');
+const rollbackInterface = document.querySelector('#rollback-interface');
+document.querySelector('#open-console').addEventListener('click', async () => {
+  try { await window.__TAURI__.core.invoke('open_local_console'); }
+  catch (error) { consoleStatus.textContent = String(error); }
+});
+rollbackInterface.addEventListener('click', async () => {
+  try {
+    await window.__TAURI__.core.invoke('rollback_local_interface');
+    consoleStatus.textContent = 'Interface précédente rétablie. Fermez puis rouvrez la régie locale pour l’utiliser.';
+  } catch (error) { consoleStatus.textContent = String(error); }
+});
+async function refreshInterface() {
+  try {
+    const status = await request('/v1/desktop/interface');
+    rollbackInterface.hidden = !status.previous;
+    if (status.pending) consoleStatus.textContent = 'Une nouvelle interface est téléchargée. Elle sera activée à la prochaine ouverture sans lecture en cours.';
+    else if (status.ready) consoleStatus.textContent = `Interface ${status.revision.slice(0, 12)} conservée sur cet ordinateur. Les spectacles se préparent depuis SonoRiva.`;
+  } catch { /* Le serveur local peut encore démarrer. */ }
+}
+refreshInterface();
+setInterval(refreshInterface, 5000);

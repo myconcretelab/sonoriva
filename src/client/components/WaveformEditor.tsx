@@ -1,3 +1,4 @@
+import { desktopHost } from '../lib/desktop';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Focus, LoaderCircle, Pause, Play, RotateCcw, Square, ZoomIn, ZoomOut } from 'lucide-react';
 import {
@@ -203,7 +204,7 @@ export function WaveformEditor({ track, startMs, endMs, onStartChange, onEndChan
   }
 
   async function togglePreview() {
-    if (bridgeClient.isEnabled() && !track.localMedia) {
+    if (bridgeClient.isEnabled() && (!track.localMedia || Boolean(desktopHost()))) {
       if (bridgePreviewId.current) {
         bridgeClient.togglePause(bridgePreviewId.current);
         return;

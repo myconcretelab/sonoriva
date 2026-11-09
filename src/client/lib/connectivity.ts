@@ -1,7 +1,8 @@
+import { desktopHost } from './desktop';
 // Deliberately independent of navigator.onLine: LAN/loopback and Internet can differ.
 export async function checkServerConnection(signal: AbortSignal): Promise<boolean> {
   try {
-    const response = await fetch('/api/health', { cache: 'no-store', signal });
+    const response = await fetch('/api/health', { cache: 'no-store', signal, ...(desktopHost() ? { headers: { Authorization: `Bearer ${desktopHost()!.token}` } } : {}) });
     return response.ok && (await response.json()).status === 'ok';
   } catch { return false; }
 }

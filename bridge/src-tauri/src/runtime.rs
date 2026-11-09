@@ -18,7 +18,11 @@ pub struct Runtime {
     pub local_token: RwLock<Option<String>>,
     pub audio: std::sync::Mutex<AudioEngine>,
     pub store: ConfigStore,
-    client: reqwest::Client,
+    pub desktop: crate::desktop_store::DesktopStore,
+    pub interfaces: crate::interface::Interfaces,
+    pub desktop_token: String,
+    pub console_activity: std::sync::Mutex<Option<std::time::Instant>>,
+    pub(crate) client: reqwest::Client,
     download_locks: tokio::sync::Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
     cache_access: RwLock<()>,
     pub downloads: std::sync::Mutex<HashMap<String, (u64, u64)>>,
@@ -45,6 +49,7 @@ impl Drop for DownloadCleanup<'_> {
 #[serde(rename_all = "camelCase")]
 struct PairingClaim {
     device_id: String,
+    user_id: Option<String>,
     device_token: String,
     local_token: String,
     server_url: String,
@@ -60,6 +65,10 @@ impl Runtime {
             device_token: RwLock::new(device_token),
             local_token: RwLock::new(local_token),
             audio: std::sync::Mutex::new(AudioEngine::new()),
+            desktop: crate::desktop_store::DesktopStore::new(store.data_dir().join("desktop"))?,
+            interfaces: crate::interface::Interfaces::new(store.data_dir().join("interfaces"))?,
+            console_activity: std::sync::Mutex::new(None),
+            desktop_token: format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4()),
             store,
             download_locks: tokio::sync::Mutex::new(HashMap::new()),
             cache_access: RwLock::new(()),
@@ -73,6 +82,49 @@ impl Runtime {
                 .build()
                 .map_err(|error| error.to_string())?,
         }))
+    }
+
+    pub fn console_active(&self) -> bool {
+        self.console_activity
+            .lock()
+            .map(|activity| {
+                activity.is_some_and(|at| at.elapsed() < std::time::Duration::from_secs(5))
+            })
+            .unwrap_or(true)
+    }
+
+    pub async fn resolve_owner(&self) -> Result<(), String> {
+        let config = self.config.read().await.clone();
+        if config.user_id.is_some() {
+            return Ok(());
+        }
+        let server = config.server_url.ok_or("Le Bridge n’est pas associé.")?;
+        let token = self
+            .device_token
+            .read()
+            .await
+            .clone()
+            .ok_or("Le Bridge n’est pas associé.")?;
+        let response=self.client.get(format!("{server}/api/auth/me")).bearer_auth(token).send().await.map_err(|_|"Identification du compte indisponible. Une connexion est nécessaire pour la première préparation.".to_string())?;
+        if !response.status().is_success() {
+            return Err(
+                "Connectez l’utilisateur du Bridge sur le site pour préparer sa régie locale."
+                    .into(),
+            );
+        }
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|_| "Réponse d’identification invalide.".to_string())?;
+        let id = body["user"]["id"].as_str().ok_or("Utilisateur absent.")?;
+        crate::desktop_store::valid_id(id)?;
+        let mut current = self.config.write().await;
+        // A concurrent pairing must not inherit the owner of the previous device.
+        if current.device_id != config.device_id {
+            return Err("L’association a changé. Réessayez.".into());
+        }
+        current.user_id = Some(id.to_string());
+        self.store.save(&current)
     }
 
     pub async fn paired(&self) -> bool {
@@ -140,6 +192,7 @@ impl Runtime {
         let next_config = BridgeConfig {
             server_url: Some(claim.server_url),
             device_id: Some(claim.device_id),
+            user_id: claim.user_id,
             main_output_id: Some("default".to_string()),
             preview_output_id: Some("default".to_string()),
         };
@@ -153,7 +206,10 @@ impl Runtime {
     pub async fn read_cached_track(&self, track: &BridgeTrack) -> Result<Option<Vec<u8>>, String> {
         validate_track_id(&track.id)?;
         let _access = self.cache_access.read().await;
-        let path = self.store.cache_dir.join(format!("{}.audio", track.id));
+        let path = self
+            .local_track_path(track)
+            .await?
+            .unwrap_or_else(|| self.store.cache_dir.join(format!("{}.audio", track.id)));
         let bytes = match fs::read(path).await {
             Ok(bytes) => bytes,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -167,6 +223,9 @@ impl Runtime {
 
     pub async fn ensure_track(&self, track: &BridgeTrack) -> Result<PathBuf, String> {
         validate_track_id(&track.id)?;
+        if let Some(path) = self.local_track_path(track).await? {
+            return Ok(path);
+        }
         let _access = self.cache_access.read().await;
         let lock = self
             .download_locks
@@ -182,6 +241,19 @@ impl Runtime {
             temporary: self.store.cache_dir.join(format!("{}.part", track.id)),
         };
         self.download_track(track).await
+    }
+
+    async fn local_track_path(&self, track: &BridgeTrack) -> Result<Option<PathBuf>, String> {
+        let Some(user) = self.config.read().await.user_id.clone() else {
+            return Ok(None);
+        };
+        let Some(path) = self.desktop.media(&user, &track.id)? else {
+            return Ok(None);
+        };
+        if fs::metadata(&path).await.map_err(|e| e.to_string())?.len() != track.size_bytes {
+            return Err("Le fichier local est incomplet.".into());
+        }
+        Ok(Some(path))
     }
 
     async fn download_track(&self, track: &BridgeTrack) -> Result<PathBuf, String> {
@@ -239,6 +311,7 @@ impl Runtime {
                 .map_err(|error| error.to_string())?;
         }
         file.flush().await.map_err(|error| error.to_string())?;
+        file.sync_all().await.map_err(|error| error.to_string())?;
         drop(file);
         if received != track.size_bytes {
             let _ = fs::remove_file(&temporary).await;
@@ -323,6 +396,7 @@ impl Runtime {
                 .map_err(|error| error.to_string())?;
         }
         file.flush().await.map_err(|error| error.to_string())?;
+        file.sync_all().await.map_err(|error| error.to_string())?;
         drop(file);
         if received == 0 {
             let _ = fs::remove_file(&temporary).await;
@@ -532,6 +606,10 @@ mod tests {
             local_token: RwLock::new(None),
             audio: std::sync::Mutex::new(AudioEngine::new()),
             store: ConfigStore::for_test(&directory),
+            desktop: crate::desktop_store::DesktopStore::new(directory.join("desktop")).unwrap(),
+            interfaces: crate::interface::Interfaces::new(directory.join("interfaces")).unwrap(),
+            desktop_token: "test-desktop".into(),
+            console_activity: std::sync::Mutex::new(None),
             client: reqwest::Client::new(),
             download_locks: tokio::sync::Mutex::new(HashMap::new()),
             cache_access: RwLock::new(()),

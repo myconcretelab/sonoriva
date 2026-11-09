@@ -1,6 +1,6 @@
 {
   "name": "sonoriva",
-  "version": "1.22.0",
+  "version": "1.23.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "bridge:install": "npm --prefix bridge ci",
     "bridge:check": "npm --prefix bridge run check",
     "bridge:test": "npm --prefix bridge test",
-    "bridge:build": "npm --prefix bridge run build",
+    "bridge:build": "npm run build:bridge-ui && npm --prefix bridge run build",
     "dev:docs": "vitepress dev docs --port 5174",
     "preview:docs": "vitepress preview docs --port 4174",
     "start": "node dist/server/index.js",
@@ -23,7 +23,9 @@
     "release:check": "node scripts/check-release.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:bridge-ui": "vite build --mode desktop && node scripts/package-bridge-interface.mjs --embed",
+    "release:bridge-ui": "vite build --mode desktop && node scripts/package-bridge-interface.mjs --sign"
   },
   "engines": {
     "node": ">=22"

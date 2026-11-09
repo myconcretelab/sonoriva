@@ -1,6 +1,8 @@
+import { desktopHost, desktopRequest } from './desktop';
 export interface AppOfflineStatus { ready: boolean; revision?: string }
 
 export async function appOfflineStatus(): Promise<AppOfflineStatus> {
+  if (desktopHost()) return desktopRequest<AppOfflineStatus>('/v1/desktop/interface');
   if (import.meta.env.DEV) return { ready: true, revision: 'development' };
   const worker = navigator.serviceWorker?.controller;
   if (!worker) return { ready: false };
@@ -14,6 +16,10 @@ export async function appOfflineStatus(): Promise<AppOfflineStatus> {
 }
 
 export async function prepareAppOffline(): Promise<void> {
+  if (desktopHost()) {
+    if (!(await appOfflineStatus()).ready) throw new Error('L’interface locale du Bridge est absente.');
+    return;
+  }
   if (import.meta.env.DEV) return;
   const status = await appOfflineStatus();
   if (!status.ready) throw new Error('L’application n’est pas encore entièrement téléchargée. Attendez la fin de son installation puis réessayez.');

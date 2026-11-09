@@ -34,15 +34,16 @@ function versionServiceWorker(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), versionServiceWorker()],
+export default defineConfig(({ mode }) => ({
+  base: mode === 'desktop' ? './' : '/',
+  plugins: [react(), ...(mode === 'desktop' ? [] : [versionServiceWorker()])],
   define: {
     __APP_VERSION__: JSON.stringify(packageMetadata.version),
   },
   root: 'src/client',
   publicDir: '../../public',
   build: {
-    outDir: '../../dist/client',
+    outDir: mode === 'desktop' ? '../../dist/desktop' : '../../dist/client',
     emptyOutDir: true,
   },
   server: {
@@ -55,4 +56,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

@@ -133,7 +133,10 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
   const [dropProjectAfter, setDropProjectAfter] = useState(false);
   const [draggedColorId, setDraggedColorId] = useState<string>();
   const [dropColorId, setDropColorId] = useState<string>();
-  const [account, setAccount] = useState<AccountSummary>();
+  const [account, setAccount] = useState<AccountSummary>(() => {
+    try { return JSON.parse(localStorage.getItem(`sonoriva-account:${user.id}`) ?? 'null') ?? undefined; }
+    catch { return undefined; }
+  });
   const [publicPlans, setPublicPlans] = useState<PublicPlan[]>([]);
   const [selectedPlanCode, setSelectedPlanCode] = useState('');
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
@@ -168,7 +171,7 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
   }, [audioOutputSupported]);
 
   useEffect(() => {
-    api.account().then((result) => setAccount(result.account)).catch(() => setAccount(undefined));
+    api.account().then((result) => setAccount(result.account)).catch(() => undefined);
     api.publicPlans().then((result) => setPublicPlans(result.plans)).catch(() => setPublicPlans([]));
   }, []);
 

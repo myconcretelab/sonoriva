@@ -128,7 +128,7 @@ async fn perform_update<R: TauriRuntime>(
         .audio
         .lock()
         .map_err(|_| "Moteur audio inaccessible pendant la mise à jour.".to_string())?;
-    if !installation_allowed(!audio.snapshots().is_empty()) {
+    if !installation_allowed(!audio.snapshots().is_empty() || runtime.console_active()) {
         updates.set("deferred", Some(version), "Installation différée : une lecture audio est active. Réessayez après l’arrêt des lectures.".into());
         return Ok(());
     }

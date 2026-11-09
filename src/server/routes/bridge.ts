@@ -167,6 +167,7 @@ export async function bridgeRoutes(app: FastifyInstance): Promise<void> {
     if (!result) return reply.code(410).send({ error: 'Ce lien d’association est invalide, expiré ou déjà utilisé.' });
     return {
       deviceId: result.id,
+      userId: result.userId,
       deviceToken,
       localToken,
       serverUrl: config.PUBLIC_URL,

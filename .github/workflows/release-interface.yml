@@ -1,0 +1,57 @@
+name: Publication de l’interface du Bridge
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/client/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'scripts/package-bridge-interface.mjs'
+      - 'bridge/src-tauri/tauri.conf.json'
+      - '.github/workflows/release-interface.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bridge-interface-release
+  cancel-in-progress: false
+
+jobs:
+  interface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Installer les dépendances de l’application
+        run: npm ci
+      - name: Installer l’outil de signature
+        run: npm ci --prefix bridge --include=dev --include=optional
+      - name: Vérifier l’application
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+      - name: Préparer et signer l’interface
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run release:bridge-ui
+      - name: Publier le paquet signé
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if gh release view interface-latest >/dev/null 2>&1; then
+            gh release upload interface-latest dist/interface/sonoriva-interface.json --clobber
+          else
+            gh release create interface-latest dist/interface/sonoriva-interface.json --target "$GITHUB_SHA" --title "Interface de la régie locale" --notes "Interface signée, téléchargée indépendamment du moteur natif. Bridge 1.1.0 minimum." --prerelease --latest=false
+          fi

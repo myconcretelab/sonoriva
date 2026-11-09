@@ -2,6 +2,12 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.23.0 — 9 novembre 2026
+
+Régie locale dans Bridge 1.1.0, stockage sur disque et mises à jour indépendantes de l’interface.
+
+[Détails de la version 1.23.0](./1.23.0.md)
+
 ## Version 1.22.0 — 20 septembre 2026
 
 Cache persistant, progression des téléchargements et lancements protégés avec Bridge 1.0.9.

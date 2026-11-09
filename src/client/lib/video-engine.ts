@@ -1,3 +1,4 @@
+import { desktopHost } from './desktop';
 import type { Track } from '../types';
 import type { ActivePlayback } from './audio-engine';
 import { fetchTrackAudio, trackStreamUrl } from './offline-audio';
@@ -118,7 +119,7 @@ class VideoEngine {
     this.notify();
     video.style.visibility = 'hidden';
     try {
-      if (track.localMedia) {
+      if (track.localMedia || desktopHost()) {
         const file = await (await fetchTrackAudio(track.id)).blob();
         if (generation !== this.generation) throw new Error('Lecture vidéo annulée.');
         this.localVideoUrl = URL.createObjectURL(file);

@@ -11,6 +11,22 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.23.0',
+    date: '2026-11-09',
+    title: 'Régie locale et édition hors ligne',
+    summary: 'Bridge 1.1.0 ouvre une régie autonome et reçoit son interface sans recompilation du moteur.',
+    important: true,
+    changes: [
+      'Le navigateur peut rouvrir son interface hors ligne après installation et conserve les modifications individuelles et les imports locaux.',
+      'Le Bridge conserve l’interface, les spectacles préparés, les vidéos, les sons importés et les changements sur le disque de l’ordinateur.',
+      'La régie locale du Bridge s’ouvre sans Internet et utilise ses sorties audio, y compris pour les nouveaux imports.',
+      'Les mises à jour signées de l’interface sont téléchargées séparément ; leur activation attend l’arrêt des lectures.',
+      'Une interface précédente peut être rétablie depuis la fenêtre du Bridge.',
+      'La synchronisation conserve les changements en conflit et reprend lorsque le serveur et la session utilisateur sont disponibles.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.22.0',
     date: '2026-09-20',
     title: 'Préchargement et lancements protégés',

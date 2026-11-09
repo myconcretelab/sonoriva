@@ -1,3 +1,4 @@
+import { userFromBridgeAuthorization } from './services/bridge-auth.js';
 import type { FastifyInstance } from 'fastify';
 import { Server } from 'socket.io';
 import { z } from 'zod';
@@ -33,10 +34,11 @@ export function registerSocketServer(app: FastifyInstance): Server {
   io.use(async (socket, next) => {
     try {
       const token = cookieValue(socket.handshake.headers.cookie, sessionCookieName);
-      const user = await userFromToken(token);
+      const user = await userFromToken(token) ?? await userFromBridgeAuthorization(socket.handshake.headers.authorization);
       if (!user) return next(new Error('unauthorized'));
       socket.data.userId = user.id;
       socket.data.token = token;
+      socket.data.bridgeAuthorization = token ? undefined : socket.handshake.headers.authorization;
       next();
     } catch (error) {
       next(error instanceof Error ? error : new Error('unauthorized'));
@@ -45,12 +47,12 @@ export function registerSocketServer(app: FastifyInstance): Server {
 
   io.on('connection', (socket) => {
     const revoke = () => { socket.emit('session-revoked'); socket.disconnect(true); };
-    const onRevoked = (hash: string) => { if (hash === tokenHash(socket.data.token)) revoke(); };
+    const onRevoked = (hash: string) => { if (socket.data.token && hash === tokenHash(socket.data.token)) revoke(); };
     sessionEvents.on('revoked', onRevoked);
     socket.on('disconnect', () => sessionEvents.off('revoked', onRevoked));
     socket.use(async (_packet, next) => {
       try {
-        if (!(await userFromToken(socket.data.token))) { revoke(); return; }
+        if (!(socket.data.bridgeAuthorization ? await userFromBridgeAuthorization(socket.data.bridgeAuthorization) : await userFromToken(socket.data.token))) { revoke(); return; }
         next();
       } catch { next(new Error('unauthorized')); }
     });

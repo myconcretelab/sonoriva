@@ -2,6 +2,21 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.23.0] - 2026-11-09
+
+### Ajouté
+
+- régie autonome dans Bridge 1.1.0 avec stockage durable des spectacles, imports et journaux de synchronisation ;
+- interface signée publiée séparément du moteur natif, activation hors lecture et retour à l’interface précédente ;
+- transfert explicite des spectacles préparés depuis le navigateur vers le Bridge, avec refus d’écraser des changements locaux ;
+- démarrage, réglages individuels et imports hors ligne dans le navigateur et la régie locale ;
+- authentification de synchronisation limitée aux fonctions de régie et conservation de l’accès local lorsque la session en ligne expire.
+
+### Modifié
+
+- fichiers téléchargés du Bridge déplacés vers son dossier de données, avec migration du cache existant ;
+- nouveaux imports de la régie locale lus par le moteur natif et ses sorties audio.
+
 ## [1.22.0] - 2026-09-20
 
 ### Ajouté

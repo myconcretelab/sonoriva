@@ -1,10 +1,22 @@
+import { desktopHost, desktopRequest, persistDesktopProfile } from './desktop';
 type UpdateListener = (available: boolean) => void;
 
+let nativePending = false;
 let waitingWorker: ServiceWorker | null = null;
 let reloadRequested = false;
 const listeners = new Set<UpdateListener>();
 
 export async function registerAppServiceWorker(version: string): Promise<void> {
+  if (desktopHost()) {
+    const check = async () => {
+      const status = await desktopRequest<{ pending?: string }>('/v1/desktop/interface/check', { method: 'POST' });
+      nativePending = Boolean(status.pending);
+      for (const listener of listeners) listener(nativePending);
+    };
+    void check().catch(() => undefined);
+    window.setInterval(() => { void check().catch(() => undefined); }, 60 * 60 * 1000);
+    return;
+  }
   if (!('serviceWorker' in navigator)) return;
   const registration = await navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(version)}`);
   if (registration.waiting && navigator.serviceWorker.controller) setWaitingWorker(registration.waiting);
@@ -30,11 +42,15 @@ export async function registerAppServiceWorker(version: string): Promise<void> {
 
 export function subscribeToAppUpdate(listener: UpdateListener): () => void {
   listeners.add(listener);
-  listener(waitingWorker !== null);
+  listener(nativePending || waitingWorker !== null);
   return () => listeners.delete(listener);
 }
 
 export function applyAppUpdate(): boolean {
+  if (desktopHost() && nativePending) {
+    void persistDesktopProfile().then(() => desktopRequest<{ revision: string }>('/v1/desktop/interface/activate', { method: 'POST' })).then(({ revision }) => { window.location.href = `/app/${revision}/`; }).catch((cause) => { window.alert(cause instanceof Error ? cause.message : 'Mise à jour impossible.'); });
+    return true;
+  }
   if (!waitingWorker) return false;
   reloadRequested = true;
   waitingWorker.postMessage({ type: 'SKIP_WAITING' });

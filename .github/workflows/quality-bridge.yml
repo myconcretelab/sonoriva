@@ -50,6 +50,10 @@ jobs:
           workspaces: bridge/src-tauri -> target
       - name: Installer les dépendances du bridge
         run: npm ci --prefix bridge --include=dev --include=optional
+      - name: Installer les dépendances de l’interface
+        run: npm ci
+      - name: Intégrer la régie locale
+        run: npm run build:bridge-ui
       - name: Vérifier le format Rust
         run: npm --prefix bridge run format:check
       - name: Vérifier la compilation Rust

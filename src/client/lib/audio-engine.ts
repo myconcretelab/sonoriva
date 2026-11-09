@@ -1,3 +1,4 @@
+import { desktopHost } from './desktop';
 import { PlaybackRequests } from './playback-requests';
 import { isVideoTrack, videoEngine } from './video-engine';
 import type { MouseAction, Track } from '../types';
@@ -398,7 +399,7 @@ class AudioEngine {
 
   async preload(track: Track): Promise<void> {
     if (isVideoTrack(track)) return;
-    if (bridgeClient.isEnabled() && !track.localMedia) {
+    if (bridgeClient.isEnabled() && (!track.localMedia || Boolean(desktopHost()))) {
       try {
         return await bridgeClient.preload(track);
       } catch (cause) {
@@ -431,7 +432,7 @@ class AudioEngine {
     const launch = this.launches.begin(track.id, expiresAtMs, signal);
     this.pendingMainPlaybacks += 1;
     try {
-      if (bridgeClient.isEnabled() && !track.localMedia) {
+      if (bridgeClient.isEnabled() && (!track.localMedia || Boolean(desktopHost()))) {
         try {
           const playbackId = await launch.wait(bridgeClient.play(track, fadeInMs, volumeMultiplier, 'main', outputId, launch.signal, launch.expiresAtMs));
           // Short sounds may finish between two Bridge status polls.

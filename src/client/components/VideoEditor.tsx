@@ -1,3 +1,4 @@
+import { desktopHost } from '../lib/desktop';
 import { useEffect, useRef, useState } from 'react';
 import type { Track } from '../types';
 import { fetchTrackAudio, trackStreamUrl } from '../lib/offline-audio';
@@ -6,12 +7,12 @@ export function VideoEditor({ track, startMs, endMs, onStartChange, onEndChange 
   const ref = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState('');
   const [dimensions, setDimensions] = useState('');
-  const [source, setSource] = useState<string | undefined>(track.localMedia ? undefined : trackStreamUrl(track.id));
+  const [source, setSource] = useState<string | undefined>((track.localMedia || desktopHost()) ? undefined : trackStreamUrl(track.id));
   useEffect(() => {
     let disposed = false;
     let objectUrl: string | undefined;
     setError('');
-    if (!track.localMedia) setSource(trackStreamUrl(track.id));
+    if (!track.localMedia && !desktopHost()) setSource(trackStreamUrl(track.id));
     else {
       setSource(undefined);
       void fetchTrackAudio(track.id).then((response) => response.blob()).then((blob) => {
