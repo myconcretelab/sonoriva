@@ -2,6 +2,12 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.23.1 — 9 novembre 2026
+
+Reprise des copies interrompues et conservation des imports déjà présents dans la régie locale. Compatible avec Bridge 1.1.0.
+
+[Détails de la version 1.23.1](./1.23.1.md)
+
 ## Version 1.23.0 — 9 novembre 2026
 
 Régie locale dans Bridge 1.1.0, stockage sur disque et mises à jour indépendantes de l’interface.

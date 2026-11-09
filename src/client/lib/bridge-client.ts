@@ -1,3 +1,4 @@
+import type { LocalWorkspace } from './local-workspace-store';
 import { desktopHost, desktopBaseUrl } from './desktop';
 import { getDownloadProgress, setDownloadProgress } from './download-state';
 import type { Track } from '../types';
@@ -75,6 +76,9 @@ export class BridgeClient {
   private playbacks: BridgePlayback[] = [];
   private volumeTransitions = new Map<string, BridgeVolumeTransition>();
   private cachedTrackIds = new Set<string>();
+  private nativeImportedSizes = new Map<string, number>();
+  private nativeInventoryCheckedAt = -Infinity;
+  private localConsoleAvailable = Boolean(desktopHost());
   private playbackListeners = new Set<PlaybackListener>();
   private cacheListeners = new Set<CacheListener>();
   private routingListeners = new Set<RoutingListener>();
@@ -147,6 +151,8 @@ export class BridgeClient {
   }
 
   saveAssociation(deviceId: string, localToken: string): void {
+    this.nativeImportedSizes.clear();
+    this.nativeInventoryCheckedAt = -Infinity;
     this.association = { deviceId, localToken };
     localStorage.setItem(associationStorageKey, JSON.stringify(this.association));
     this.notifyRouting();
@@ -154,6 +160,8 @@ export class BridgeClient {
 
   forgetAssociation(): void {
     this.stopPolling();
+    this.nativeImportedSizes.clear();
+    this.nativeInventoryCheckedAt = -Infinity;
     this.association = undefined;
     this.mode = 'browser';
     this.playbacks = [];
@@ -167,7 +175,10 @@ export class BridgeClient {
   }
 
   async discover(signal?: AbortSignal): Promise<BridgeStatus> {
-    return this.request<BridgeStatus>('/v1/status', { signal }, false);
+    const status = await this.request<BridgeStatus>('/v1/status', { signal }, false);
+    this.localConsoleAvailable = status.capabilities?.includes('localConsole') ?? false;
+    if (!this.localConsoleAvailable) this.nativeImportedSizes.clear();
+    return status;
   }
 
   async outputs(): Promise<{ outputs: BridgeOutput[]; mainOutputId: string; previewOutputId: string }> {
@@ -185,6 +196,7 @@ export class BridgeClient {
   }
 
   setCacheTracks(tracks: Track[]): void {
+    if (tracks.some((track) => !this.knownTrackSizes.has(track.id))) this.nativeInventoryCheckedAt = -Infinity;
     this.knownTrackSizes = new Map(tracks.map((track) => [track.id, track.sizeBytes]));
     void this.refreshCache().catch(() => undefined);
   }
@@ -192,10 +204,21 @@ export class BridgeClient {
   async refreshCache(): Promise<void> {
     if (!this.isEnabled() || this.cacheRefreshing) return;
     this.cacheRefreshing = true;
+    const association = this.association;
     try {
       const result = await this.request<{ tracks: Record<string, number>; downloads: Record<string, [number, number]> }>('/v1/cache', { signal: AbortSignal.timeout(3000) });
-      if (!this.isEnabled()) return;
-      this.cachedTrackIds = new Set(Object.entries(result.tracks).filter(([id, size]) => !this.knownTrackSizes.has(id) || this.knownTrackSizes.get(id) === size).map(([id]) => id));
+      if (!this.isEnabled() || this.association !== association) return;
+      if (this.localConsoleAvailable && Date.now() - this.nativeInventoryCheckedAt >= 15_000) {
+        this.nativeInventoryCheckedAt = Date.now();
+        try {
+          const workspaces = await this.request<LocalWorkspace[]>('/v1/desktop/workspaces', { signal: AbortSignal.timeout(3000) });
+          if (!this.isEnabled() || this.association !== association) return;
+          this.nativeImportedSizes = new Map(workspaces.flatMap((workspace) => workspace.detail.tracks.filter((track) => workspace.mediaIds.includes(track.id)).map((track) => [track.id, track.sizeBytes] as const)));
+        } catch { this.nativeImportedSizes.clear(); }
+      }
+      if (!this.isEnabled() || this.association !== association) return;
+      const available = { ...Object.fromEntries(this.nativeImportedSizes), ...result.tracks };
+      this.cachedTrackIds = new Set(Object.entries(available).filter(([id, size]) => !this.knownTrackSizes.has(id) || this.knownTrackSizes.get(id) === size).map(([id]) => id));
       for (const id of getDownloadProgress('bridge').keys()) {
         if (!result.downloads[id] && !this.pendingPreloads.has(id)) setDownloadProgress('bridge', id);
       }

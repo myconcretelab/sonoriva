@@ -114,3 +114,29 @@ it('retrouve le cache local dans une nouvelle session sans accès Internet', asy
   expect(next.isEnabled()).toBe(true);
   expect(next.getCachedTrackIds()).toEqual(new Set(['sound']));
 });
+
+it('retrouve les imports de la régie native sans les mélanger aux fichiers du cache supprimable', async () => {
+  const bridge = client();
+  const fetcher = vi.fn(async (url: string) => {
+    if (url.endsWith('/status')) return Response.json({ capabilities: ['localConsole'] });
+    if (url.endsWith('/workspaces')) return Response.json([{ mediaIds: ['native'], detail: { tracks: [{ id: 'native', sizeBytes: 8 }] } }]);
+    return Response.json({ tracks: { sound: 4 }, downloads: {} });
+  });
+  vi.stubGlobal('fetch', fetcher);
+  await bridge.discover();
+  await bridge.refreshCache();
+  await bridge.refreshCache();
+  expect(bridge.getCachedTrackIds()).toEqual(new Set(['sound', 'native']));
+  expect(fetcher.mock.calls.filter(([url]) => url.endsWith('/workspaces'))).toHaveLength(1);
+});
+it('préserve le cache audio si l’ancien compte du Bridge ne dispose pas encore de copie native', async () => {
+  const bridge = client();
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.endsWith('/status')) return Response.json({ capabilities: ['localConsole'] });
+    if (url.endsWith('/workspaces')) return Response.json({ error: 'Compte à identifier' }, { status: 409 });
+    return Response.json({ tracks: { sound: 4 }, downloads: {} });
+  }));
+  await bridge.discover();
+  await bridge.refreshCache();
+  expect(bridge.getCachedTrackIds()).toEqual(new Set(['sound']));
+});

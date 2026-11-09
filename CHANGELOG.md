@@ -2,6 +2,17 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.23.1] - 2026-11-09
+
+### Corrigé
+
+- publication de la fiche et du journal de chaque nouvel import avec son fichier lors d’une copie vers le Bridge ;
+- reprise d’une copie interrompue dont les changements correspondent encore à la source ;
+- conservation des imports natifs lors d’une nouvelle préparation depuis le navigateur ;
+- inventaire des médias disponible incluant les imports natifs séparés du cache téléchargé.
+
+Cette correction est distribuée avec l’interface indépendante et ne modifie pas Bridge 1.1.0.
+
 ## [1.23.0] - 2026-11-09
 
 ### Ajouté

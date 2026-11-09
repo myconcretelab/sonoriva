@@ -11,6 +11,21 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.23.1',
+    date: '2026-11-09',
+    title: 'Reprise des copies vers la régie locale',
+    summary: 'Un import rejoint la copie native avec son fichier ; les imports déjà présents y sont conservés.',
+    important: false,
+    changes: [
+      'Un transfert interrompu peut reprendre lorsque les changements natifs correspondent à la copie en cours.',
+      'La fiche et le journal d’un nouvel import sont transférés dans la même opération que son fichier.',
+      'Les fichiers importés dans la régie locale restent disponibles lors d’une préparation ultérieure depuis le navigateur.',
+      'L’indicateur de cache tient compte des imports natifs, distincts du cache téléchargé.',
+      'Cette correction utilise la mise à jour indépendante de l’interface et reste compatible avec Bridge 1.1.0.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.23.0',
     date: '2026-11-09',
     title: 'Régie locale et édition hors ligne',
