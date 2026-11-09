@@ -62,6 +62,6 @@ describe('Bridge manual updates', () => {
 
   it('links downloads to the release list', () => {
     const routes = readFileSync(new URL('../src/server/routes/bridge.ts', import.meta.url), 'utf8');
-    expect(routes).toContain("const bridgeDownloadUrl = 'https://github.com/myconcretelab/sonoriva/releases/';");
+    expect(routes).toContain("const bridgeDownloadUrl = 'https://github.com/myconcretelab/sonoriva/releases/latest';");
   });
 });
