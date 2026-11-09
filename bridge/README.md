@@ -1,6 +1,6 @@
 # SonoRiva Bridge
 
-SonoRiva Bridge 1.0.7 est le moteur audio natif facultatif de SonoRiva. L’application web reste autonome et utilise Web Audio lorsque le bridge n’est pas sélectionné.
+SonoRiva Bridge 1.1.0 contient le moteur audio natif et une régie locale facultative de SonoRiva. L’application web reste autonome et utilise Web Audio lorsque le bridge n’est pas sélectionné.
 
 ## Composants
 
@@ -9,17 +9,20 @@ SonoRiva Bridge 1.0.7 est le moteur audio natif facultatif de SonoRiva. L’appl
 - routage individuel des lectures avec changement de périphérique à la même position ;
 - serveur HTTP local sur `127.0.0.1:43821` ;
 - canal WebSocket local pour l’état des lectures ;
-- cache de fichiers compressés dans le dossier de cache de l’utilisateur ;
+- fichiers compressés dans le dossier de données de l’utilisateur, avec migration de l’ancien cache ;
 - nombre de fichiers et taille totale du cache affichés dans la fenêtre ;
 - jeton d’appareil et clé locale dans le fichier privé `credentials.json` ;
 - association par URL `sonoriva-bridge://pair` et ticket SonoRiva temporaire.
-- mise à jour automatique signée depuis la dernière publication GitHub.
+- mise à jour automatique signée du moteur depuis la dernière publication GitHub stable ;
+- régie locale, spectacles, imports et journal de synchronisation conservés sur disque ;
+- mises à jour signées de l’interface indépendantes de la compilation native.
 
 ## Compilation
 
 Rust et les outils de développement de la plateforme cible sont requis. La compilation macOS utilise Xcode Command Line Tools. La compilation Windows utilise Microsoft C++ Build Tools et WebView2.
 
 ```sh
+npm ci
 npm --prefix bridge ci
 npm run bridge:check
 npm run bridge:test
@@ -42,11 +45,26 @@ Le workflow `.github/workflows/release-bridge.yml` est déclenché par les étiq
 
 Le workflow génère également les paquets de mise à jour signés et `latest.json`. La clé privée et son mot de passe proviennent des secrets GitHub Actions `TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. La clé privée n’est pas présente dans le dépôt.
 
-Les téléchargements sont disponibles sur `https://github.com/myconcretelab/sonoriva/releases`.
+Les installateurs sont disponibles sur [la dernière publication stable](https://github.com/myconcretelab/sonoriva/releases/latest).
+
+## Interface indépendante du moteur
+
+`npm run build:bridge-ui` compile l’interface React et produit `bridge/ui/console/package.json`. `npm run bridge:build` exécute cette préparation avant de compiler le moteur. Le paquet intégré est inclus dans l’application native.
+
+Le workflow `.github/workflows/release-interface.yml` compile et signe uniquement l’interface après une modification de ses sources sur `main`. Il n’exécute pas Cargo. `npm run release:bridge-ui` produit `dist/interface/sonoriva-interface.json` avec la clé de signature fournie par l’environnement du workflow. Le paquet contient les fichiers de l’interface, sa révision Git, la version du protocole local et la version minimale du Bridge.
+
+Le canal `interface-latest` est une prépublication distincte de la dernière version native stable. Le Bridge vérifie la signature avec la même clé publique que son mécanisme de mise à jour native. Un paquet incompatible, incomplet ou invalide conserve la version installée. Le téléchargement et l’activation sont séparés. L’activation et le retour à l’interface précédente sont bloqués pendant les lectures ; les activités de la régie locale sont signalées au moteur.
+
+## Régie et stockage local
+
+**Ouvrir la régie locale** ouvre l’interface conservée sur l’ordinateur. La préparation depuis le navigateur transfère les données du spectacle et ses fichiers. Les modifications individuelles et les imports utilisent des fichiers privés par utilisateur. Les médias sont écrits et synchronisés sur disque avant le remplacement atomique du journal ; les modifications concurrentes utilisent une révision comparée avant chaque écriture.
+
+La fenêtre locale accède au serveur par un relais limité aux routes de régie. Le jeton d’appareil reste dans le processus natif. La session utilisateur en ligne, le forfait et la révocation de l’appareil sont vérifiés pour la synchronisation. Une indisponibilité du serveur ne supprime pas l’accès aux données locales. Le [guide du mode hors ligne](../docs/guides/mode-hors-ligne.md) décrit les commandes et les limites.
 
 ## Exécution en développement
 
 ```sh
+npm run build:bridge-ui
 cd bridge/src-tauri
 npx tauri dev
 ```
