@@ -1,6 +1,10 @@
 import { desktopHost, desktopRequest, DesktopError, desktopBaseUrl } from './desktop';
 import { overlayEntities, type EntityJournal } from './entity-journal';
-import type { ProjectDetail, Track } from '../types';
+import type { Project, ProjectDetail, Track } from '../types';
+
+export const playbackSettingKeys = ['crossfadeDurationMs', 'crossfadeResetAfterUse', 'crossfadeResetDurationMs', 'maxActivePlaybacks', 'compactPlaybackThreshold'] as const;
+export type PlaybackSettings = Partial<Pick<Project, typeof playbackSettingKeys[number]>>;
+export interface PendingPlaybackSettings { token: string; changes: PlaybackSettings; error?: string }
 
 export const editableTrackKeys = ['title', 'categoryId', 'volume', 'loop', 'fadeInMs', 'fadeOutMs', 'startTimeMs', 'endTimeMs', 'videoEndBehavior', 'color', 'tags', 'backgroundImage'] as const;
 export type TrackChanges = Partial<Pick<Track, typeof editableTrackKeys[number]>>;
@@ -15,6 +19,7 @@ export interface LocalWorkspace {
   revision?: number;
   journalFor?: string;
   entities?: EntityJournal;
+  playbackSettings?: PendingPlaybackSettings;
   key: string;
   userId: string;
   detail: ProjectDetail;
@@ -98,39 +103,46 @@ export function journalProjectId(projectId: string): string {
   if (!/^[0-9a-f-]{36}$/i.test(projectId)) return `journal:${projectId}`;
   return projectId.slice(0, 14) + (parseInt(projectId[14], 16) ^ 12).toString(16) + projectId.slice(15);
 }
-export function composeWorkspace(record: LocalWorkspace, entities: EntityJournal = {}): LocalWorkspace {
+export function composeWorkspace(record: LocalWorkspace, entities: EntityJournal = {}, playbackSettings?: PendingPlaybackSettings): LocalWorkspace {
   const deleted = new Set(Object.values(entities).filter((item) => item.kind === 'category' && !item.desired).map((item) => item.id));
   const groups = new Set([...record.detail.subcategories.filter((group) => group.categoryId && deleted.has(group.categoryId)).map((group) => group.id), ...Object.values(entities).flatMap((item) => item.kind === 'category' && !item.desired ? item.references?.subcategories.map((group) => group.id) ?? [] : [])]);
   const pending = Object.fromEntries(Object.entries(record.pending).map(([id, operation]) => [id, { ...operation, desired: { ...operation.desired, ...(operation.desired.categoryId && deleted.has(operation.desired.categoryId) ? { categoryId: null, subcategoryId: null } : {}), ...(operation.desired.subcategoryId && groups.has(operation.desired.subcategoryId) ? { subcategoryId: null } : {}) } }]));
-  return { ...record, pending, entities, detail: overlayEntities(record.detail, entities) };
+  return { ...record, pending, entities, playbackSettings, detail: overlayEntities({ ...record.detail, project: { ...record.detail.project, ...playbackSettings?.changes } }, entities) };
 }
 export async function readWorkspace(userId: string, projectId: string): Promise<LocalWorkspace | undefined> {
   const record = await readRawWorkspace(userId, projectId);
   if (!record) return undefined;
   const journal = await readRawWorkspace(userId, journalProjectId(projectId));
-  return composeWorkspace(record, journal?.entities);
+  return composeWorkspace(record, journal?.entities, journal?.playbackSettings);
 }
 export async function listWorkspaces(userId: string): Promise<LocalWorkspace[]> {
   const records = await listRawWorkspaces(userId);
-  return records.filter((record) => !record.journalFor).map((record) => composeWorkspace(record, records.find((journal) => journal.journalFor === record.detail.project.id)?.entities));
+  return records.filter((record) => !record.journalFor).map((record) => {
+    const journal = records.find((journal) => journal.journalFor === record.detail.project.id);
+    return composeWorkspace(record, journal?.entities, journal?.playbackSettings);
+  });
 }
 export async function changeWorkspace(userId: string, projectId: string, change: (current: LocalWorkspace | undefined) => LocalWorkspace, media?: { id: string; file: Blob }): Promise<LocalWorkspace> {
   const journal = await readRawWorkspace(userId, journalProjectId(projectId));
   const updated = await changeRawWorkspace(userId, projectId, (raw) => {
-    const next = change(raw ? composeWorkspace(raw, journal?.entities) : undefined);
-    const stored = { ...next }; delete stored.entities;
+    const next = change(raw ? composeWorkspace(raw, journal?.entities, journal?.playbackSettings) : undefined);
+    const stored = { ...next }; delete stored.entities; delete stored.playbackSettings;
     return stored;
   }, media);
-  return composeWorkspace(updated, (await readRawWorkspace(userId, journalProjectId(projectId)))?.entities);
+  const latestJournal = await readRawWorkspace(userId, journalProjectId(projectId));
+  return composeWorkspace(updated, latestJournal?.entities, latestJournal?.playbackSettings);
 }
-export async function changeEntityJournal(userId: string, projectId: string, change: (journal: EntityJournal, current: LocalWorkspace) => EntityJournal): Promise<EntityJournal> {
+export async function changeWorkspaceJournal(userId: string, projectId: string, change: (journal: LocalWorkspace, current: LocalWorkspace) => LocalWorkspace): Promise<LocalWorkspace> {
   const raw = await readRawWorkspace(userId, projectId);
   if (!raw) throw new Error('Spectacle absent du stockage local.');
   const id = journalProjectId(projectId);
-  const record = await changeRawWorkspace(userId, id, (previous) => {
-    const journal = previous?.entities ?? {};
-    return { key: `${userId}:${id}`, userId, journalFor: projectId, pending: {}, mediaIds: [], detail: { ...raw.detail, project: { ...raw.detail.project, id }, categories: [], subcategories: [], playlists: [], tracks: [] }, entities: change(journal, composeWorkspace(raw, journal)) };
+  return changeRawWorkspace(userId, id, (previous) => {
+    const journal = previous ?? { key: `${userId}:${id}`, userId, journalFor: projectId, pending: {}, mediaIds: [], detail: { ...raw.detail, project: { ...raw.detail.project, id }, categories: [], subcategories: [], playlists: [], tracks: [] } };
+    return change(journal, composeWorkspace(raw, journal.entities, journal.playbackSettings));
   });
+}
+export async function changeEntityJournal(userId: string, projectId: string, change: (journal: EntityJournal, current: LocalWorkspace) => EntityJournal): Promise<EntityJournal> {
+  const record = await changeWorkspaceJournal(userId, projectId, (journal, current) => ({ ...journal, entities: change(journal.entities ?? {}, current) }));
   return record.entities ?? {};
 }
 

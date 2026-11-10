@@ -1,7 +1,7 @@
 import { createLocalCategory, updateLocalCategory, reorderLocalCategories, deleteLocalCategory, saveLocalPlaylist, positionLocalPlaylist, deleteLocalPlaylist } from './local-entities';
 import type { AccountMember, SharedLibrary, AccountSummary, AdminAccount, AdminOverview, AdminReleaseInfo, AdminSupportTicket, AdminUser, AuditEntry, BatchTrackUpdateInput, BridgeDevice, Category, CommercialPlan, FreesoundLicenseFilter, FreesoundSearchResult, KeyAction, MouseAction, OpenverseLicenseFilter, OpenverseSearchResult, OpenverseSource, Playlist, PlaylistEntry, Project, ProjectColor, ProjectKeyboardShortcuts, PublicDemo, PublicPlan, ReleaseInfo, SoundShowAnalysis, SubscriptionNotificationSettings, SupportMessage, SupportTicket, SupportTicketPriority, SupportTicketStatus, Track, TrackSubcategory, User } from '../types';
 import { request } from './api-transport';
-import { editLocalTrack, importLocalTrack, localProject, localUser, projectsWithLocalChanges, requireSyncedProject, requireSyncedTrack } from './local-workspace';
+import { editLocalPlaybackSettings, editLocalTrack, importLocalTrack, localProject, localUser, projectsWithLocalChanges, requireSyncedProject, requireSyncedTrack } from './local-workspace';
 export { ApiError } from './api-transport';
 
 export const api = {
@@ -92,8 +92,8 @@ export const api = {
   }),
   deleteProject: async (id: string) => { await requireSyncedProject(id); return request<void>(`/api/projects/${id}`, { method: 'DELETE' }); },
   project: (id: string) => localProject(id),
-  updateProjectActions: (projectId: string, input: { leftClickAction?: MouseAction; rightClickAction?: MouseAction; keyboardAction?: MouseAction; escapeKeyAction?: KeyAction; backspaceKeyAction?: KeyAction; shiftBackspaceKeyAction?: KeyAction; spaceKeyAction?: KeyAction; maxPlaylistGroupSize?: number; maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number; crossfadeResetAfterUse?: boolean; crossfadeResetDurationMs?: number } & Partial<ProjectKeyboardShortcuts>) =>
-    request<{ project: Project }>(`/api/projects/${projectId}/mouse-actions`, { method: 'PATCH', body: JSON.stringify(input) }),
+  updateProjectActions: async (projectId: string, input: { leftClickAction?: MouseAction; rightClickAction?: MouseAction; keyboardAction?: MouseAction; escapeKeyAction?: KeyAction; backspaceKeyAction?: KeyAction; shiftBackspaceKeyAction?: KeyAction; spaceKeyAction?: KeyAction; maxPlaylistGroupSize?: number; maxActivePlaybacks?: number; compactPlaybackThreshold?: number; crossfadeDurationMs?: number; crossfadeResetAfterUse?: boolean; crossfadeResetDurationMs?: number } & Partial<ProjectKeyboardShortcuts>) =>
+    await editLocalPlaybackSettings(projectId, input) ?? request<{ project: Project }>(`/api/projects/${projectId}/mouse-actions`, { method: 'PATCH', body: JSON.stringify(input) }),
   createProjectColor: (projectId: string, color: string) => request<{ projectColor: ProjectColor }>(`/api/projects/${projectId}/colors`, {
     method: 'POST', body: JSON.stringify({ color }),
   }),

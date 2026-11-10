@@ -101,7 +101,7 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
       window.removeEventListener('focus', refresh);
     };
   }, []);
-  const pendingCount = sync.pending.length + (sync.entities?.length ?? 0);
+  const pendingCount = sync.pending.length + (sync.entities?.length ?? 0) + (sync.playbackSettings ? 1 : 0);
   const count = tracks.filter((track) => cachedIds.has(track.id)).length;
   const label = online === undefined ? 'Vérification réseau…' : online ? 'En ligne' : 'Hors ligne';
   const incomplete = !appReady || count < tracks.length || (bridgeMode && bridgeReady !== true);
@@ -132,7 +132,7 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
         <button type="button" className="offline-prepare-button" disabled={sync.syncing || online !== true} onClick={() => { void synchronizeWorkspaces(true); }}>
           {sync.syncing ? <LoaderCircle className="spin" size={16} /> : <RefreshCcw size={16} />}{sync.syncing ? 'Synchronisation…' : 'Synchroniser'}
         </button>
-        <div className="offline-sync-list">{sync.pending.filter((item) => item.error).map((item) => <div key={item.desired.id}>
+        <div className="offline-sync-list">{sync.playbackSettings?.error && <div><strong>Réglages de lecture</strong><span className="offline-preparation-error" role="alert">{sync.playbackSettings.error}</span></div>}{sync.pending.filter((item) => item.error).map((item) => <div key={item.desired.id}>
           <strong>{item.desired.title}</strong><span className="offline-preparation-error" role="alert">{item.error}</span>
           {item.remote && projectId && <>
             <button type="button" className="offline-prepare-button" disabled={sync.syncing} onClick={() => { void resolveLocalConflict(projectId, item.desired.id, true); }}>Garder mes changements</button>

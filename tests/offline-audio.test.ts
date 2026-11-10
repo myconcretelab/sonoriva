@@ -38,6 +38,18 @@ describe('cache audio hors ligne', () => {
     expect(fetcher).toHaveBeenCalledOnce();
     expect(await cachedTrackIds(['track-2'])).toEqual(new Set(['track-2']));
   });
+
+  it('relit plusieurs morceaux conservés sans aucun accès réseau', async () => {
+    vi.stubGlobal('caches', { open: vi.fn(async () => cache) });
+    stored.set('/api/tracks/first/stream', new Response(new Uint8Array([1])));
+    stored.set('/api/tracks/second/stream', new Response(new Uint8Array([2])));
+    const fetcher = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.stubGlobal('fetch', fetcher);
+    for (const id of ['first', 'second', 'first']) expect((await fetchTrackAudio(id)).ok).toBe(true);
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(fetchTrackAudio('missing')).rejects.toThrow('Ce morceau n’est pas disponible hors ligne sur cet appareil.');
+    expect(await cachedTrackIds(['first', 'second', 'missing'])).toEqual(new Set(['first', 'second']));
+  });
   it('mutualise lecture et préchargement et signale les octets reçus', async () => {
     vi.stubGlobal('caches', { open: vi.fn(async () => cache) });
     let stream!: ReadableStreamDefaultController<Uint8Array>;

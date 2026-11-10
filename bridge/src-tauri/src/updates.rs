@@ -48,6 +48,15 @@ impl Updates {
             .unwrap_or_else(|error| error.into_inner())
             .clone()
     }
+
+    fn connection_unavailable(&self) {
+        self.set(
+            "offline",
+            None,
+            "Connexion aux mises à jour indisponible. Le Bridge reste utilisable hors ligne."
+                .into(),
+        );
+    }
 }
 
 #[tauri::command]
@@ -88,15 +97,19 @@ async fn perform_update<R: TauriRuntime>(
     install: bool,
     updates: &Updates,
 ) -> Result<(), String> {
-    let Some(update) = app
+    let result = app
         .updater_builder()
         .timeout(std::time::Duration::from_secs(120))
         .build()
         .map_err(|error| error.to_string())?
         .check()
-        .await
-        .map_err(|error| error.to_string())?
-    else {
+        .await;
+    let update = match result {
+        Ok(update) => update,
+        Err(error) if report_connection_unavailable(updates, &error) => return Ok(()),
+        Err(error) => return Err(error.to_string()),
+    };
+    let Some(update) = update else {
         updates.set(
             "current",
             None,
@@ -118,10 +131,11 @@ async fn perform_update<R: TauriRuntime>(
         Some(version.clone()),
         format!("Téléchargement et vérification de la version {version}…"),
     );
-    let bytes = update
-        .download(|_, _| {}, || {})
-        .await
-        .map_err(|error| error.to_string())?;
+    let bytes = match update.download(|_, _| {}, || {}).await {
+        Ok(bytes) => bytes,
+        Err(error) if report_connection_unavailable(updates, &error) => return Ok(()),
+        Err(error) => return Err(error.to_string()),
+    };
     // Hold the audio lock through installation so no playback can start between
     // the activity check and replacing the application.
     let mut audio = runtime
@@ -144,6 +158,15 @@ async fn perform_update<R: TauriRuntime>(
 
 fn installation_allowed(has_playbacks: bool) -> bool {
     !has_playbacks
+}
+
+fn report_connection_unavailable(updates: &Updates, error: &tauri_plugin_updater::Error) -> bool {
+    if !matches!(error, tauri_plugin_updater::Error::Reqwest(cause) if cause.is_connect() || cause.is_timeout())
+    {
+        return false;
+    }
+    updates.connection_unavailable();
+    true
 }
 
 #[cfg(test)]
@@ -175,5 +198,30 @@ mod tests {
         assert!(updates.operation.try_lock().is_err());
         drop(operation);
         assert!(updates.operation.try_lock().is_ok());
+    }
+
+    #[test]
+    fn unavailable_network_is_a_normal_offline_status() {
+        let updates = Updates::default();
+        updates.set("available", Some("1.1.1".into()), "Disponible".into());
+        updates.connection_unavailable();
+        let status = updates.status();
+        assert_eq!(status.phase, "offline");
+        assert!(status.version.is_none());
+        assert!(status.message.contains("utilisable hors ligne"));
+        assert!(!status.message.contains("http"));
+    }
+
+    #[test]
+    fn invalid_release_is_still_an_error() {
+        let updates = Updates::default();
+        assert!(!report_connection_unavailable(
+            &updates,
+            &tauri_plugin_updater::Error::ReleaseNotFound
+        ));
+        assert!(!report_connection_unavailable(
+            &updates,
+            &tauri_plugin_updater::Error::SignatureUtf8("invalid".into())
+        ));
     }
 }

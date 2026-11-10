@@ -3,14 +3,38 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { changeWorkspace, readLocalMedia, readWorkspace, journalProjectId, type LocalWorkspace } from '../src/client/lib/local-workspace-store';
 import { request } from '../src/client/lib/api-transport';
 import { desktopRequest } from '../src/client/lib/desktop';
+import { api } from '../src/client/lib/api';
 
 const user = '11111111-1111-4111-8111-111111111111';
 const project = '22222222-2222-4222-8222-222222222222';
 const initial = { key: `${user}:${project}`, userId: user, detail: { project: { id: project }, tracks: [], categories: [], subcategories: [], playlists: [], colors: [] }, pending: {}, mediaIds: [], revision: 1 } as unknown as LocalWorkspace;
-beforeEach(() => { Object.defineProperty(window, '__SONORIVA_DESKTOP__', { configurable: true, value: { userId: user, deviceId: 'device', token: 'native-token' } }); });
-afterEach(() => { vi.restoreAllMocks(); Object.defineProperty(window, '__SONORIVA_DESKTOP__', { configurable: true, value: undefined }); });
+beforeEach(() => {
+  const storage = new Map<string, string>();
+  vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value), removeItem: (key: string) => storage.delete(key) });
+  Object.defineProperty(window, '__SONORIVA_DESKTOP__', { configurable: true, value: { userId: user, deviceId: 'device', token: 'native-token' } });
+});
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); Object.defineProperty(window, '__SONORIVA_DESKTOP__', { configurable: true, value: undefined }); });
 
 describe('stockage de la régie native', () => {
+  it('enregistre et rouvre le fondu sur le disque du Bridge sans accès au cloud', async () => {
+    localStorage.setItem('sonoriva-user', JSON.stringify({ id: user, isDemo: false }));
+    const records = new Map<string, LocalWorkspace>([[project, structuredClone(initial)]]);
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      expect(String(url)).toContain('/v1/desktop/workspaces/');
+      const id = decodeURIComponent(String(url).split('/').at(-1)!);
+      if (init?.method !== 'PUT') return Response.json(records.get(id) ?? null);
+      const { expectedRevision, workspace } = JSON.parse(String((init.body as FormData).get('change')));
+      expect(expectedRevision).toBe(records.get(id)?.revision ?? 0);
+      records.set(id, { ...workspace, revision: expectedRevision + 1 });
+      return Response.json(records.get(id));
+    });
+    expect((await api.updateProjectActions(project, { crossfadeDurationMs: 1_000 })).project.crossfadeDurationMs).toBe(1_000);
+    records.set(project, structuredClone(initial));
+    expect((await readWorkspace(user, project))!.detail.project.crossfadeDurationMs).toBe(1_000);
+    expect(records.get(journalProjectId(project))?.playbackSettings?.changes).toEqual({ crossfadeDurationMs: 1_000 });
+    expect(fetcher).toHaveBeenCalled();
+  });
+
   it('relit et réapplique une modification après un conflit de révision', async () => {
     let reads = 0, writes = 0;
     const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {

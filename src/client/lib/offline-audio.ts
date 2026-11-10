@@ -99,6 +99,9 @@ async function downloadTrack(trackId: string, requireStorage: boolean): Promise<
       listeners.forEach((listener) => listener());
     } catch (cause) { if (requireStorage) throw cause; }
     return complete;
+  } catch (cause) {
+    if (cause instanceof TypeError) throw new Error('Ce morceau n’est pas disponible hors ligne sur cet appareil.');
+    throw cause;
   } finally {
     clearTimeout(timer!);
     setDownloadProgress('browser', trackId);

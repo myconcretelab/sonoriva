@@ -60,6 +60,20 @@ describe('Bridge manual updates', () => {
     expect((document.querySelector('#install-update') as HTMLButtonElement).hidden).toBe(true);
   });
 
+  it('présente le démarrage hors connexion comme un état normal et permet de réessayer', async () => {
+    const status = { phase: 'offline', message: 'Connexion aux mises à jour indisponible. Le Bridge reste utilisable hors ligne.' };
+    const { invoke, document } = await setup(status);
+    expect(document.querySelector('#update-status')?.getAttribute('data-phase')).toBe('offline');
+    expect(document.querySelector('#update-status')?.textContent).toBe(status.message);
+    const check = document.querySelector('#check-update') as HTMLButtonElement;
+    expect(check.disabled).toBe(false);
+    expect((document.querySelector('#install-update') as HTMLButtonElement).hidden).toBe(true);
+    invoke.mockResolvedValue({ phase: 'current', message: 'À jour' });
+    check.click();
+    await flush();
+    expect(document.querySelector('#update-status')?.textContent).toBe('À jour');
+  });
+
   it('links downloads to the release list', () => {
     const routes = readFileSync(new URL('../src/server/routes/bridge.ts', import.meta.url), 'utf8');
     expect(routes).toContain("const bridgeDownloadUrl = 'https://github.com/myconcretelab/sonoriva/releases/latest';");

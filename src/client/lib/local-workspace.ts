@@ -1,7 +1,7 @@
 import { clearPlaylistDependencyErrors, synchronizeEntityPhase, trackCategoryReady } from './entity-sync';
 import { desktopHost } from './desktop';
 import { ApiError, request } from './api-transport';
-import { changeWorkspace, listWorkspaces, mergeWorkspace, readLocalMedia, readWorkspace, trackChanges, type PendingTrack, type TrackChanges } from './local-workspace-store';
+import { changeWorkspace, changeWorkspaceJournal, listWorkspaces, mergeWorkspace, playbackSettingKeys, readLocalMedia, readWorkspace, trackChanges, type PendingPlaybackSettings, type PlaybackSettings, type PendingTrack, type TrackChanges } from './local-workspace-store';
 import type { Project, ProjectDetail, Track, User } from '../types';
 
 export function localUser(): User | undefined {
@@ -69,7 +69,23 @@ export async function projectsWithLocalChanges(projects: Project[]): Promise<Pro
   const user = localUser();
   if (!user) return projects;
   const workspaces = await listWorkspaces(user.id).catch(() => []);
-  return [...projects, ...workspaces.filter((record) => (Object.keys(record.pending).length > 0 || Object.keys(record.entities ?? {}).length > 0) && !projects.some((project) => project.id === record.detail.project.id)).map((record) => record.detail.project)];
+  return [...projects.map((project) => ({ ...project, ...workspaces.find((record) => record.detail.project.id === project.id)?.playbackSettings?.changes })), ...workspaces.filter((record) => (record.playbackSettings || Object.keys(record.pending).length > 0 || Object.keys(record.entities ?? {}).length > 0) && !projects.some((project) => project.id === record.detail.project.id)).map((record) => record.detail.project)];
+}
+
+export async function editLocalPlaybackSettings(projectId: string, input: PlaybackSettings): Promise<{ project: Project } | undefined> {
+  if (!Object.keys(input).length || Object.keys(input).some((key) => !playbackSettingKeys.includes(key as typeof playbackSettingKeys[number]))) return undefined;
+  const user = localUser();
+  if (!user || !await readWorkspace(user.id, projectId)) return undefined;
+  writable(user);
+  for (const key of playbackSettingKeys) {
+    const value = input[key];
+    if (value === undefined) continue;
+    if (key === 'crossfadeResetAfterUse' ? typeof value !== 'boolean' : typeof value !== 'number' || !Number.isInteger(value) || value < (key.endsWith('Ms') ? 0 : 1) || value > (key.endsWith('Ms') ? 20_000 : 16)) throw new Error('Réglage de lecture invalide.');
+  }
+  await changeWorkspaceJournal(user.id, projectId, (journal) => ({ ...journal, playbackSettings: { token: crypto.randomUUID(), changes: { ...journal.playbackSettings?.changes, ...input } } }));
+  const record = (await readWorkspace(user.id, projectId))!;
+  projectChanged();
+  return { project: record.detail.project };
 }
 
 export async function editLocalTrack(id: string, input: TrackChanges): Promise<{ track: Track } | undefined> {
@@ -158,7 +174,7 @@ export async function requireSyncedTrack(trackId: string) {
 export async function requireSyncedProject(projectId: string) {
   const user = localUser();
   const record = user ? await readWorkspace(user.id, projectId) : undefined;
-  if (record && (Object.keys(record.pending).length || Object.keys(record.entities ?? {}).length)) throw new Error('Ce spectacle contient des changements locaux à synchroniser.');
+  if (record && (record.playbackSettings || Object.keys(record.pending).length || Object.keys(record.entities ?? {}).length)) throw new Error('Ce spectacle contient des changements locaux à synchroniser.');
 }
 
 // The acknowledgement can arrive after another edit: rebase only the edits made in flight.
@@ -182,12 +198,26 @@ export function isWorkspaceSyncing() { return synchronizing; }
 
 async function synchronize(user: User, retry: boolean) {
   const queued = await listWorkspaces(user.id);
-  if (!queued.some((workspace) => [...Object.values(workspace.pending), ...Object.values(workspace.entities ?? {})].some((operation) => retry || !operation.error))) return;
+  if (!queued.some((workspace) => [...Object.values(workspace.pending), ...Object.values(workspace.entities ?? {}), ...(workspace.playbackSettings ? [workspace.playbackSettings] : [])].some((operation) => retry || !operation.error))) return;
   // A cached identity is sufficient for local work, never for sending changes as another account.
   const identity = await request<{ user: User }>('/api/auth/me', { signal: AbortSignal.timeout(3_000) });
   if (identity.user.id !== user.id || localUser()?.id !== user.id) return;
   const budget = { remaining: 40 };
   for (const workspace of await listWorkspaces(user.id)) {
+    const settings = workspace.playbackSettings;
+    if (settings && (retry || !settings.error)) {
+      try {
+        const { project } = await request<{ project: Project }>(`/api/projects/${workspace.detail.project.id}/mouse-actions`, { method: 'PATCH', body: JSON.stringify(settings.changes), signal: AbortSignal.timeout(8_000) });
+        if (localUser()?.id !== user.id) return;
+        await changeWorkspace(user.id, project.id, (record) => ({ ...record!, detail: { ...record!.detail, project } }));
+        await changeWorkspaceJournal(user.id, project.id, (journal) => journal.playbackSettings?.token === settings.token ? { ...journal, playbackSettings: undefined } : journal);
+        projectChanged();
+      } catch (cause) {
+        if (!(cause instanceof ApiError) || cause.status === 401) return;
+        await changeWorkspaceJournal(user.id, workspace.detail.project.id, (journal) => journal.playbackSettings?.token === settings.token ? { ...journal, playbackSettings: { ...settings, error: cause.message } } : journal);
+        changed();
+      }
+    }
     if (!await synchronizeEntityPhase(user.id, workspace.detail.project.id, 'categories', retry, budget)) return;
     for (const id of Object.keys(workspace.pending)) {
       if (localUser()?.id !== user.id) return;
@@ -249,11 +279,11 @@ export async function synchronizeWorkspaces(retry = false): Promise<void> {
   finally { synchronizing = false; changed(); }
 }
 
-export async function workspaceSyncStatus(projectId?: string): Promise<{ pending: PendingTrack[]; entities: import('./entity-journal').PendingEntity[]; syncing: boolean }> {
+export async function workspaceSyncStatus(projectId?: string): Promise<{ pending: PendingTrack[]; entities: import('./entity-journal').PendingEntity[]; playbackSettings?: PendingPlaybackSettings; syncing: boolean }> {
   const user = localUser();
   if (!user || !projectId) return { pending: [], entities: [], syncing: synchronizing };
   const record = await readWorkspace(user.id, projectId);
-  return { pending: Object.values(record?.pending ?? {}), entities: Object.values(record?.entities ?? {}), syncing: synchronizing };
+  return { pending: Object.values(record?.pending ?? {}), entities: Object.values(record?.entities ?? {}), playbackSettings: record?.playbackSettings, syncing: synchronizing };
 }
 
 export async function resolveLocalConflict(projectId: string, trackId: string, keepLocal: boolean) {
