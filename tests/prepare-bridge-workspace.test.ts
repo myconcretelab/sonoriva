@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectDetail } from '../src/client/types';
-const mocks = vi.hoisted(() => ({ discover: vi.fn(), native: vi.fn(), preload: vi.fn(), user: vi.fn(), workspace: vi.fn(), media: vi.fn(), profile: vi.fn() }));
-vi.mock('../src/client/lib/bridge-client', () => ({ bridgeClient: { discover: mocks.discover, localConsoleRequest: mocks.native, preload: mocks.preload } }));
+const mocks = vi.hoisted(() => ({ discover: vi.fn(), native: vi.fn(), preload: vi.fn(), user: vi.fn(), workspace: vi.fn(), media: vi.fn(), profile: vi.fn(), journal: vi.fn(), nativeJournal: vi.fn(), writeJournal: vi.fn() }));
+vi.mock('../src/client/lib/bridge-client', () => ({ bridgeClient: { discover: mocks.discover, localConsoleRequest: (path: string, init?: RequestInit) => path === '/workspaces/journal:project' ? init?.method === 'PUT' ? mocks.writeJournal(path, init) : mocks.nativeJournal() : mocks.native(path, init), preload: mocks.preload } }));
 vi.mock('../src/client/lib/local-workspace', () => ({ localUser: mocks.user }));
-vi.mock('../src/client/lib/local-workspace-store', () => ({ readWorkspace: mocks.workspace, readLocalMedia: mocks.media }));
+vi.mock('../src/client/lib/local-workspace-store', () => ({ readWorkspace: mocks.workspace, readRawWorkspace: mocks.journal, journalProjectId: (id: string) => `journal:${id}`, readLocalMedia: mocks.media }));
 vi.mock('../src/client/lib/desktop', () => ({ desktopProfile: mocks.profile }));
 import { prepareBridgeWorkspace } from '../src/client/lib/prepare-bridge-workspace';
 const detail = { project: { id: 'project' }, tracks: [{ id: 'audio' }, { id: 'video', mimeType: 'video/mp4' }, { id: 'import', localMedia: true }] } as unknown as ProjectDetail;
 beforeEach(() => {
-  vi.resetAllMocks(); mocks.discover.mockResolvedValue({ capabilities: ['localConsole'] }); mocks.user.mockReturnValue({ id: 'user' });
+  vi.resetAllMocks(); mocks.nativeJournal.mockResolvedValue(null); mocks.journal.mockResolvedValue(undefined); mocks.discover.mockResolvedValue({ capabilities: ['localConsole'] }); mocks.user.mockReturnValue({ id: 'user' });
   mocks.workspace.mockResolvedValue({ detail, userId: 'user', key: 'user:project', pending: {}, mediaIds: ['import'] });
   mocks.media.mockResolvedValue(new Blob(['WAVE'])); mocks.profile.mockReturnValue({ 'sonoriva-user': '{}' });
 });
@@ -34,6 +34,20 @@ describe('préparation de la régie locale depuis le navigateur', () => {
     mocks.discover.mockResolvedValue({ capabilities: ['safePlayback'] });
     await prepareBridgeWorkspace(detail);
     expect(mocks.native).not.toHaveBeenCalled();
+  });
+  it('transfère le journal séparé et protège un journal natif différent', async () => {
+    const operation = { token: 'browser', kind: 'category', id: 'category', base: null, desired: { id: 'category', name: 'Locale' } };
+    const journal = { key: 'user:journal:project', userId: 'user', journalFor: 'project', entities: { 'category:category': operation } };
+    mocks.journal.mockResolvedValue(journal);
+    mocks.nativeJournal.mockResolvedValue({ ...journal, revision: 4, entities: { 'category:category': { ...operation, desired: { ...operation.desired, name: 'Changement natif' } } } });
+    mocks.native.mockResolvedValueOnce({ userId: 'user' }).mockResolvedValueOnce(null);
+    await expect(prepareBridgeWorkspace(detail)).rejects.toThrow('catégories ou de playlists');
+    expect(mocks.writeJournal).not.toHaveBeenCalled();
+
+    mocks.native.mockResolvedValueOnce({ userId: 'user' }).mockResolvedValueOnce(null).mockResolvedValueOnce({ revision: 1 }).mockResolvedValueOnce({ revision: 2 }).mockResolvedValueOnce(undefined);
+    mocks.nativeJournal.mockResolvedValue({ ...journal, revision: 4, entities: { 'category:category': { ...operation, token: 'native', error: 'Réseau' } } });
+    await prepareBridgeWorkspace(detail);
+    expect(JSON.parse(mocks.writeJournal.mock.calls[0][1].body.get('change'))).toMatchObject({ expectedRevision: 4, workspace: journal });
   });
 });
 

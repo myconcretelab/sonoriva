@@ -1,3 +1,4 @@
+import { clearPlaylistDependencyErrors, synchronizeEntityPhase, trackCategoryReady } from './entity-sync';
 import { desktopHost } from './desktop';
 import { ApiError, request } from './api-transport';
 import { changeWorkspace, listWorkspaces, mergeWorkspace, readLocalMedia, readWorkspace, trackChanges, type PendingTrack, type TrackChanges } from './local-workspace-store';
@@ -68,7 +69,7 @@ export async function projectsWithLocalChanges(projects: Project[]): Promise<Pro
   const user = localUser();
   if (!user) return projects;
   const workspaces = await listWorkspaces(user.id).catch(() => []);
-  return [...projects, ...workspaces.filter((record) => Object.keys(record.pending).length > 0 && !projects.some((project) => project.id === record.detail.project.id)).map((record) => record.detail.project)];
+  return [...projects, ...workspaces.filter((record) => (Object.keys(record.pending).length > 0 || Object.keys(record.entities ?? {}).length > 0) && !projects.some((project) => project.id === record.detail.project.id)).map((record) => record.detail.project)];
 }
 
 export async function editLocalTrack(id: string, input: TrackChanges): Promise<{ track: Track } | undefined> {
@@ -79,6 +80,7 @@ export async function editLocalTrack(id: string, input: TrackChanges): Promise<{
   writable(user);
   const updated = await changeWorkspace(user.id, workspace.detail.project.id, (current) => {
     if (!current) throw new Error('Spectacle absent du stockage local.');
+    if (input.categoryId && !current.detail.categories.some((category) => category.id === input.categoryId)) throw new Error('Catégorie introuvable.');
     const previous = current.detail.tracks.find((track) => track.id === id)!;
     const desired = { ...previous, ...input, ...(input.categoryId !== undefined && input.categoryId !== previous.categoryId ? { subcategoryId: null } : {}) };
     const operation = current.pending[id];
@@ -104,6 +106,9 @@ export async function importLocalTrack(form: FormData): Promise<{ track: Track }
   if (file.size > 250 * 1024 * 1024) throw new Error('Fichier média trop volumineux.');
   const title = String(form.get('title') ?? '').trim();
   if (!title || title.length > 160) throw new Error('Le titre doit contenir entre 1 et 160 caractères.');
+  const workspace = await readWorkspace(user.id, projectId);
+  const categoryId = String(form.get('categoryId') ?? '');
+  if (categoryId && !workspace?.detail.categories.some((category) => category.id === categoryId)) throw new Error('Catégorie introuvable.');
   const id = crypto.randomUUID();
   const fields = [...form.entries()].flatMap(([key, value]): Array<[string, string]> => typeof value === 'string' && key !== 'clientTrackId' ? [[key, value]] : []);
   const track: Track = {
@@ -145,12 +150,15 @@ export async function localMediaIds(): Promise<Set<string>> {
 
 export async function requireSyncedTrack(trackId: string) {
   const user = localUser();
-  if (user && (await trackWorkspace(user.id, trackId))?.pending[trackId]) throw new Error('Synchronisez les changements de ce son avant cette opération.');
+  const record = user ? await trackWorkspace(user.id, trackId) : undefined;
+  if (record?.pending[trackId]) throw new Error('Synchronisez les changements de ce son avant cette opération.');
+  if (Object.values(record?.entities ?? {}).some((item) => item.kind === 'playlist' && (item.desired as import('../types').Playlist | null)?.items.some((entry) => entry.trackId === trackId))) throw new Error('Ce son est utilisé par une playlist à synchroniser.');
 }
 
 export async function requireSyncedProject(projectId: string) {
   const user = localUser();
-  if (user && Object.keys((await readWorkspace(user.id, projectId))?.pending ?? {}).length) throw new Error('Ce spectacle contient des changements locaux à synchroniser.');
+  const record = user ? await readWorkspace(user.id, projectId) : undefined;
+  if (record && (Object.keys(record.pending).length || Object.keys(record.entities ?? {}).length)) throw new Error('Ce spectacle contient des changements locaux à synchroniser.');
 }
 
 // The acknowledgement can arrive after another edit: rebase only the edits made in flight.
@@ -165,6 +173,7 @@ async function acknowledge(userId: string, projectId: string, sent: PendingTrack
     else delete pending[server.id];
     return { ...record, pending, detail: { ...record.detail, tracks: record.detail.tracks.map((track) => track.id === server.id ? desired : track) } };
   });
+  await clearPlaylistDependencyErrors(userId, projectId, server.id);
   projectChanged();
 }
 
@@ -173,16 +182,19 @@ export function isWorkspaceSyncing() { return synchronizing; }
 
 async function synchronize(user: User, retry: boolean) {
   const queued = await listWorkspaces(user.id);
-  if (!queued.some((workspace) => Object.values(workspace.pending).some((operation) => retry || !operation.error))) return;
+  if (!queued.some((workspace) => [...Object.values(workspace.pending), ...Object.values(workspace.entities ?? {})].some((operation) => retry || !operation.error))) return;
   // A cached identity is sufficient for local work, never for sending changes as another account.
   const identity = await request<{ user: User }>('/api/auth/me', { signal: AbortSignal.timeout(3_000) });
   if (identity.user.id !== user.id || localUser()?.id !== user.id) return;
+  const budget = { remaining: 40 };
   for (const workspace of await listWorkspaces(user.id)) {
+    if (!await synchronizeEntityPhase(user.id, workspace.detail.project.id, 'categories', retry, budget)) return;
     for (const id of Object.keys(workspace.pending)) {
       if (localUser()?.id !== user.id) return;
       const current = await readWorkspace(user.id, workspace.detail.project.id);
       const operation = current?.pending[id];
       if (!operation || (operation.error && !retry)) continue;
+      if (!current || !trackCategoryReady(current, operation.desired.categoryId)) continue;
       try {
         let result: { track: Track };
         if (operation.base === null) {
@@ -220,6 +232,8 @@ async function synchronize(user: User, retry: boolean) {
         changed();
       }
     }
+    if (!await synchronizeEntityPhase(user.id, workspace.detail.project.id, 'playlists', retry, budget)) return;
+    if (!await synchronizeEntityPhase(user.id, workspace.detail.project.id, 'deletions', retry, budget)) return;
   }
 }
 
@@ -235,11 +249,11 @@ export async function synchronizeWorkspaces(retry = false): Promise<void> {
   finally { synchronizing = false; changed(); }
 }
 
-export async function workspaceSyncStatus(projectId?: string): Promise<{ pending: PendingTrack[]; syncing: boolean }> {
+export async function workspaceSyncStatus(projectId?: string): Promise<{ pending: PendingTrack[]; entities: import('./entity-journal').PendingEntity[]; syncing: boolean }> {
   const user = localUser();
-  if (!user || !projectId) return { pending: [], syncing: synchronizing };
+  if (!user || !projectId) return { pending: [], entities: [], syncing: synchronizing };
   const record = await readWorkspace(user.id, projectId);
-  return { pending: Object.values(record?.pending ?? {}), syncing: synchronizing };
+  return { pending: Object.values(record?.pending ?? {}), entities: Object.values(record?.entities ?? {}), syncing: synchronizing };
 }
 
 export async function resolveLocalConflict(projectId: string, trackId: string, keepLocal: boolean) {

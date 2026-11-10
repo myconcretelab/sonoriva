@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { accounts, categories, playlistItems, playlists, projectColors, projects, tracks, trackSubcategories } from '../db/schema.js';
+import { accounts, categories, offlineEntityDeletions, playlistItems, playlists, projectColors, projects, tracks, trackSubcategories } from '../db/schema.js';
 import { requireUser } from '../services/auth.js';
 import { sameIds } from '../services/order.js';
 import { canAccessProject, ownsProject, projectAccessCondition } from '../services/ownership.js';
@@ -418,7 +418,12 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     const { id, playlistId } = z.object({ id: z.string().uuid(), playlistId: z.string().uuid() }).parse(request.params);
     if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
     if (!(await userCanUsePlaylists(user.id, id))) return reply.code(403).send({ error: 'Les playlists ne sont pas incluses dans votre forfait.' });
-    const deleted = await db.delete(playlists).where(and(eq(playlists.id, playlistId), eq(playlists.projectId, id))).returning({ id: playlists.id });
+    const deleted = await db.transaction(async (transaction) => {
+      await transaction.execute(sql`select id from projects where id = ${id} for update`);
+      const rows = await transaction.delete(playlists).where(and(eq(playlists.id, playlistId), eq(playlists.projectId, id))).returning({ id: playlists.id });
+      if (rows.length) await transaction.insert(offlineEntityDeletions).values({ projectId: id, kind: 'playlist', entityId: playlistId }).onConflictDoNothing();
+      return rows;
+    });
     if (deleted.length === 0) return reply.code(404).send({ error: 'Playlist introuvable.' });
     return reply.code(204).send();
   });
@@ -463,7 +468,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     if (!user) return;
     const { id, categoryId } = z.object({ id: z.string().uuid(), categoryId: z.string().uuid() }).parse(request.params);
     if (!(await canAccessProject(user.id, id))) return reply.code(404).send({ error: 'Projet introuvable.' });
-    const input = z.object({ backgroundImage: backgroundImageSchema }).parse(request.body);
+    const input = z.object({ name: z.string().trim().min(1).max(80).optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), backgroundImage: backgroundImageSchema.optional() }).refine((value) => Object.keys(value).length > 0).parse(request.body);
     const [category] = await db.update(categories).set(input)
       .where(and(eq(categories.id, categoryId), eq(categories.projectId, id))).returning();
     if (!category) return reply.code(404).send({ error: 'Catégorie introuvable.' });
@@ -479,7 +484,9 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       .where(and(eq(categories.id, categoryId), eq(categories.projectId, id))).limit(1);
     if (!category) return reply.code(404).send({ error: 'Catégorie introuvable.' });
     await db.transaction(async (transaction) => {
+      await transaction.execute(sql`select id from projects where id = ${id} for update`);
       await transaction.delete(categories).where(and(eq(categories.id, categoryId), eq(categories.projectId, id)));
+      await transaction.insert(offlineEntityDeletions).values({ projectId: id, kind: 'category', entityId: categoryId }).onConflictDoNothing();
       const remaining = await transaction.select({ id: categories.id }).from(categories)
         .where(eq(categories.projectId, id)).orderBy(asc(categories.position));
       for (const [position, item] of remaining.entries()) {

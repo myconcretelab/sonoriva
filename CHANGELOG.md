@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.24.0] - 2026-11-10
+
+### Ajouté
+
+- création, modification, déplacement et suppression des catégories et playlists hors ligne ;
+- édition du nom, de la couleur et du fond des catégories dans leur dialogue existant ;
+- synchronisation ordonnée des catégories, imports et playlists, avec résolution des conflits ;
+- journal d’organisation séparé, conservé lors du retour à une ancienne interface du Bridge ;
+- identifiants stables et suppressions mémorisées pour empêcher les créations en double et les réapparitions après une requête retardée.
+
+Cette évolution utilise l’interface indépendante et reste compatible avec Bridge 1.1.0, sans nouvelle compilation native.
+
 ## [1.23.1] - 2026-11-09
 
 ### Corrigé

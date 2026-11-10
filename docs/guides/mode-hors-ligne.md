@@ -25,7 +25,9 @@ L’éditeur individuel conserve localement le titre, la catégorie, le volume, 
 
 Les fichiers importés sur cet appareil sont lus par le navigateur, y compris lorsque le Bridge est sélectionné. Ils utilisent la sortie du navigateur. Les autres sons continuent à utiliser le Bridge. La régie locale de Bridge 1.1.0 utilise directement le moteur natif pour ses imports audio.
 
-La création et la suppression des spectacles, des catégories et des playlists, les alias et les autres opérations non couvertes par l’éditeur individuel nécessitent encore une connexion. Les imports de dossiers qui créent des catégories ou sous-catégories nécessitent également une connexion.
+Les catégories peuvent être créées, renommées, réordonnées et supprimées hors ligne. Leur dialogue permet de modifier le nom, la couleur et le fond. Les playlists peuvent être créées, modifiées, déplacées et supprimées hors ligne si le forfait les inclut. Leur composition et leurs options restent enregistrées, y compris avec des sons importés sur l’appareil. Supprimer une catégorie supprime ses sous-catégories et conserve les sons et les playlists sans catégorie.
+
+La création et la suppression des spectacles, la gestion des sous-catégories, les alias et les autres opérations non couvertes nécessitent une connexion. Les imports de dossiers qui créent des sous-catégories nécessitent également une connexion.
 
 ## Régie locale du Bridge
 
@@ -33,7 +35,7 @@ Bridge 1.1.0 ou ultérieur dispose du bouton **Ouvrir la régie locale**. Cette 
 
 Dans le navigateur, le voyant réseau propose **Préparer la régie locale** lorsque le Bridge associé est ouvert et sélectionné comme moteur. La commande **Rendre disponible hors ligne** effectue également cette préparation. L’interface, les données du spectacle, ses vidéos et ses fichiers importés sont alors conservés dans le dossier de données du Bridge. Un spectacle contenant des changements propres à la régie locale ne peut pas être remplacé par une copie du navigateur. Une copie interrompue peut reprendre si ses changements correspondent toujours à la source. Chaque nouvel import rejoint la copie native avec son fichier ; les imports déjà présents dans le Bridge sont conservés.
 
-Dans cette fenêtre, les modifications individuelles et les nouveaux fichiers sont enregistrés sur disque avant confirmation. Les imports audio utilisent les sorties du Bridge. Les vidéos sont lues par la fenêtre de régie à partir des fichiers du Bridge. Les playlists et catégories existantes sont consultables et utilisables hors ligne ; leur création et leur modification nécessitent une connexion.
+Dans cette fenêtre, les modifications individuelles, les catégories, les playlists et les nouveaux fichiers sont enregistrés sur disque avant confirmation. Les imports audio utilisent les sorties du Bridge. Les vidéos sont lues par la fenêtre de régie à partir des fichiers du Bridge. Les catégories et les playlists sont modifiables hors ligne.
 
 Les données de la régie locale sont indépendantes du stockage du navigateur. **Vider le cache audio** supprime les médias téléchargés, sans effacer les fichiers importés localement ni leurs modifications en attente. La suppression du dossier de données de l’application supprime ces données locales.
 
@@ -49,9 +51,9 @@ Une modification de l’interface compatible avec le moteur installé ne nécess
 
 ## Synchronisation
 
-Le volet du voyant réseau affiche les changements conservés sur l’appareil. La synchronisation reprend au retour du réseau et est vérifiée toutes les quinze secondes. Le bouton **Synchroniser** relance également les envois en erreur. Les imports interrompus sont renvoyés avec le même identifiant pour éviter de créer plusieurs exemplaires du son.
+Le volet du voyant réseau affiche les changements conservés sur l’appareil. La synchronisation reprend au retour du réseau et est vérifiée toutes les quinze secondes. Le bouton **Synchroniser** relance également les envois en erreur. Les catégories sont envoyées avant les imports, puis les playlists ; les suppressions de catégories interviennent ensuite. Les imports et créations interrompus sont renvoyés avec le même identifiant pour éviter les doublons.
 
-Si un même réglage a changé sur le serveur, les changements locaux sont conservés et le volet propose **Garder mes changements** ou **Utiliser la version en ligne**. Les changements sur des réglages indépendants sont conservés ensemble. Une limite de stockage serveur ou un refus d’accès laisse les fichiers et les changements locaux en attente.
+Si un même réglage a changé sur le serveur, si un élément a été supprimé ailleurs ou si le contenu d’une catégorie à supprimer a changé, les changements locaux sont conservés et le volet propose **Garder mes changements** ou **Utiliser la version en ligne**. Les changements sur des réglages indépendants sont conservés ensemble. Une limite de stockage serveur ou un refus d’accès laisse les fichiers et les changements locaux en attente.
 
 La suppression d’un son ou d’un spectacle ayant des changements locaux en attente est bloquée jusqu’à leur synchronisation. Les données locales sont séparées par utilisateur.
 

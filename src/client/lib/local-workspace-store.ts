@@ -1,4 +1,5 @@
 import { desktopHost, desktopRequest, DesktopError, desktopBaseUrl } from './desktop';
+import { overlayEntities, type EntityJournal } from './entity-journal';
 import type { ProjectDetail, Track } from '../types';
 
 export const editableTrackKeys = ['title', 'categoryId', 'volume', 'loop', 'fadeInMs', 'fadeOutMs', 'startTimeMs', 'endTimeMs', 'videoEndBehavior', 'color', 'tags', 'backgroundImage'] as const;
@@ -12,6 +13,8 @@ export interface PendingTrack {
 }
 export interface LocalWorkspace {
   revision?: number;
+  journalFor?: string;
+  entities?: EntityJournal;
   key: string;
   userId: string;
   detail: ProjectDetail;
@@ -54,7 +57,7 @@ async function transaction<T>(stores: string[], mode: IDBTransactionMode, work: 
   });
 }
 
-export function readWorkspace(userId: string, projectId: string): Promise<LocalWorkspace | undefined> {
+export function readRawWorkspace(userId: string, projectId: string): Promise<LocalWorkspace | undefined> {
   if (desktopHost()) return nativeWorkspace(userId, projectId);
   return transaction(['projects'], 'readonly', (tx, done) => {
     const read = tx.objectStore('projects').get(`${userId}:${projectId}`);
@@ -62,7 +65,7 @@ export function readWorkspace(userId: string, projectId: string): Promise<LocalW
   });
 }
 
-export function listWorkspaces(userId: string): Promise<LocalWorkspace[]> {
+export function listRawWorkspaces(userId: string): Promise<LocalWorkspace[]> {
   if (desktopHost()) return desktopRequest<LocalWorkspace[]>('/v1/desktop/workspaces').then((records) => records.filter((record) => record.userId === userId));
   return transaction(['projects'], 'readonly', (tx, done) => {
     const read = tx.objectStore('projects').getAll();
@@ -71,7 +74,7 @@ export function listWorkspaces(userId: string): Promise<LocalWorkspace[]> {
 }
 
 // Read, journal change, project snapshot and optional file commit in one transaction.
-export function changeWorkspace(userId: string, projectId: string, change: (current: LocalWorkspace | undefined) => LocalWorkspace, media?: { id: string; file: Blob }): Promise<LocalWorkspace> {
+export function changeRawWorkspace(userId: string, projectId: string, change: (current: LocalWorkspace | undefined) => LocalWorkspace, media?: { id: string; file: Blob }): Promise<LocalWorkspace> {
   if (desktopHost()) return changeNativeWorkspace(userId, projectId, change, media);
   return transaction(['projects', 'media'], 'readwrite', (tx, done, fail) => {
     const store = tx.objectStore('projects');
@@ -88,6 +91,47 @@ export function changeWorkspace(userId: string, projectId: string, change: (curr
       }
     };
   });
+}
+
+// A separate workspace record keeps the journal intact when an older interface refreshes the project.
+export function journalProjectId(projectId: string): string {
+  if (!/^[0-9a-f-]{36}$/i.test(projectId)) return `journal:${projectId}`;
+  return projectId.slice(0, 14) + (parseInt(projectId[14], 16) ^ 12).toString(16) + projectId.slice(15);
+}
+export function composeWorkspace(record: LocalWorkspace, entities: EntityJournal = {}): LocalWorkspace {
+  const deleted = new Set(Object.values(entities).filter((item) => item.kind === 'category' && !item.desired).map((item) => item.id));
+  const groups = new Set([...record.detail.subcategories.filter((group) => group.categoryId && deleted.has(group.categoryId)).map((group) => group.id), ...Object.values(entities).flatMap((item) => item.kind === 'category' && !item.desired ? item.references?.subcategories.map((group) => group.id) ?? [] : [])]);
+  const pending = Object.fromEntries(Object.entries(record.pending).map(([id, operation]) => [id, { ...operation, desired: { ...operation.desired, ...(operation.desired.categoryId && deleted.has(operation.desired.categoryId) ? { categoryId: null, subcategoryId: null } : {}), ...(operation.desired.subcategoryId && groups.has(operation.desired.subcategoryId) ? { subcategoryId: null } : {}) } }]));
+  return { ...record, pending, entities, detail: overlayEntities(record.detail, entities) };
+}
+export async function readWorkspace(userId: string, projectId: string): Promise<LocalWorkspace | undefined> {
+  const record = await readRawWorkspace(userId, projectId);
+  if (!record) return undefined;
+  const journal = await readRawWorkspace(userId, journalProjectId(projectId));
+  return composeWorkspace(record, journal?.entities);
+}
+export async function listWorkspaces(userId: string): Promise<LocalWorkspace[]> {
+  const records = await listRawWorkspaces(userId);
+  return records.filter((record) => !record.journalFor).map((record) => composeWorkspace(record, records.find((journal) => journal.journalFor === record.detail.project.id)?.entities));
+}
+export async function changeWorkspace(userId: string, projectId: string, change: (current: LocalWorkspace | undefined) => LocalWorkspace, media?: { id: string; file: Blob }): Promise<LocalWorkspace> {
+  const journal = await readRawWorkspace(userId, journalProjectId(projectId));
+  const updated = await changeRawWorkspace(userId, projectId, (raw) => {
+    const next = change(raw ? composeWorkspace(raw, journal?.entities) : undefined);
+    const stored = { ...next }; delete stored.entities;
+    return stored;
+  }, media);
+  return composeWorkspace(updated, (await readRawWorkspace(userId, journalProjectId(projectId)))?.entities);
+}
+export async function changeEntityJournal(userId: string, projectId: string, change: (journal: EntityJournal, current: LocalWorkspace) => EntityJournal): Promise<EntityJournal> {
+  const raw = await readRawWorkspace(userId, projectId);
+  if (!raw) throw new Error('Spectacle absent du stockage local.');
+  const id = journalProjectId(projectId);
+  const record = await changeRawWorkspace(userId, id, (previous) => {
+    const journal = previous?.entities ?? {};
+    return { key: `${userId}:${id}`, userId, journalFor: projectId, pending: {}, mediaIds: [], detail: { ...raw.detail, project: { ...raw.detail.project, id }, categories: [], subcategories: [], playlists: [], tracks: [] }, entities: change(journal, composeWorkspace(raw, journal)) };
+  });
+  return record.entities ?? {};
 }
 
 export function readLocalMedia(userId: string, trackId: string): Promise<Blob | undefined> {

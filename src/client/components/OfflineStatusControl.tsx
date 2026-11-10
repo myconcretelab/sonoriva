@@ -1,3 +1,5 @@
+import { resolveEntityConflict } from '../lib/entity-sync';
+import { entityKey } from '../lib/entity-journal';
 import { desktopHost } from '../lib/desktop';
 import { useEffect, useState } from 'react';
 import { CircleCheck, Download, LoaderCircle, RefreshCcw, Wifi, WifiOff } from 'lucide-react';
@@ -6,7 +8,7 @@ import { checkServerConnection } from '../lib/connectivity';
 import type { OfflinePreparation } from '../lib/prepare-offline';
 import type { Track } from '../types';
 import { appOfflineStatus } from '../lib/app-offline';
-import { resolveLocalConflict, synchronizeWorkspaces, workspaceSyncStatus } from '../lib/local-workspace';
+import { localUser, resolveLocalConflict, synchronizeWorkspaces, workspaceSyncStatus } from '../lib/local-workspace';
 
 interface Props {
   projectId?: string;
@@ -19,13 +21,25 @@ interface Props {
 
 export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, busy = false, preparation }: Props) {
   const [appReady, setAppReady] = useState(import.meta.env.DEV);
-  const [sync, setSync] = useState<Awaited<ReturnType<typeof workspaceSyncStatus>>>({ pending: [], syncing: false });
+  const [sync, setSync] = useState<Awaited<ReturnType<typeof workspaceSyncStatus>>>({ pending: [], entities: [], syncing: false });
   const [online, setOnline] = useState<boolean>();
   const [bridgeReady, setBridgeReady] = useState<boolean>();
   const [bridgeMode, setBridgeMode] = useState(bridgeClient.isEnabled());
   const [localConsoleAvailable, setLocalConsoleAvailable] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [checkedAt, setCheckedAt] = useState('');
+  const [resolving, setResolving] = useState(false);
+  const [resolutionError, setResolutionError] = useState('');
+  async function resolveStructure(key: string, keepLocal: boolean) {
+    const user = localUser();
+    if (!user || !projectId) return;
+    setResolving(true); setResolutionError('');
+    try {
+      await resolveEntityConflict(user.id, projectId, key, keepLocal);
+      await synchronizeWorkspaces(true);
+    } catch (cause) { setResolutionError(cause instanceof Error ? cause.message : 'Enregistrement impossible.'); }
+    finally { setResolving(false); }
+  }
   useEffect(() => {
     let disposed = false;
     const refresh = () => {
@@ -87,6 +101,7 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
       window.removeEventListener('focus', refresh);
     };
   }, []);
+  const pendingCount = sync.pending.length + (sync.entities?.length ?? 0);
   const count = tracks.filter((track) => cachedIds.has(track.id)).length;
   const label = online === undefined ? 'Vérification réseau…' : online ? 'En ligne' : 'Hors ligne';
   const incomplete = !appReady || count < tracks.length || (bridgeMode && bridgeReady !== true);
@@ -94,8 +109,8 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
   const missing = tracks.length - count;
   return <div className="offline-control">
     <button type="button" className={`offline-status-button ${online === false ? 'is-offline' : ''} ${online === false && incomplete ? 'is-incomplete' : ''}`}
-      onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} aria-controls="offline-status-details" title={`${label} · ${count}/${tracks.length} disponibles hors ligne${sync.pending.length ? ` · ${sync.pending.length} changement${sync.pending.length > 1 ? 's' : ''} à synchroniser` : ''}`}>
-      {online === false ? <WifiOff size={18} /> : <Wifi size={18} />}<span>{label}</span>{sync.pending.length > 0 ? <RefreshCcw size={13} className={sync.syncing ? 'spin' : ''} aria-label={`${sync.pending.length} changement${sync.pending.length > 1 ? 's' : ''} à synchroniser`} /> : ready && <CircleCheck size={13} className="offline-ready-mark" aria-label="Spectacle disponible hors ligne" />}
+      onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} aria-controls="offline-status-details" title={`${label} · ${count}/${tracks.length} disponibles hors ligne${pendingCount ? ` · ${pendingCount} changement${pendingCount > 1 ? 's' : ''} à synchroniser` : ''}`}>
+      {online === false ? <WifiOff size={18} /> : <Wifi size={18} />}<span>{label}</span>{pendingCount > 0 ? <RefreshCcw size={13} className={sync.syncing ? 'spin' : ''} aria-label={`${pendingCount} changement${pendingCount > 1 ? 's' : ''} à synchroniser`} /> : ready && <CircleCheck size={13} className="offline-ready-mark" aria-label="Spectacle disponible hors ligne" />}
     </button>
     {expanded && <div className="offline-status-details" id="offline-status-details">
       <strong>Disponibilité hors ligne : {count}/{tracks.length}</strong>
@@ -112,8 +127,8 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
         <progress value={preparation.done} max={preparation.total || 1} aria-label="Préparation hors ligne" />
       </div>}
       {preparation?.error && <span className="offline-preparation-error" role="alert">{preparation.error}</span>}
-      {sync.pending.length > 0 && <>
-        <strong role="status">{sync.pending.length} changement{sync.pending.length > 1 ? 's' : ''} conservé{sync.pending.length > 1 ? 's' : ''} sur cet appareil</strong>
+      {pendingCount > 0 && <>
+        <strong role="status">{pendingCount} changement{pendingCount > 1 ? 's' : ''} conservé{pendingCount > 1 ? 's' : ''} sur cet appareil</strong>
         <button type="button" className="offline-prepare-button" disabled={sync.syncing || online !== true} onClick={() => { void synchronizeWorkspaces(true); }}>
           {sync.syncing ? <LoaderCircle className="spin" size={16} /> : <RefreshCcw size={16} />}{sync.syncing ? 'Synchronisation…' : 'Synchroniser'}
         </button>
@@ -125,8 +140,21 @@ export function OfflineStatusControl({ projectId, tracks, cachedIds, onPrepare, 
               if (window.confirm(`Remplacer les changements locaux de « ${item.desired.title} » par la version en ligne ?`)) void resolveLocalConflict(projectId, item.desired.id, false);
             }}>Utiliser la version en ligne</button>
           </>}
+        </div>)}
+        {(sync.entities ?? []).filter((item) => item.error).map((item) => <div key={entityKey(item.kind, item.id)}>
+          <strong>{item.kind === 'category' ? 'Catégorie' : 'Playlist'} : {item.label}</strong><span className="offline-preparation-error" role="alert">{item.error}</span>
+          {item.remote !== undefined && projectId && <>
+            <button type="button" className="offline-prepare-button" disabled={sync.syncing || resolving} onClick={() => {
+              if (!item.desired && !window.confirm(`Confirmer la suppression de « ${item.label} » malgré les changements en ligne ?`)) return;
+              void resolveStructure(entityKey(item.kind, item.id), true);
+            }}>{item.desired ? 'Garder mes changements' : 'Confirmer la suppression'}</button>
+            <button type="button" className="offline-prepare-button" disabled={sync.syncing || resolving} onClick={() => {
+              if (window.confirm(`Remplacer les changements locaux de « ${item.label} » par la version en ligne ?`)) void resolveStructure(entityKey(item.kind, item.id), false);
+            }}>Utiliser la version en ligne</button>
+          </>}
         </div>)}</div>
       </>}
+      {resolutionError && <span className="offline-preparation-error" role="alert">{resolutionError}</span>}
       <span>Serveur : {online === undefined ? 'vérification…' : online ? 'joignable' : 'injoignable'}</span>
       <span>{bridgeMode ? `Bridge local : ${bridgeReady === undefined ? 'vérification…' : bridgeReady ? 'joignable' : 'injoignable'}` : 'Lecture : navigateur'}</span>
       <span>{count}/{tracks.length} fichiers disponibles hors ligne</span>

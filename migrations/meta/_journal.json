@@ -295,6 +295,13 @@
       "when": 1791874081282,
       "tag": "0041_productive_chamber",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794295110953,
+      "tag": "0042_offline_entities",
+      "breakpoints": true
     }
   ]
 }

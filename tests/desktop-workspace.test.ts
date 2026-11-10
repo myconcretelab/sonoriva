@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { changeWorkspace, readLocalMedia, readWorkspace, type LocalWorkspace } from '../src/client/lib/local-workspace-store';
+import { changeWorkspace, readLocalMedia, readWorkspace, journalProjectId, type LocalWorkspace } from '../src/client/lib/local-workspace-store';
 import { request } from '../src/client/lib/api-transport';
 import { desktopRequest } from '../src/client/lib/desktop';
 
 const user = '11111111-1111-4111-8111-111111111111';
 const project = '22222222-2222-4222-8222-222222222222';
-const initial = { key: `${user}:${project}`, userId: user, detail: { project: { id: project }, tracks: [] }, pending: {}, mediaIds: [], revision: 1 } as unknown as LocalWorkspace;
+const initial = { key: `${user}:${project}`, userId: user, detail: { project: { id: project }, tracks: [], categories: [], subcategories: [], playlists: [], colors: [] }, pending: {}, mediaIds: [], revision: 1 } as unknown as LocalWorkspace;
 beforeEach(() => { Object.defineProperty(window, '__SONORIVA_DESKTOP__', { configurable: true, value: { userId: user, deviceId: 'device', token: 'native-token' } }); });
 afterEach(() => { vi.restoreAllMocks(); Object.defineProperty(window, '__SONORIVA_DESKTOP__', { configurable: true, value: undefined }); });
 
@@ -14,6 +14,7 @@ describe('stockage de la régie native', () => {
   it('relit et réapplique une modification après un conflit de révision', async () => {
     let reads = 0, writes = 0;
     const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      if (String(_url).endsWith(journalProjectId(project))) return Response.json(null);
       expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer native-token');
       if (init?.method !== 'PUT') return new Response(JSON.stringify({ ...initial, revision: ++reads, mediaIds: reads === 1 ? [] : ['concurrent-media'] }));
       const form = init.body as FormData;
@@ -23,14 +24,15 @@ describe('stockage de la régie native', () => {
       expect(body.workspace.mediaIds).toEqual(['concurrent-media']);
       return new Response(JSON.stringify({ ...body.workspace, revision: 3 }));
     });
-    const change = vi.fn((current) => ({ ...current!, pending: { test: {} } } as LocalWorkspace));
+    const change = vi.fn((current) => ({ ...current!, pending: { test: { base: null, desired: { id: 'test', categoryId: null, subcategoryId: null } } } } as LocalWorkspace));
     const result = await changeWorkspace(user, project, change);
     expect(change).toHaveBeenCalledTimes(2);
     expect(result.revision).toBe(3);
-    expect(fetcher).toHaveBeenCalledTimes(4);
+    expect(fetcher).toHaveBeenCalledTimes(6);
   });
   it('envoie le fichier et son journal dans la même transaction native', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      if (String(_url).endsWith(journalProjectId(project))) return Response.json(null);
       if (init?.method !== 'PUT') return new Response('null');
       expect(new Headers(init.headers).has('Content-Type')).toBe(false);
       const form = init.body as FormData;

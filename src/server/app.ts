@@ -1,3 +1,4 @@
+import { offlineEntityRoutes } from './routes/offline-entities.js';
 import { projectSharingRoutes } from './routes/project-sharing.js';
 import { memberRoutes } from './routes/members.js';
 import { MembershipError } from './services/memberships.js';
@@ -85,6 +86,7 @@ export async function buildApp() {
   await app.register(bridgeRoutes);
   await app.register(supportRoutes);
   await app.register(projectRoutes);
+  await app.register(offlineEntityRoutes);
   await app.register(projectSharingRoutes);
   await app.register(trackRoutes);
   await app.register(importRoutes);

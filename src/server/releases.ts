@@ -11,6 +11,22 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.24.0',
+    date: '2026-11-10',
+    title: 'Catégories et playlists hors ligne',
+    summary: 'L’organisation du spectacle reste modifiable sans Internet, dans le navigateur et la régie locale.',
+    important: true,
+    changes: [
+      'Les catégories peuvent être créées, renommées, réordonnées et supprimées hors ligne ; leur couleur et leur fond restent modifiables.',
+      'Les playlists et leurs options sont enregistrées localement, y compris lorsqu’elles contiennent de nouveaux imports.',
+      'Les catégories sont synchronisées avant les sons importés, puis les playlists ; les suppressions de catégories interviennent ensuite.',
+      'Les conflits restent sur l’appareil et se résolvent depuis le voyant réseau.',
+      'La suppression d’une catégorie conserve ses sons et ses playlists, désormais sans catégorie.',
+      'Cette version utilise la mise à jour indépendante de l’interface, compatible avec Bridge 1.1.0.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.23.1',
     date: '2026-11-09',
     title: 'Reprise des copies vers la régie locale',

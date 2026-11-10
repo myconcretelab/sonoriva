@@ -1,3 +1,4 @@
+import { createLocalCategory, updateLocalCategory, reorderLocalCategories, deleteLocalCategory, saveLocalPlaylist, positionLocalPlaylist, deleteLocalPlaylist } from './local-entities';
 import type { AccountMember, SharedLibrary, AccountSummary, AdminAccount, AdminOverview, AdminReleaseInfo, AdminSupportTicket, AdminUser, AuditEntry, BatchTrackUpdateInput, BridgeDevice, Category, CommercialPlan, FreesoundLicenseFilter, FreesoundSearchResult, KeyAction, MouseAction, OpenverseLicenseFilter, OpenverseSearchResult, OpenverseSource, Playlist, PlaylistEntry, Project, ProjectColor, ProjectKeyboardShortcuts, PublicDemo, PublicPlan, ReleaseInfo, SoundShowAnalysis, SubscriptionNotificationSettings, SupportMessage, SupportTicket, SupportTicketPriority, SupportTicketStatus, Track, TrackSubcategory, User } from '../types';
 import { request } from './api-transport';
 import { editLocalTrack, importLocalTrack, localProject, localUser, projectsWithLocalChanges, requireSyncedProject, requireSyncedTrack } from './local-workspace';
@@ -100,27 +101,28 @@ export const api = {
     method: 'PATCH', body: JSON.stringify({ colorIds }),
   }),
   deleteProjectColor: (projectId: string, colorId: string) => request<void>(`/api/projects/${projectId}/colors/${colorId}`, { method: 'DELETE' }),
-  savePlaylist: (projectId: string, playlistId: string | undefined, input: Pick<Playlist, 'name' | 'color' | 'autostart' | 'loop' | 'random' | 'showNextButton' | 'gapMs' | 'crossfadeMs' | 'soundboardBehavior' | 'categoryId'> & { items: PlaylistEntry[] }) =>
-    request<{ playlist: Playlist }>(playlistId ? `/api/projects/${projectId}/playlists/${playlistId}` : `/api/projects/${projectId}/playlists`, {
+  savePlaylist: async (projectId: string, playlistId: string | undefined, input: Pick<Playlist, 'name' | 'color' | 'autostart' | 'loop' | 'random' | 'showNextButton' | 'gapMs' | 'crossfadeMs' | 'soundboardBehavior' | 'categoryId'> & { items: PlaylistEntry[] }) =>
+    await saveLocalPlaylist(projectId, playlistId, input) ?? request<{ playlist: Playlist }>(playlistId ? `/api/projects/${projectId}/playlists/${playlistId}` : `/api/projects/${projectId}/playlists`, {
       method: playlistId ? 'PATCH' : 'POST', body: JSON.stringify(input),
     }),
-  positionPlaylist: (projectId: string, playlistId: string, position: number, categoryId?: string | null) => request<{ playlist: Playlist }>(`/api/projects/${projectId}/playlists/${playlistId}/position`, {
+  positionPlaylist: async (projectId: string, playlistId: string, position: number, categoryId?: string | null) => await positionLocalPlaylist(projectId, playlistId, position, categoryId) ?? request<{ playlist: Playlist }>(`/api/projects/${projectId}/playlists/${playlistId}/position`, {
     method: 'PATCH', body: JSON.stringify(categoryId === undefined ? { position } : { position, categoryId }),
   }),
-  deletePlaylist: (projectId: string, playlistId: string) => request<void>(`/api/projects/${projectId}/playlists/${playlistId}`, { method: 'DELETE' }),
+  deletePlaylist: async (projectId: string, playlistId: string) => { if (!await deleteLocalPlaylist(projectId, playlistId)) await request<void>(`/api/projects/${projectId}/playlists/${playlistId}`, { method: 'DELETE' }); },
   createTrackSubcategory: (projectId: string, input: { name: string; categoryId: string | null; color: string; trackIds?: string[] }) => request<{ subcategory: TrackSubcategory; tracks: Track[] }>(`/api/projects/${projectId}/subcategories`, { method: 'POST', body: JSON.stringify(input) }),
   updateTrackSubcategory: (projectId: string, subcategoryId: string, input: Partial<Pick<TrackSubcategory, 'name' | 'categoryId' | 'color' | 'position'>>) => request<{ subcategory: TrackSubcategory; tracks: Track[] }>(`/api/projects/${projectId}/subcategories/${subcategoryId}`, { method: 'PATCH', body: JSON.stringify(input) }),
   deleteTrackSubcategory: (projectId: string, subcategoryId: string) => request<{ tracks: Track[] }>(`/api/projects/${projectId}/subcategories/${subcategoryId}`, { method: 'DELETE' }),
   moveTrackToSubcategory: (projectId: string, trackId: string, subcategoryId: string | null) => request<{ track: Track }>(`/api/projects/${projectId}/tracks/${trackId}/subcategory`, { method: 'PATCH', body: JSON.stringify({ subcategoryId }) }),
-  createCategory: (projectId: string, name: string, color: string, position?: number) =>
-    request<{ category: Category }>(`/api/projects/${projectId}/categories`, {
+  createCategory: async (projectId: string, name: string, color: string, position?: number) =>
+    await createLocalCategory(projectId, name, color, position) ?? request<{ category: Category }>(`/api/projects/${projectId}/categories`, {
       method: 'POST', body: JSON.stringify({ name, color, position }),
     }),
-  reorderCategories: (projectId: string, categoryIds: string[]) => request<{ categories: Category[] }>(`/api/projects/${projectId}/categories/reorder`, {
+  reorderCategories: async (projectId: string, categoryIds: string[]) => await reorderLocalCategories(projectId, categoryIds) ?? request<{ categories: Category[] }>(`/api/projects/${projectId}/categories/reorder`, {
     method: 'PATCH', body: JSON.stringify({ categoryIds }),
   }),
-  updateCategoryBackground: (projectId: string, categoryId: string, backgroundImage: string | null) => request<{ category: Category }>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'PATCH', body: JSON.stringify({ backgroundImage }) }),
-  deleteCategory: (projectId: string, categoryId: string) => request<void>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'DELETE' }),
+  updateCategory: async (projectId: string, categoryId: string, input: Partial<Pick<Category, 'name' | 'color' | 'backgroundImage'>>) => await updateLocalCategory(projectId, categoryId, input) ?? request<{ category: Category }>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  updateCategoryBackground: async (projectId: string, categoryId: string, backgroundImage: string | null) => await updateLocalCategory(projectId, categoryId, { backgroundImage }) ?? request<{ category: Category }>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'PATCH', body: JSON.stringify({ backgroundImage }) }),
+  deleteCategory: async (projectId: string, categoryId: string) => { if (!await deleteLocalCategory(projectId, categoryId)) await request<void>(`/api/projects/${projectId}/categories/${categoryId}`, { method: 'DELETE' }); },
   uploadTrack: async (form: FormData) => await importLocalTrack(form) ?? request<{ track: Track }>('/api/tracks/upload', { method: 'POST', body: form }),
   updateTrack: async (id: string, input: Partial<Pick<Track, 'title' | 'categoryId' | 'volume' | 'loop' | 'fadeInMs' | 'fadeOutMs' | 'startTimeMs' | 'endTimeMs' | 'videoEndBehavior' | 'color' | 'tags' | 'backgroundImage'>>) =>
     await editLocalTrack(id, input) ?? request<{ track: Track }>(`/api/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),

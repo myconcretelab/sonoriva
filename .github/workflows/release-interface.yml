@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - 'src/client/**'
+      - 'src/server/shared/**'
+      - 'src/server/services/playlist-rows.ts'
       - 'public/**'
       - 'package.json'
       - 'package-lock.json'

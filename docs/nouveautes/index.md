@@ -2,6 +2,12 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.24.0 — 10 novembre 2026
+
+Édition des catégories et playlists hors ligne, synchronisation et résolution des conflits. Compatible avec Bridge 1.1.0.
+
+[Détails de la version 1.24.0](./1.24.0.md)
+
 ## Version 1.23.1 — 9 novembre 2026
 
 Reprise des copies interrompues et conservation des imports déjà présents dans la régie locale. Compatible avec Bridge 1.1.0.

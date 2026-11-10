@@ -392,3 +392,11 @@ export type Track = typeof tracks.$inferSelect;
 export type PlaylistItem = typeof playlistItems.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;
 export type SupportMessage = typeof supportMessages.$inferSelect;
+
+// Deletions also cover cancelled offline creations, so delayed retries cannot recreate them.
+export const offlineEntityDeletions = pgTable('offline_entity_deletions', {
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  entityId: uuid('entity_id').notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [primaryKey({ columns: [table.projectId, table.kind, table.entityId] })]);

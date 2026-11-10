@@ -1270,6 +1270,22 @@ export default function App() {
     }
   }
 
+  const playlistConflictResolvedRef = useRef<(event: Event) => void>(() => undefined);
+  playlistConflictResolvedRef.current = (event) => {
+    const { oldId, playlist } = (event as CustomEvent<{ oldId: string; playlist: Playlist | null }>).detail;
+    if (loadedPlaylistId !== oldId) return;
+    if (playlistRunRef.current || playlistPlaybackIds.length || playlistPaused) { setLoadedPlaylistId(undefined); return; }
+    if (!playlist) { resetPlaylistEditor(); return; }
+    setPlaylistItems(playlistQueueItems(playlist.items.filter((item) => detail?.tracks.some((track) => track.id === item.trackId)), () => crypto.randomUUID()));
+    setPlaylistOptions({ name: playlist.name, color: playlist.color, autostart: playlist.autostart, loop: playlist.loop, random: playlist.random, showNextButton: playlist.showNextButton ?? false, gapMs: playlist.gapMs ?? 0, crossfadeMs: playlist.crossfadeMs ?? 0, soundboardBehavior: playlist.soundboardBehavior ?? 'continue' });
+    setLoadedPlaylistId(playlist.id); setPlaylistCurrentIndex(0);
+  };
+  useEffect(() => {
+    const resolved = (event: Event) => playlistConflictResolvedRef.current(event);
+    window.addEventListener('sonoriva:playlist-conflict-resolved', resolved);
+    return () => window.removeEventListener('sonoriva:playlist-conflict-resolved', resolved);
+  }, []);
+
   async function saveCurrentPlaylist() {
     if (!playlistsEnabled || !detail || playlistItems.length === 0) return;
     setPlaylistSaving(true);
@@ -2695,7 +2711,7 @@ export default function App() {
                 onDrop={(event) => { if ((!reorderAllowed && !draggingSelectedTracks) || (!draggedTrackId && !draggedPlaylistId && !draggedTrackSubcategoryId)) return; event.preventDefault(); event.stopPropagation(); if (draggingSelectedTracks) moveSelectedTracks(category.id, null).catch(() => undefined); else if (draggedPlaylistId) movePlaylistToCategory(draggedPlaylistId, category.id).catch(() => undefined); else if (draggedTrackSubcategoryId) moveSubcategoryToCategory(draggedTrackSubcategoryId, category.id).catch(() => undefined); else if (draggedTrackId) reorderTrack(draggedTrackId, category.id).catch(() => undefined); }}>
                 <span>{category.name}</span><em className="category-tab-count">{detail.tracks.filter((track) => track.categoryId === category.id).length}</em>
               </button>
-              {!remote && <button className="category-image-edit" onClick={() => setEditingCategoryBackground(category)} aria-label={`Image de fond de ${category.name}`} title="Image de fond"><Pencil size={12} /></button>}
+              {!remote && <button className="category-image-edit" onClick={() => setEditingCategoryBackground(category)} aria-label={`Modifier la catégorie ${category.name}`} title="Modifier la catégorie"><Pencil size={12} /></button>}
               {categoryManageMode && <><GripVertical className="category-order-handle" size={15} aria-hidden="true" /><button className="category-delete" onClick={(event) => { event.stopPropagation(); deleteCategory(category).catch(() => undefined); }} aria-label={`Supprimer la catégorie ${category.name}`} title="Supprimer"><Trash2 size={14} /></button></>}
             </div>)}
           </nav>

@@ -2,7 +2,7 @@ import type { ProjectDetail } from '../types';
 import { bridgeClient } from './bridge-client';
 import { desktopProfile } from './desktop';
 import { localUser } from './local-workspace';
-import { readLocalMedia, readWorkspace, type LocalWorkspace, type PendingTrack } from './local-workspace-store';
+import { journalProjectId, readRawWorkspace, readLocalMedia, readWorkspace, type LocalWorkspace, type PendingTrack } from './local-workspace-store';
 
 /** Explicit browser-to-native transfer. A native draft is never replaced by a browser snapshot. */
 export async function prepareBridgeWorkspace(detail: ProjectDetail): Promise<void> {
@@ -17,6 +17,15 @@ export async function prepareBridgeWorkspace(detail: ProjectDetail): Promise<voi
   if (!source) throw new Error('Le spectacle est absent du stockage du navigateur.');
   let target = await bridgeClient.localConsoleRequest<LocalWorkspace | null>(`/workspaces/${detail.project.id}`);
   if (target && Object.entries(target.pending).some(([id, pending]) => !samePending(pending, source.pending[id]))) throw new Error('La régie locale contient des changements à synchroniser. Ouvrez-la pour les synchroniser avant de remplacer sa copie.');
+  const journalId = journalProjectId(detail.project.id);
+  const sourceJournal = await readRawWorkspace(user.id, journalId);
+  const targetJournal = await bridgeClient.localConsoleRequest<LocalWorkspace | null>(`/workspaces/${journalId}`);
+  if (Object.entries(targetJournal?.entities ?? {}).some(([key, operation]) => !sameEntityOperation(operation, sourceJournal?.entities?.[key]))) throw new Error('La régie locale contient des changements de catégories ou de playlists à synchroniser avant de remplacer sa copie.');
+  if (sourceJournal) {
+    const journalForm = new FormData();
+    journalForm.set('change', JSON.stringify({ expectedRevision: targetJournal?.revision ?? 0, workspace: sourceJournal }));
+    await bridgeClient.localConsoleRequest(`/workspaces/${journalId}`, { method: 'PUT', body: journalForm });
+  }
   const mediaIds = new Set(target?.mediaIds ?? []);
   const nativeOnly = (target?.detail?.tracks ?? []).filter((track) => mediaIds.has(track.id) && !source.detail.tracks.some((sourceTrack) => sourceTrack.id === track.id));
   const write = async (media?: { id: string; file: Blob }) => {
@@ -25,7 +34,7 @@ export async function prepareBridgeWorkspace(detail: ProjectDetail): Promise<voi
     // Interrupted copies can be resumed without leaving an upload with no native file.
     const tracks = [...source.detail.tracks.filter((track) => !source.mediaIds.includes(track.id) || mediaIds.has(track.id)).map((track) => mediaIds.has(track.id) ? { ...track, localMedia: true } : track), ...nativeOnly.map((track) => ({ ...track, localMedia: true }))];
     const visibleIds = new Set(tracks.map((track) => track.id));
-    const workspace = { ...source, detail: { ...source.detail, tracks }, pending: Object.fromEntries(Object.entries(source.pending).filter(([id]) => visibleIds.has(id))), mediaIds: [...mediaIds].filter((id) => visibleIds.has(id)) };
+    const workspace = { ...source, entities: undefined, detail: { ...source.detail, tracks }, pending: Object.fromEntries(Object.entries(source.pending).filter(([id]) => visibleIds.has(id))), mediaIds: [...mediaIds].filter((id) => visibleIds.has(id)) };
     const form = new FormData();
     form.set('change', JSON.stringify({ expectedRevision: target?.revision ?? 0, workspace, mediaId: media?.id }));
     if (media) form.set('file', media.file, media.id);
@@ -47,4 +56,10 @@ function samePending(first: PendingTrack, second: PendingTrack | undefined): boo
   if (!second) return false;
   const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stable(item)])) : value;
   return JSON.stringify(stable({ base: first.base, desired: first.desired, uploadFields: first.uploadFields })) === JSON.stringify(stable({ base: second.base, desired: second.desired, uploadFields: second.uploadFields }));
+}
+
+function sameEntityOperation(first: import('./entity-journal').PendingEntity, second: import('./entity-journal').PendingEntity | undefined): boolean {
+  if (!second) return false;
+  const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stable(item)])) : value;
+  return JSON.stringify(stable({ kind: first.kind, base: first.base, desired: first.desired, references: first.references })) === JSON.stringify(stable({ kind: second.kind, base: second.base, desired: second.desired, references: second.references }));
 }
