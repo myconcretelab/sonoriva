@@ -2,6 +2,15 @@
 
 Toutes les évolutions notables de SonoRiva sont documentées ici. Le projet suit le versionnage sémantique : correctifs en `patch`, fonctionnalités compatibles en `minor` et changements incompatibles en `major`.
 
+## [1.25.0] - 2026-11-16
+
+### Ajouté
+
+- commandes USB MIDI avec choix d’entrée et suivi des connexions ;
+- préréglage Akai APC Key 25 original : pads, volumes, catégories, arrêt et départ rapide ;
+- apprentissage des notes et CC, affectations locales par utilisateur, spectacle et entrée ;
+- panneau MIDI dans les paramètres et documentation des commandes et limites.
+
 ## [1.24.0] - 2026-11-10
 
 ### Ajouté

@@ -11,6 +11,21 @@ export interface AppRelease {
 const RELEASES: AppRelease[] = [
   {
     audience: 'app',
+    version: '1.25.0',
+    date: '2026-11-16',
+    title: 'Contrôleurs USB MIDI',
+    summary: 'Les pads, touches et potentiomètres USB peuvent commander le spectacle depuis un navigateur compatible Web MIDI.',
+    important: true,
+    changes: [
+      'Activation et choix de l’entrée dans Paramètres → Commandes → Contrôleur MIDI.',
+      'Préréglage APC Key 25 original : 40 pads, volume maître, volumes de sept lecteurs, catégories, arrêt et départ rapide.',
+      'Apprentissage de notes et CC pour les morceaux, positions visibles et commandes de lecture.',
+      'Affectations enregistrées sur l’appareil pour chaque utilisateur, spectacle et entrée MIDI.',
+      'Accès Web MIDI requis ; pas de retour lumineux ni de prise en charge des encodeurs relatifs du mk2.',
+    ],
+  },
+  {
+    audience: 'app',
     version: '1.24.0',
     date: '2026-11-10',
     title: 'Catégories et playlists hors ligne',

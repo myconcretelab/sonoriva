@@ -1,6 +1,8 @@
 import { ProjectSharingPanel } from './ProjectSharingPanel';
 import { AccountMembersPanel } from './AccountMembersPanel';
 import { CrossfadeDurationControl } from './CrossfadeDurationControl';
+import { MidiSettings } from './MidiSettings';
+import type { MidiController } from '../lib/use-midi-controller';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioWaveform, BookOpen, Cable, CloudDownload, CreditCard, FileArchive, FolderPlus, Gift, GripVertical, HardDrive, Keyboard, LifeBuoy, ListMusic, LoaderCircle, LogIn, LogOut, Palette, Plus, RefreshCcw, Settings2, ShieldCheck, Speaker, Smartphone, Trash2, Waves, X } from 'lucide-react';
 import { api } from '../lib/api';
@@ -9,13 +11,15 @@ import { bridgeClient, type BridgeOutput } from '../lib/bridge-client';
 import { associateLocalBridge } from '../lib/bridge-connection';
 import { defaultProjectKeyboardShortcuts, formatShortcut, projectShortcutDefinitions, shortcutFromKeyboardEvent, shortcutMainKey } from '../lib/keyboard-shortcuts';
 import type { AppSkin } from '../lib/app-skin';
-import type { AccountSummary, BridgeDevice, KeyAction, Project, ProjectColor, ProjectKeyboardShortcutKey, PublicPlan, User } from '../types';
+import type { AccountSummary, BridgeDevice, KeyAction, Project, ProjectColor, ProjectKeyboardShortcutKey, PublicPlan, Track, User } from '../types';
 
 interface Props {
   user: User;
   projects: Project[];
   projectColors: ProjectColor[];
   selectedProjectId: string | null;
+  midi: MidiController;
+  tracks: Track[];
   initialSection?: 'billing';
   offlineStatus: string;
   remote: boolean;
@@ -125,7 +129,7 @@ function formatPrice(cents: number): string {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 }
 
-export function SettingsDialog({ user, projects, projectColors, selectedProjectId, initialSection, offlineStatus, remote, appVersion, hasUnseenReleases, automaticUpdates, openSubcategoriesOnDrag, appSkin, supportUnreadCount, onAutomaticUpdatesChange, onOpenSubcategoriesOnDragChange, onAppSkinChange, onAccountChange, onChooseProject, onCreateProject, onProjectSaved, onReorderProjects, onDeleteProject, onCreateProjectColor, onDeleteProjectColor, onReorderProjectColors, onImportSoundShow, onOpenOpenverse, onOpenWhatsNew, onOpenSupport, onToggleRemote, onCacheOffline, onUpdateKeyAction, onUpdateKeyboardShortcut, onUpdatePlaylistGroupLimit, onUpdatePlaybackSettings, onLogout, onLogin, onClose }: Props) {
+export function SettingsDialog({ user, projects, projectColors, selectedProjectId, midi, tracks, initialSection, offlineStatus, remote, appVersion, hasUnseenReleases, automaticUpdates, openSubcategoriesOnDrag, appSkin, supportUnreadCount, onAutomaticUpdatesChange, onOpenSubcategoriesOnDragChange, onAppSkinChange, onAccountChange, onChooseProject, onCreateProject, onProjectSaved, onReorderProjects, onDeleteProject, onCreateProjectColor, onDeleteProjectColor, onReorderProjectColors, onImportSoundShow, onOpenOpenverse, onOpenWhatsNew, onOpenSupport, onToggleRemote, onCacheOffline, onUpdateKeyAction, onUpdateKeyboardShortcut, onUpdatePlaylistGroupLimit, onUpdatePlaybackSettings, onLogout, onLogin, onClose }: Props) {
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
   const [newColor, setNewColor] = useState('#DBEDF7');
   const [draggedProjectId, setDraggedProjectId] = useState<string>();
@@ -559,6 +563,9 @@ export function SettingsDialog({ user, projects, projectColors, selectedProjectI
           {bridgeError && <p className="audio-output-error">{bridgeError}</p>}
           {bridgeDevices.length > 0 && <div className="bridge-device-list">{bridgeDevices.map((device) => <div key={device.id}><span><strong>{device.name}</strong><small>{bridgePlatformLabel(device.platform)} · {device.lastSeenAt ? `vu ${new Date(device.lastSeenAt).toLocaleString('fr-FR')}` : 'jamais connecté'}</small></span><button type="button" className="icon-button" disabled={bridgeBusy} onClick={() => revokeBridge(device)} aria-label={`Dissocier ${device.name}`} title="Dissocier"><Trash2 size={15} /></button></div>)}</div>}
         </> : <p className="audio-output-unavailable">{account?.accessStatus === 'trialing' ? 'La gestion des sorties audio sera disponible après la période d’essai.' : 'La gestion des sorties audio est réservée aux forfaits payants actifs.'}</p>}
+      </section>
+      <section className="settings-section settings-section-wide" hidden={activeTab !== 'controls'}>
+        {activeTab === 'controls' && <MidiSettings midi={midi} tracks={tracks} />}
       </section>
       <section className="settings-section settings-section-wide" hidden={activeTab !== 'controls'}>
         <div className="settings-section-title"><Keyboard size={16} /><div><strong>Raccourcis clavier</strong><span>Les raccourcis sont enregistrés pour le spectacle sélectionné.</span></div></div>

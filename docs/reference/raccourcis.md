@@ -1,5 +1,7 @@
 # Raccourcis et commandes
 
+Les pads, touches et potentiomètres USB sont configurés dans **Paramètres → Commandes → Contrôleur MIDI**. Voir [Contrôleurs MIDI](./midi.md) pour les affectations et le préréglage Akai APC Key 25 original.
+
 ## Commandes globales
 
 Les actions des touches d’arrêt sont configurées dans **Paramètres → Raccourcis clavier**.

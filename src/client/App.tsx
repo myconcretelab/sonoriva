@@ -9,6 +9,7 @@ import { OfflineStatusControl } from './components/OfflineStatusControl';
 import { PlayedSoundsControl } from './components/PlayedSoundsControl';
 import { QuickLaunchPanel } from './components/QuickLaunchPanel';
 import { useQuickLaunch } from './lib/quick-launch';
+import { useMidiController } from './lib/use-midi-controller';
 import { getDownloadProgress, subscribeDownloads, type DownloadProgress } from './lib/download-state';
 import { CategoryBackgroundDialog } from './components/CategoryBackgroundDialog';
 import { ProjectionConsole } from './components/ProjectionConsole';
@@ -1345,6 +1346,37 @@ export default function App() {
     }
   }, [offlineTrackIds, tracksToPreload]);
 
+  function changePlaybackVolume(playbackId: string, nextVolume: number) {
+    audioEngine.setInstanceVolume(playbackId, nextVolume);
+    if (!volumeLinkActive || !linkedVolumes?.playbackIds.includes(playbackId)) return;
+    const companionId = linkedVolumes.playbackIds.find((id) => id !== playbackId);
+    if (companionId) audioEngine.setInstanceVolume(companionId, linkedVolumeForTotal(linkedVolumes.total, nextVolume));
+  }
+
+  const midi = useMidiController(`${workspaceUserId ?? 'guest'}:${detail?.project.id ?? 'none'}`, (target, value) => {
+    const focused = document.activeElement;
+    if (!detail || selectionMode || layoutEditing || document.hidden || document.querySelector('[aria-modal="true"], .dialog-backdrop')
+      || focused instanceof HTMLElement && focused.matches('input, select, textarea, [contenteditable="true"]')) return;
+    if (target === 'stop-all' || target === 'stop-all-immediate') return sendOrRun({ type: target });
+    if (target === 'next-category' || target === 'previous-category') {
+      const ids = ['all', ...displayedCategories.map((category) => category.id)];
+      const index = Math.max(0, ids.indexOf(selectedCategoryId));
+      selectCategory(ids[(index + (target === 'next-category' ? 1 : -1) + ids.length) % ids.length]);
+    } else if (target === 'quick-launch') {
+      void launchQuickTracks(undefined, detail.project.keyboardAction ?? 'start').catch((cause) => setError(cause instanceof Error ? cause.message : 'Départ rapide impossible.'));
+    } else if (target === 'master-volume') {
+      const volume = Math.round(value * 100);
+      localStorage.setItem('sonoriva-master-volume', String(volume));
+      setMasterVolume(volume);
+    } else if (target.startsWith('playback-volume:')) {
+      const playback = playingTracks[Number(target.slice(16))]?.playback;
+      if (playback && !remote) changePlaybackVolume(playback.id, value);
+    } else {
+      const track = target.startsWith('slot:') ? visibleTracks[Number(target.slice(5))] : detail.tracks.find((track) => track.id === target.slice(6));
+      if (track) runTrackAction(detail.project.keyboardAction ?? 'start', track);
+    }
+  });
+
   useEffect(() => {
     if (!detail) return;
     const holdShortcut = projectShortcut(detail.project, 'secondaryOutputHoldShortcut');
@@ -2479,13 +2511,6 @@ export default function App() {
       setLinkedVolumes({ playbackIds: [first.id, second.id], total: playbackVolumeAt(first) + playbackVolumeAt(second) });
     }
 
-    function changePlaybackVolume(playbackId: string, nextVolume: number) {
-      audioEngine.setInstanceVolume(playbackId, nextVolume);
-      if (!volumeLinkActive || !linkedVolumes?.playbackIds.includes(playbackId)) return;
-      const companionId = linkedVolumes.playbackIds.find((id) => id !== playbackId);
-      if (companionId) audioEngine.setInstanceVolume(companionId, linkedVolumeForTotal(linkedVolumes.total, nextVolume));
-    }
-
     const mouseCrossfadeSelected = detail?.project.leftClickAction === 'crossfade' || detail?.project.rightClickAction === 'crossfade';
 
     return <><div className={`side-label player-heading ${playingTracks.length >= maxActivePlaybacks ? 'is-at-limit' : ''}`}><span>En lecture</span><em title={`${playingTracks.length} lecture${playingTracks.length !== 1 ? 's' : ''} sur ${maxActivePlaybacks} maximum`}>{playingTracks.length}/{maxActivePlaybacks}</em>{playingTracks.length === 2 && <button type="button" className={`volume-link-button ${volumeLinkActive ? 'active' : ''}`} disabled={!volumeLinkAvailable} aria-pressed={volumeLinkActive} onClick={toggleVolumeLink} aria-label={volumeLinkActive ? 'Délier les volumes' : 'Lier les volumes'} title={volumeLinkActive ? 'Volumes liés : une variation est compensée par l’autre lecteur' : 'Lier les volumes des deux lecteurs'}><Link2 size={13} /></button>}{playingTracks.length > 0 && <button type="button" className="stop-all-button" onClick={() => sendOrRun({ type: 'stop-all' })} aria-label="Tout arrêter"><Square size={13} fill="currentColor" /></button>}</div>
@@ -2849,7 +2874,7 @@ export default function App() {
     {mobileTrackDragPreview && <div className="mobile-track-drag-preview" aria-hidden="true" style={{ '--track-color': mobileTrackDragPreview.color, left: mobileTrackDragPreview.clientX, top: mobileTrackDragPreview.clientY } as React.CSSProperties}><span>{mobileTrackDragPreview.title}</span>{mobileTrackDragPreview.count > 1 && <strong>{mobileTrackDragPreview.count}</strong>}</div>}
 
     {uploadOpen && detail && <UploadDialog projectId={detail.project.id} categories={detail.categories} onClose={() => setUploadOpen(false)} onUploaded={async () => { setUploadOpen(false); await refreshProject(); }} />}
-    {settingsOpen && <SettingsDialog user={user} projects={projects} projectColors={detail?.project.id === selectedProjectId ? detail.colors : []} selectedProjectId={selectedProjectId} initialSection={settingsInitialSection} offlineStatus={offlineStatus} remote={remote} appVersion={releaseInfo?.currentVersion ?? __APP_VERSION__} hasUnseenReleases={unseenReleases.length > 0} automaticUpdates={automaticUpdates} openSubcategoriesOnDrag={openSubcategoriesOnDrag} appSkin={appSkin} supportUnreadCount={supportUnreadCount} onAutomaticUpdatesChange={setAutomaticUpdatePreference} onOpenSubcategoriesOnDragChange={setOpenSubcategoriesOnDragPreference} onAppSkinChange={changeAppSkin} onAccountChange={handleAccountChange} onClose={() => { setSettingsOpen(false); setSettingsInitialSection(undefined); }} onChooseProject={chooseProject} onCreateProject={createProject} onProjectSaved={(project) => { setProjects((current) => { const next = current.some((item) => item.id === project.id) ? current.map((item) => item.id === project.id ? project : item) : [...current, project]; localStorage.setItem('sonoriva-projects', JSON.stringify({ projects: next })); return next; }); setDetail((current) => current?.project.id === project.id ? { ...current, project } : current); chooseProject(project.id); }} onReorderProjects={reorderProjects} onDeleteProject={deleteProject} onCreateProjectColor={createProjectColor} onDeleteProjectColor={deleteProjectColor} onReorderProjectColors={reorderProjectColors} onImportSoundShow={() => { setSettingsOpen(false); setSoundShowImportOpen(true); }} onOpenOpenverse={() => { setSettingsOpen(false); setOpenverseAutoSearch(false); setOpenverseOpen(true); }} onOpenWhatsNew={() => { setSettingsOpen(false); setWhatsNewOpen(true); }} onOpenSupport={() => { setSettingsOpen(false); setSupportOpen(true); }} onToggleRemote={toggleRemoteMode} onCacheOffline={cacheOffline} onUpdateKeyAction={updateKeyAction} onUpdateKeyboardShortcut={updateKeyboardShortcut} onUpdatePlaylistGroupLimit={updatePlaylistGroupLimit} onUpdatePlaybackSettings={updatePlaybackSettings} onLogin={() => { setSettingsOpen(false); leaveDemoForLogin().catch((cause) => setError(cause instanceof Error ? cause.message : 'Retour à la connexion impossible.')); }} onLogout={() => { setSettingsOpen(false); logout().catch((cause) => setError(cause instanceof Error ? cause.message : 'Déconnexion impossible.')); }} />}
+    {settingsOpen && <SettingsDialog midi={midi} tracks={detail?.tracks ?? []} user={user} projects={projects} projectColors={detail?.project.id === selectedProjectId ? detail.colors : []} selectedProjectId={selectedProjectId} initialSection={settingsInitialSection} offlineStatus={offlineStatus} remote={remote} appVersion={releaseInfo?.currentVersion ?? __APP_VERSION__} hasUnseenReleases={unseenReleases.length > 0} automaticUpdates={automaticUpdates} openSubcategoriesOnDrag={openSubcategoriesOnDrag} appSkin={appSkin} supportUnreadCount={supportUnreadCount} onAutomaticUpdatesChange={setAutomaticUpdatePreference} onOpenSubcategoriesOnDragChange={setOpenSubcategoriesOnDragPreference} onAppSkinChange={changeAppSkin} onAccountChange={handleAccountChange} onClose={() => { setSettingsOpen(false); setSettingsInitialSection(undefined); }} onChooseProject={chooseProject} onCreateProject={createProject} onProjectSaved={(project) => { setProjects((current) => { const next = current.some((item) => item.id === project.id) ? current.map((item) => item.id === project.id ? project : item) : [...current, project]; localStorage.setItem('sonoriva-projects', JSON.stringify({ projects: next })); return next; }); setDetail((current) => current?.project.id === project.id ? { ...current, project } : current); chooseProject(project.id); }} onReorderProjects={reorderProjects} onDeleteProject={deleteProject} onCreateProjectColor={createProjectColor} onDeleteProjectColor={deleteProjectColor} onReorderProjectColors={reorderProjectColors} onImportSoundShow={() => { setSettingsOpen(false); setSoundShowImportOpen(true); }} onOpenOpenverse={() => { setSettingsOpen(false); setOpenverseAutoSearch(false); setOpenverseOpen(true); }} onOpenWhatsNew={() => { setSettingsOpen(false); setWhatsNewOpen(true); }} onOpenSupport={() => { setSettingsOpen(false); setSupportOpen(true); }} onToggleRemote={toggleRemoteMode} onCacheOffline={cacheOffline} onUpdateKeyAction={updateKeyAction} onUpdateKeyboardShortcut={updateKeyboardShortcut} onUpdatePlaylistGroupLimit={updatePlaylistGroupLimit} onUpdatePlaybackSettings={updatePlaybackSettings} onLogin={() => { setSettingsOpen(false); leaveDemoForLogin().catch((cause) => setError(cause instanceof Error ? cause.message : 'Retour à la connexion impossible.')); }} onLogout={() => { setSettingsOpen(false); logout().catch((cause) => setError(cause instanceof Error ? cause.message : 'Déconnexion impossible.')); }} />}
     {supportOpen && <SupportDialog onClose={() => setSupportOpen(false)} onUnreadChange={setSupportUnreadCount} />}
     {whatsNewOpen && releaseInfo && <WhatsNewDialog releases={releasesForDialog} currentVersion={releaseInfo.currentVersion} onClose={closeWhatsNew} />}
     {soundShowImportOpen && <SoundShowImportDialog onClose={() => setSoundShowImportOpen(false)} onImported={async (projectId) => { setSoundShowImportOpen(false); await loadProjects(); chooseProject(projectId); }} />}

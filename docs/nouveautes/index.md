@@ -2,6 +2,12 @@
 
 Chaque entrée décrit les modifications fonctionnelles et techniques d’une version.
 
+## Version 1.25.0 — 16 novembre 2026
+
+Commandes USB MIDI, préréglage Akai APC Key 25 original et apprentissage des affectations.
+
+[Détails de la version 1.25.0](./1.25.0.md)
+
 ## Version 1.24.0 — 10 novembre 2026
 
 Édition des catégories et playlists hors ligne, synchronisation et résolution des conflits. Compatible avec Bridge 1.1.0.
