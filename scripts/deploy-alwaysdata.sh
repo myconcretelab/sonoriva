@@ -58,6 +58,12 @@ printf '%s\n' "$site_environment" | ssh "$ALWAYSDATA_ACCOUNT@$ALWAYSDATA_SSH_HOS
   . /dev/stdin
   set +a
   cd '$ALWAYSDATA_REMOTE_DIR'
+  if [[ -n \"\${DOTENV_CONFIG_PATH:-}\" ]]; then
+    [[ \"\$DOTENV_CONFIG_PATH\" == /* && -f \"\$DOTENV_CONFIG_PATH\" ]] || { printf 'Fichier de configuration privé introuvable.\\n' >&2; exit 1; }
+    set -a
+    . \"\$DOTENV_CONFIG_PATH\"
+    set +a
+  fi
   git fetch --quiet origin '$DEPLOY_BRANCH'
   git merge --ff-only 'origin/$DEPLOY_BRANCH'
   npm ci --include=dev --include=optional --loglevel=warn

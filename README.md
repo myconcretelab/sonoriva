@@ -116,6 +116,12 @@ BILLING_RECONCILIATION_INTERVAL_MINUTES=360
 
 `SUPER_ADMIN_EMAILS` accepte plusieurs adresses séparées par des virgules. Lors de l’inscription, une adresse présente dans cette liste reçoit le rôle `super_admin`. Les autres utilisateurs reçoivent le rôle `user`. Le forfait `Solo`, créé par la migration du module commercial, fournit 5 Go et 14 jours d’essai ; ses valeurs et les autres forfaits se modifient dans `/admin`.
 
+### Fichier de configuration de production
+
+La configuration Alwaysdata peut se limiter à `NODE_ENV=production` et à `DOTENV_CONFIG_PATH`, qui désigne un fichier absolu situé hors du dépôt. Ce fichier contient les variables applicatives au format `NOM='valeur'`, est détenu par le compte d’hébergement et possède les permissions `600`. Le répertoire parent possède les permissions `700`.
+
+L’application charge ce fichier avec dotenv. Le script de déploiement le charge également avant la sauvegarde PostgreSQL et les migrations. Les secrets applicatifs ne figurent alors plus dans l’environnement décrit par les journaux de démarrage Alwaysdata.
+
 ## Stripe Billing
 
 L’intégration utilise un catalogue distinct par `STRIPE_MODE`. En phase de test, la clé doit commencer par `sk_test_` ou `rk_test_`. Une clé live est refusée tant que le mode vaut `test`.
